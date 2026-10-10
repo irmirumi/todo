@@ -220,6 +220,12 @@ textarea.code{font-size:12px;min-height:160px;font-family:ui-monospace,SFMono-Re
 .sheet:focus{outline:none}
 body[data-auth="out"] .top{display:none}
 
+/* PC 시간 입력 */
+.timebox{position:relative;display:inline-flex;align-items:center;width:150px}
+.timebox .inp{padding-right:72px;font-variant-numeric:tabular-nums}
+.tprev{position:absolute;right:12px;font-size:.8rem;font-weight:500;color:var(--muted);pointer-events:none;white-space:nowrap}
+.tprev.bad{color:var(--late)}
+
 /* 카테고리 관리 */
 .catrow{border-radius:12px}
 .catrow .row .x.mv{width:38px;height:38px}
@@ -269,3 +275,5 @@ button,input,label,a{touch-action:manipulation}
   .x:hover{color:var(--muted)}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.subs input.field-soft{background:var(--bg);border:1.5px solid transparent;padding:0 12px}
+.subs input.field-soft:focus{background:var(--surface);border-color:var(--focus)}
