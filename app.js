@@ -42,13 +42,14 @@ const store = {
       cb.onStatus("loading");
       let first = true;
       unsub = fb.onSnapshot(col, snap => {
-        const tasks = new Map(); let cats = null;
+        const tasks = new Map(), tpls = new Map(); let cats = null;
         snap.forEach(d => {
           const v = d.data();
           if (d.id === "meta") cats = v.cats;
           else if (d.id.startsWith("t_")) tasks.set(d.id, Object.assign({ id: d.id }, v));
+          else if (d.id.startsWith("r_")) tpls.set(d.id, Object.assign({ id: d.id }, v));
         });
-        cb.onData({ tasks, cats });
+        cb.onData({ tasks, cats, tpls });
         if (store.push) store.push.schedule(tasks, cats);
         if (first) { first = false; cb.onStatus("live"); }
       }, fail);
@@ -63,6 +64,7 @@ const store = {
     const ops = [];
     if (d.cats) ops.push(["meta", { cats: d.cats }]);
     d.tasks.forEach(t => ops.push([t.id, bodyOf(t)]));
+    (d.tpls || []).forEach(r => ops.push([r.id, bodyOf(r)]));
     for (let i = 0; i < ops.length; i += 400) {
       const batch = fb.writeBatch(db);
       ops.slice(i, i + 400).forEach(([id, b]) => batch.set(fb.doc(col, id), b));

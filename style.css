@@ -283,3 +283,31 @@ button,input,label,a{touch-action:manipulation}
 .rmd .bell{flex:none}
 .pill:disabled{opacity:.45;cursor:default}
 .catpick.remind{--cc:var(--ink-2)}
+
+/* 반복 일정 */
+.rep{display:inline-flex;align-items:center;gap:3px}
+.rep-i{flex:none}
+.task.ghost .ttl .t{color:var(--muted)}
+.task.ghost .tag{opacity:.55}
+.task.ghost .chip.time{color:var(--muted)}
+.chk.gadd{border-style:dashed;border-color:color-mix(in srgb,var(--cc) 65%,transparent);color:var(--cc)}
+.chk.gadd svg{opacity:1}
+.chk.gadd path{stroke:currentColor}
+.chk.gadd:hover{background:color-mix(in srgb,var(--cc) 12%,transparent)}
+.task.ghost.adding{opacity:.4;transition:opacity .15s}
+.sheet-eb{margin:0 0 6px}
+.sheet-eb span{display:inline-flex;align-items:center;gap:5px}
+.catpick.days{--cc:var(--ink-2)}
+.catpick.days .pill{min-width:40px;text-align:center;padding:5px 0}
+.repbtn{display:inline-flex;align-items:center;gap:6px;border:1.5px dashed var(--line);background:transparent;border-radius:999px;padding:6px 13px;font-size:.86rem;font-weight:500;color:var(--ink-2)}
+.repbtn:hover{background:var(--sunk)}
+.subs.plain li{padding-left:2px}
+.tpllist{display:flex;flex-direction:column;margin:0 -8px 4px}
+.tplrow{display:flex;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:11px 10px;border-radius:12px;font-size:.95rem}
+.tplrow:hover{background:var(--sunk)}
+.tplrow .dot{width:9px;height:9px;border-radius:50%;background:var(--cc);flex:none}
+.tplrow .nm{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tplrow .when{color:var(--muted);font-size:.82rem;white-space:nowrap}
+.tplrow.arc{opacity:.55}
+@media (hover:none){.repbtn:hover,.tplrow:hover,.chk.gadd:hover{background:transparent}}
+.tnote{font-size:.8rem;color:var(--muted);margin:4px 0 0}
