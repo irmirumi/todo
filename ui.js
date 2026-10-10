@@ -174,9 +174,12 @@ function renderDay(){
   const k=S.sel,d=parse(k),r=relWord(k);
   const list=[...S.tasks.values()].filter(t=>t.date===k).sort(byTime);
   const n=list.length,dn=list.filter(t=>t.done).length;
-  let h='<div class="dayhead"><h1>'+(d.getMonth()+1)+'월 '+d.getDate()+'일<small>'+DOW[d.getDay()]+'요일</small></h1>'+(r?'<span class="rel">'+r+'</span>':'')+'</div>';
+  let h='<div class="dayhead"><p class="eyebrow"><span>'+DOW[d.getDay()]+'요일</span>'+(r?'<span class="rel">'+r+'</span>':'')+'</p>'+
+    '<h1>'+(d.getMonth()+1)+'월 '+d.getDate()+'일</h1>';
   if(S.mode==="loading")h+='<div class="prog"></div>';
-  else h+='<div class="prog">'+(n?(dn===n?n+'개 모두 끝냈어요':n+'개 중 '+dn+'개 완료'):'아직 적은 할 일이 없어요')+'<div class="bar"><i style="width:'+(n?Math.round(dn/n*100):0)+'%"></i></div></div>';
+  else if(!n)h+='<div class="prog">아직 적은 할 일이 없어요</div>';
+  else h+='<div class="prog"><div class="bar"><i style="width:'+Math.round(dn/n*100)+'%"></i></div><span>'+(dn===n?'모두 끝냈어요':n+'개 중 '+dn+'개')+'</span></div>';
+  h+='</div>';
   if(k===today){
     const od=[...S.tasks.values()].filter(t=>t.date&&t.date<today&&!t.done);
     if(od.length)h+='<div class="carry"><span>지난 날에 못 끝낸 할 일 <b>'+od.length+'개</b></span><button class="small" type="button" data-act="carry">오늘로 가져오기</button></div>';
@@ -190,8 +193,8 @@ function renderAll(){
   const all=[...S.tasks.values()];
   const open=all.filter(t=>!t.done).sort(byDateTime);
   const done=all.filter(t=>t.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
-  let h='<div class="dayhead"><h1>전체 할 일</h1></div>';
-  h+=S.mode==="loading"?'<div class="prog"></div>':'<div class="prog">남은 할 일 '+open.length+'개 · 날짜와 시간 순</div>';
+  let h='<div class="dayhead"><p class="eyebrow"><span>날짜와 시간 순</span></p><h1>전체 할 일</h1>'+
+    (S.mode==="loading"?'<div class="prog"></div>':'<div class="prog">남은 할 일 '+open.length+'개</div>')+'</div>';
   h+='<div class="groups">'+S.cats.map(c=>group(c,open.filter(t=>catOf(t).id===c.id),true)).join("")+'</div>';
   if(done.length){
     h+='<div class="donebox"><button class="linkish" type="button" data-act="showdone">'+(S.showDone?'완료한 할 일 접기':'완료한 할 일 '+done.length+'개 보기')+'</button>';
