@@ -9,7 +9,7 @@ export function remindersFrom(tasks, cats, base, now = Date.now()) {
   const arch = new Set((cats || []).filter(c => c.archived).map(c => c.id));
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
-    if (t.done || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
+    if (t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
     const [y, mo, d] = t.date.split("-").map(Number), [h, mi] = t.time.split(":").map(Number);
     const at = new Date(y, mo - 1, d, h, mi).getTime() - t.remind * 60000;
     if (!(at > now && at <= max)) continue;

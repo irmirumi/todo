@@ -327,21 +327,18 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 .plus.big{width:38px;height:38px;border-radius:12px}
 
 /* 전체 */
-.search{margin:-2px 0 12px}
-.search input{height:40px;font-size:16px}
-.search input::-webkit-search-cancel-button{opacity:.5}
 .addrow.top{padding:0 0 12px;display:flex;flex-direction:column}
 .addrow.top .addsubs{padding-top:7px}
 .cpill{display:inline-flex;align-items:center;gap:5px}
 .cpill i{width:7px;height:7px;border-radius:50%;background:var(--cc)}
 .addsubs.dates{--cc:var(--ink-2)}
-.dsec .ghead{gap:6px;padding-bottom:2px}
+.dsec .ghead{gap:6px;padding-bottom:2px;align-items:baseline}
+.dsec .ghead h3{line-height:1.3}
 .dsec .ghead .cnt{margin-left:auto;margin-right:2px}
-.dlink{border:0;background:none;padding:0;text-align:left;border-radius:6px}
-.dlink h3{display:inline-flex;align-items:baseline;gap:5px}
-.dlink h3 small{font-size:.78rem;font-weight:600;color:var(--muted)}
-.dlink h3 small.d0,.dlink h3 small.hol{color:var(--sun)}
-.dlink h3 small.d6{color:var(--sat)}
+.dlink{border:0;background:none;padding:0;text-align:left;border-radius:6px;display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap;line-height:1.3}
+.dlink .dw{font-size:.8rem;font-weight:600;color:var(--muted)}
+.dlink .dw.d0,.dlink .dw.hol{color:var(--sun)}
+.dlink .dw.d6{color:var(--sat)}
 .dlink:hover h3{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
 .dsec .rel{font-size:.76rem;font-weight:700;color:var(--ink-2)}
 .dsec .rel.now{color:var(--accent-text)}
@@ -377,12 +374,12 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
   background-image:linear-gradient(var(--edge) 1px,transparent 1px);background-size:100% var(--hh);background-position:0 -1px}
 .ttcol.today{background-color:color-mix(in srgb,var(--accent) 4%,transparent)}
 .blk{position:absolute;border:0;padding:3px 5px;border-radius:7px;text-align:left;overflow:hidden;display:flex;flex-direction:column;gap:0;
-  background:color-mix(in srgb,var(--cc) 16%,var(--surface));color:color-mix(in srgb,var(--cc) 55%,var(--ink));box-shadow:inset 3px 0 0 var(--cc);padding-left:7px}
+  background:color-mix(in srgb,var(--cc) 20%,var(--surface));color:color-mix(in srgb,var(--cc) 50%,var(--ink))}
 .blk .bt{font-size:.72rem;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;word-break:keep-all;overflow-wrap:anywhere}
 .blk .bm{font-size:.64rem;font-weight:500;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .blk.done{opacity:.5}
 .blk.done .bt{text-decoration:line-through}
-.blk.ghost{background:transparent;box-shadow:none;border:1.5px dashed color-mix(in srgb,var(--cc) 55%,transparent);color:var(--muted)}
+.blk.ghost{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--cc) 16%,transparent) 0 5px,transparent 5px 10px);color:var(--muted)}
 .blk:active{filter:brightness(.96)}
 .nowline{position:absolute;left:-1px;right:0;height:2px;background:var(--accent);z-index:1;pointer-events:none}
 .nowline::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
@@ -437,7 +434,6 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
   .ttl{gap:3px}
   .addrow{padding:2px 0 6px 29px}
   .field-soft,.addrow input{height:40px}
-  .search{margin-bottom:10px}
   .tt{padding-right:4px;border-radius:15px}
   .tthead,.ttbody{grid-template-columns:24px repeat(var(--cols),minmax(0,1fr))}
   .ttgut span{right:4px;font-size:.62rem}
@@ -450,3 +446,77 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
   .btn{height:40px}
 }
 .blk.thin{padding:0}
+
+/* ---------- 1.2 ---------- */
+/* 지난 할 일 접기 */
+.pastbox{padding-top:8px;padding-bottom:8px;margin-bottom:10px}
+.pastbox.open{padding-bottom:6px}
+.pastbox .ghead{padding:0}
+.pasthead{flex:1;display:flex;align-items:center;gap:6px;border:0;background:none;padding:4px 0;text-align:left;min-height:36px}
+.pasthead h3{font-size:.92rem;font-weight:700;margin:0}
+.pasthead .caret{display:grid;place-items:center;color:var(--muted);width:18px}
+.pcnt{font-size:.78rem;font-weight:700;color:var(--late);background:color-mix(in srgb,var(--late) 12%,transparent);border-radius:999px;padding:0 8px;line-height:1.6}
+.pasthint{font-size:.78rem;color:var(--muted);margin:2px 0 4px 24px}
+.psub{font-size:.76rem;font-weight:700;color:var(--muted);padding:10px 0 0 31px}
+.pastbox .task{align-items:center}
+.pastbox .task .chk{margin-top:0}
+.skipbtn{flex:none;border:1.5px solid var(--line);background:transparent;color:var(--muted);font-size:.76rem;font-weight:600;border-radius:999px;padding:4px 11px;position:relative}
+.skipbtn::after{content:"";position:absolute;inset:-6px -4px}
+.skipbtn:active{background:var(--sunk)}
+/* 안 함 */
+.task.skipped .ttl .t{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.task.skipped .tag,.task.skipped .chip.time{opacity:.55}
+.chip.skip{background:var(--sunk);color:var(--muted)}
+.chk.skp{border-style:dashed;border-color:var(--line);color:var(--muted)}
+.chk.skp path{stroke:currentColor}
+.chk.skp svg{opacity:1}
+
+/* 정보 시트 */
+.icat span{display:inline-flex;align-items:center;gap:6px}
+.icat i{width:8px;height:8px;border-radius:50%;background:var(--cc)}
+.ititle{font-size:1.3rem!important;line-height:1.3;overflow-wrap:anywhere;margin-top:-8px!important}
+.ititle.done{text-decoration:line-through;color:var(--muted)}
+.info{margin:0;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.info div{display:grid;grid-template-columns:76px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.info dt{font-size:.78rem;font-weight:700;color:var(--muted)}
+.info dd{margin:0;font-size:.94rem;overflow-wrap:anywhere}
+.info dd small{color:var(--muted);font-size:.8rem;margin-left:4px}
+.inote{white-space:pre-wrap}
+.isubs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.isubs li{display:flex;align-items:center;gap:9px}
+.ib{flex:none;width:18px;height:18px;border-radius:5px;border:1.8px solid var(--line);background:transparent;padding:0;display:grid;place-items:center;position:relative}
+.ib::before{content:"";position:absolute;inset:-10px}
+.ib.on{background:var(--ink-2);border-color:var(--ink-2)}
+.ib.on::after{content:"";width:4px;height:8px;border:solid var(--surface);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}
+.isubs .dn{color:var(--muted);text-decoration:line-through}
+
+/* 시간표: 시간 없는 할 일 줄 */
+.ttall{display:grid;grid-template-columns:30px repeat(var(--cols),minmax(0,1fr));align-items:start;padding:2px 0 6px;border-bottom:1px solid var(--edge)}
+.ttallL{font-size:.62rem;font-weight:600;color:var(--muted);text-align:right;padding:3px 6px 0 0}
+.ttallC{display:flex;flex-direction:column;gap:3px;padding:0 2px;min-width:0}
+.uchip{border:0;border-radius:6px;padding:2px 6px;font-size:.68rem;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;line-height:1.45;
+  background:color-mix(in srgb,var(--cc) 14%,var(--surface));color:color-mix(in srgb,var(--cc) 50%,var(--ink))}
+.uchip.done{text-decoration:line-through;opacity:.55}
+.uchip.rest{background:var(--sunk);color:var(--muted);text-align:center}
+
+/* 폰: 간격은 넉넉히 되돌리고 글자·컨트롤만 살짝 작게 */
+@media (max-width:560px){
+  .wrap{padding-inline:14px;padding-block:10px 64px}
+  .top{padding-block:4px 14px}
+  .layout{gap:16px}
+  .cal{padding:10px 8px 4px}
+  .calhead{margin-bottom:4px}
+  .day{padding:3px 0 5px}
+  .dayhead{margin-bottom:14px}
+  .prog{margin-top:10px}
+  .carry{margin-bottom:12px;padding:10px 12px 10px 14px}
+  .groups{gap:10px}
+  .grp{padding:11px 12px 7px 14px}
+  .ghead{padding:1px 0 4px}
+  .task{padding:7px 0}
+  .addrow{padding:4px 0 8px 29px}
+  .ttall{grid-template-columns:24px repeat(var(--cols),minmax(0,1fr))}
+  .ttallL{padding-right:3px;font-size:.58rem}
+  .uchip{font-size:.64rem;padding:2px 4px}
+  .info div{grid-template-columns:68px 1fr}
+}
