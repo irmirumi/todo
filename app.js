@@ -1,5 +1,7 @@
 // 웹앱용 저장소: Firebase 로그인(이메일·비밀번호) + Firestore(users/<uid>/items)
 import { firebaseConfig } from "./firebase-config.js";
+import { REMINDER_URL } from "./reminder-config.js";
+import { createPush } from "./push.js";
 
 const V = "10.12.2";
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/여기/.test(firebaseConfig.apiKey));
@@ -36,6 +38,7 @@ const store = {
       if (!user) { col = null; store.email = null; cb.onStatus("signedout"); return; }
       store.email = user.email;
       col = fb.collection(db, "users", user.uid, "items");
+      if (store.push) store.push.refresh();
       cb.onStatus("loading");
       let first = true;
       unsub = fb.onSnapshot(col, snap => {
@@ -46,6 +49,7 @@ const store = {
           else if (d.id.startsWith("t_")) tasks.set(d.id, Object.assign({ id: d.id }, v));
         });
         cb.onData({ tasks, cats });
+        if (store.push) store.push.schedule(tasks, cats);
         if (first) { first = false; cb.onStatus("live"); }
       }, fail);
     });
@@ -69,6 +73,8 @@ const store = {
   signIn(email, pw) { return fb.signInWithEmailAndPassword(auth, email, pw); },
   signOut() { return fb.signOut(auth); }
 };
+
+store.push = createPush({ url: REMINDER_URL, getToken: () => auth.currentUser.getIdToken(), uidKey: () => (auth && auth.currentUser ? auth.currentUser.uid : "") });
 
 window.TodoApp.boot(store);
 

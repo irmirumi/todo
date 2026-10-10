@@ -11,6 +11,9 @@ const DOW=["일","월","화","수","목","금","토"];
 const COLORS=["c7","c1","c2","c3","c4","c5","c6","c8"];
 const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"업무·공부",color:"c5",subs:[]},{id:"k3",name:"건강",color:"c3",subs:[]}];
 const HOL=window.TTOBAK_HOLIDAYS||{};
+const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
+const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
+const bellSvg='<svg class="bell" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5a3 3 0 0 0-3 3v2.2L2 8.5h8l-1-1.8V4.5a3 3 0 0 0-3-3zM4.8 10a1.2 1.2 0 0 0 2.4 0" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const pad=n=>String(n).padStart(2,"0");
 const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const parse=k=>{const a=k.split("-").map(Number);return new Date(a[0],a[1]-1,a[2]);};
@@ -189,6 +192,7 @@ function row(t,withDate){
   const sub=t.sub?subsOf(cat).find(s=>s.id===t.sub):null;
   if(withDate)meta.push(dateChip(t.date));
   if(t.time&&t.date)meta.push('<span class="chip time">'+fmtTime(t.time)+'</span>');
+  if(store&&store.push&&t.remind!=null&&t.time&&t.date&&!t.done)meta.push('<span class="rmd">'+bellSvg+remindLabel(t.remind)+'</span>');
   const subs=Array.isArray(t.subtasks)?t.subtasks:[];
   if(subs.length)meta.push('<span>세부 '+subs.filter(s=>s.done).length+'/'+subs.length+'</span>');
   if(t.note)meta.push('<span>메모</span>');
@@ -291,11 +295,26 @@ dlg.addEventListener("close",()=>{
 function drawMenu(){
   let h='<h2>설정</h2><div class="menu">'+
     '<button type="button" data-act="cats">카테고리 관리<small>순서 · 색 · 소분류 · 보관</small></button>'+
+    (store.push?'<button type="button" data-act="notify">알림<small id="m-notify">'+NSTATE[S.pushState||"..."]+'</small></button>':'')+
     '<button type="button" data-act="export">내보내기<small>백업 텍스트 복사</small></button>'+
     '<button type="button" data-act="import">가져오기<small>백업 텍스트 붙여넣기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
   h+='</div>';
   drawSheet(h);
+}
+const NSTATE={"on":"이 기기에서 받는 중","off":"이 기기에서 꺼짐","denied":"차단됨","ios-install":"홈 화면 앱에서만 가능","unsupported":"이 브라우저는 지원 안 함","...":"확인 중…"};
+function refreshPush(then){if(!store.push)return;store.push.state().then(st=>{S.pushState=st;if(then)then(st);},()=>{});}
+function drawNotify(){
+  const st=S.pushState||"...";
+  const msg={"on":"이 기기에서 알림을 받고 있어요. 할 일마다 '몇 분 전'을 정해 두면 그때 알려줘요.",
+    "off":"켜면 할 일마다 정해 둔 시간에 이 기기로 알려줘요. 기기마다 따로 켜야 해요.",
+    "denied":"알림이 차단돼 있어요. 폰은 설정 > 애플리케이션 > 또박(또는 Chrome) > 알림에서, PC는 주소창 왼쪽 아이콘 > 알림에서 허용해 주세요.",
+    "ios-install":"아이폰은 Safari에서 홈 화면에 추가한 앱으로 열어야 알림을 받을 수 있어요.",
+    "unsupported":"이 브라우저는 알림을 지원하지 않아요.","...":"확인 중…"}[st];
+  let h='<h2>알림</h2><p>'+msg+'</p><div class="err" id="n-err"></div><div class="actions">';
+  if(st==="on")h+='<button class="btn ghost" type="button" data-act="pushoff">이 기기에서 끄기</button><span class="sp"></span><button class="btn pri" type="button" data-act="pushtest">테스트 알림</button>';
+  else if(st==="off")h+='<span class="sp"></span><button class="btn pri" type="button" data-act="pushon">이 기기에서 켜기</button>';
+  drawSheet(h+'</div>');
 }
 function exportJSON(){
   return JSON.stringify({app:"ttobak",version:1,exportedAt:new Date().toISOString(),cats:S.cats,tasks:[...S.tasks.values()]});
@@ -339,7 +358,7 @@ function openEdit(id){
   const cat=catOf(t);
   S.editing=id;S.editGone=false;
   S.edit={title:t.title,note:t.note||"",date:t.date||"",time:t.time||"",nodate:!t.date,cat:cat.id,
-    sub:subsOf(cat).some(s=>s.id===t.sub)?t.sub:null,subDraft:"",
+    sub:subsOf(cat).some(s=>s.id===t.sub)?t.sub:null,subDraft:"",remind:t.remind==null?null:t.remind,
     subtasks:(t.subtasks||[]).map(s=>({id:s.id,t:s.t,done:!!s.done}))};
   openSheet("edit",drawEdit);
 }
@@ -368,13 +387,17 @@ function drawEdit(){
     :'<input class="inp" id="e-time" type="time" value="'+esc(e.time)+'" style="max-width:130px" aria-label="시간"'+(e.nodate?' disabled':'')+'>')+
     (e.time&&!e.nodate?'<button class="linkish" type="button" data-act="notime">시간 지우기</button>':'')+
     '<label class="opt"><input type="checkbox" id="e-nodate" data-act="nodate"'+(e.nodate?' checked':'')+'>날짜 없음</label></div></div>';
+  if(store.push){
+    const can=!e.nodate&&!!e.time&&!e.timeBad;
+    h+='<div class="field"><span class="lbl">알림'+(can?'':' · 시간을 정하면 켤 수 있어요')+'</span><div class="catpick remind">'+REMIND.map(r=>'<button type="button" class="pill" aria-pressed="'+(can&&e.remind===r[0]||(!can&&r[0]===null))+'" data-act="eremind" data-m="'+(r[0]==null?"":r[0])+'"'+(can?'':' disabled')+'>'+r[1]+'</button>').join("")+'</div></div>';
+  }
   h+='<div class="field"><span class="lbl">세부 할 일</span><ul class="subs">'+e.subtasks.map(s=>'<li id="sl-'+s.id+'"><input type="checkbox" id="sc-'+s.id+'"'+(s.done?' checked':'')+' aria-label="완료"><input type="text" id="s-'+s.id+'" value="'+esc(s.t)+'" aria-label="세부 할 일"><button class="x" type="button" data-act="subdel" data-sid="'+s.id+'" aria-label="지우기">×</button></li>').join("")+
     '<li class="new"><input class="field-soft" type="text" id="s-new" value="'+esc(e.subDraft||"")+'" placeholder="세부 할 일 추가" autocomplete="off" enterkeyhint="done"></li></ul></div>';
   h+='<div class="field"><label for="e-note">메모</label><textarea class="inp" id="e-note" placeholder="메모">'+esc(e.note)+'</textarea></div>';
   h+='<div class="actions"><button class="btn dng" type="button" data-act="del">삭제</button><button class="btn sec" type="button" data-act="tomorrow">내일로</button><span class="sp"></span><button class="btn pri" type="button" data-act="close">완료</button></div>';
   drawSheet(h);
 }
-const norm=t=>({title:t.title||"",note:t.note||"",date:t.date||null,time:t.time||null,cat:t.cat||null,sub:t.sub||null,
+const norm=t=>({title:t.title||"",note:t.note||"",date:t.date||null,time:t.time||null,remind:t.remind==null?null:t.remind,cat:t.cat||null,sub:t.sub||null,
   subtasks:(t.subtasks||[]).map(s=>({id:s.id,t:s.t,done:!!s.done}))});
 function commitEdit(){
   syncEdit();const e=S.edit,id=S.editing,t=id&&S.tasks.get(id);
@@ -383,7 +406,8 @@ function commitEdit(){
   if(e.subDraft&&e.subDraft.trim())subtasks.push({id:uid8("s"),t:e.subDraft.trim(),done:false});
   const date=e.nodate?null:(e.date||null);
   const tm=e.timeBad?(t.time||""):e.time;
-  const next={title:e.title.trim()||t.title,note:e.note.trim(),date,time:date&&tm?tm:null,cat:e.cat,sub:e.sub||null,subtasks};
+  const time=date&&tm?tm:null;
+  const next={title:e.title.trim()||t.title,note:e.note.trim(),date,time,remind:time&&e.remind!=null?e.remind:null,cat:e.cat,sub:e.sub||null,subtasks};
   if(JSON.stringify(norm(t))!==JSON.stringify(next))patchTask(id,next);
 }
 
@@ -464,7 +488,15 @@ document.addEventListener("click",ev=>{
     case"edit":openEdit(b.dataset.id);break;
     case"carry":{let n=0;for(const t of visibleTasks())if(t.date&&t.date<today&&!t.done){patchTask(t.id,{date:today});n++;}toast(n+"개를 오늘로 옮겼어요");break;}
     case"showdone":S.showDone=!S.showDone;render();break;
-    case"menu":openSheet("menu",drawMenu);break;
+    case"menu":openSheet("menu",drawMenu);refreshPush(()=>{if(S.sheet==="menu")drawMenu();});break;
+    case"notify":openSheet("notify",drawNotify);refreshPush(()=>{if(S.sheet==="notify")drawNotify();});break;
+    case"pushon":{b.disabled=true;b.textContent="켜는 중…";store.push.enable().then(()=>{S.pushState="on";if(S.sheet==="notify")drawNotify();toast("알림을 켰어요");},
+      e=>{const c=e&&e.code;refreshPush(()=>{if(S.sheet==="notify"){drawNotify();const er=$("#n-err");if(er&&c!=="denied")er.textContent=c==="dismissed"?"알림 허용을 눌러야 켜져요":"켜지 못했어요. 인터넷 연결을 확인해 주세요";}});});break;}
+    case"pushoff":{b.disabled=true;store.push.disable().then(()=>{S.pushState="off";if(S.sheet==="notify")drawNotify();toast("이 기기 알림을 껐어요");},()=>{b.disabled=false;});break;}
+    case"pushtest":{b.disabled=true;b.textContent="보내는 중…";store.push.test().then(r=>{b.disabled=false;b.textContent="테스트 알림";toast(r&&r.sent?"보냈어요. 곧 알림이 와요":"보내지 못했어요. 끄고 다시 켜 주세요");},
+      ()=>{b.disabled=false;b.textContent="테스트 알림";toast("보내지 못했어요. 인터넷 연결을 확인해 주세요");});break;}
+    case"eremind":{syncEdit();S.edit.remind=b.dataset.m===""?null:+b.dataset.m;drawEdit();
+      if(S.edit.remind!=null)refreshPush(st=>{if(st!=="on")toast(st==="off"?"이 기기는 알림이 꺼져 있어요":"이 기기에서는 알림을 받을 수 없어요",st==="off"?{label:"켜기",fn:()=>{openSheet("notify",drawNotify);}}:null);});break;}
     case"cats":openCats();break;
     case"export":openSheet("export",drawExport);break;
     case"copy":{const ta=$("#x-out");const sel=()=>{ta.focus();ta.select();toast("길게 눌러 복사해 주세요");};
@@ -572,6 +604,12 @@ function toast(msg,action){
   clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,action?5000:2400);
 }
 
+function openDate(u){
+  const m=/#d=(\d{4}-\d{2}-\d{2})/.exec(u||"");if(!m)return;
+  S.view="day";S.sel=m[1];S.cursor=m[1];S.calDir=0;if(dlg.open)closeDlg();render();
+  try{history.replaceState(history.state,"",location.pathname+location.search);}catch(e){}
+}
+if(navigator.serviceWorker)navigator.serviceWorker.addEventListener("message",e=>{if(e.data&&e.data.type==="open")openDate(e.data.url);});
 function tick(){const k=keyOf(new Date());if(k!==today){if(S.sel===today){S.sel=k;S.cursor=k;}today=k;render();}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
 setInterval(tick,60000);
@@ -596,7 +634,7 @@ window.TodoApp={
     render();
     store.start({
       onData(d){S.tasks=d.tasks;if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();},
-      onStatus(m){if(m===S.mode)return;if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
+      onStatus(m){if(m===S.mode)return;if(m==="live")setTimeout(()=>openDate(location.hash),0);if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
         S.mode=m;$("#main").innerHTML="";render();
         if(m==="live"||m==="local")setTimeout(()=>{S.anim=true;},300);},
       onError

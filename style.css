@@ -277,3 +277,9 @@ button,input,label,a{touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 .subs input.field-soft{background:var(--bg);border:1.5px solid transparent;padding:0 12px}
 .subs input.field-soft:focus{background:var(--surface);border-color:var(--focus)}
+
+/* 알림 */
+.rmd{display:inline-flex;align-items:center;gap:3px}
+.rmd .bell{flex:none}
+.pill:disabled{opacity:.45;cursor:default}
+.catpick.remind{--cc:var(--ink-2)}

@@ -1,7 +1,7 @@
 // 앱 껍데기를 저장해 두어 빠르게, 인터넷 없이도 열리게 한다.
 // 내 코드 파일은 최신을 먼저 받아 오고(실패하면 저장본), 글꼴·Firebase 라이브러리는 저장본을 먼저 쓴다.
-const CACHE = "ttobak-v4";
-const SHELL = ["./", "./index.html", "./style.css", "./ui.js", "./app.js", "./firebase-config.js",
+const CACHE = "ttobak-v5";
+const SHELL = ["./", "./index.html", "./style.css", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png"];
 
@@ -26,4 +26,22 @@ self.addEventListener("fetch", e => {
   } else if (u.hostname === "www.gstatic.com") {
     e.respondWith(cacheFirst(req));
   }
+});
+
+// 알림 받기: 서버가 보낸 내용으로 알림을 띄우고, 누르면 그 날짜를 연다
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) {}
+  e.waitUntil(self.registration.showNotification(d.title || "또박", {
+    body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag,
+    icon: "icons/icon-192.png", badge: "icons/badge-96.png", data: { url: d.url || "./" }
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) if (c.url.startsWith(self.registration.scope)) { c.postMessage({ type: "open", url }); return c.focus(); }
+    return clients.openWindow(url);
+  }));
 });
