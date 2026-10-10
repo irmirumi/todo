@@ -14,7 +14,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="1.2.0";
+const VERSION="1.2.1";
 const WEEK=[1,2,3,4,5,6,0];
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
@@ -354,8 +354,8 @@ function renderAll(){
 function weekStart(k){const d=parse(k);d.setDate(d.getDate()-((d.getDay()+6)%7));return keyOf(d);}
 function layLanes(items){
   items.sort((a,b)=>a.s-b.s||b.e-a.e);
-  let cl=[],end=-1;
-  const flush=()=>{const cols=[];for(const it of cl){let c=cols.findIndex(x=>x<=it.s);if(c<0){c=cols.length;cols.push(0);}cols[c]=it.e;it.col=c;}for(const it of cl)it.n=cols.length;cl=[];};
+  let cl=[],end=-1,ci=0;
+  const flush=()=>{const cols=[];for(const it of cl){let c=cols.findIndex(x=>x<=it.s);if(c<0){c=cols.length;cols.push(0);}cols[c]=it.e;it.col=c;}for(const it of cl){it.n=cols.length;it.cl=ci;}ci++;cl=[];};
   for(const it of items){if(cl.length&&it.s>=end){flush();end=-1;}cl.push(it);end=Math.max(end,it.e);}
   if(cl.length)flush();
   return items;
@@ -402,7 +402,23 @@ function renderWeek(){
   h+='</div>';
   for(const k of cols){
     h+='<div class="ttcol'+(k===today?' today':'')+'">';
-    for(const x of layLanes(items[k])){
+    /* 겹친 일정이 너무 좁아지면(폰) 한 덩어리로 묶어 "n개"로 보여 주고, 누르면 목록 */
+    const laid=layLanes(items[k]),groups=new Map();
+    for(const x of laid){if(!groups.has(x.cl))groups.set(x.cl,[]);groups.get(x.cl).push(x);}
+    const merged=new Set();
+    for(const [cid,g] of groups){
+      if(g.length<2||colW/g[0].n>=34)continue;
+      merged.add(cid);
+      const s0=Math.min(...g.map(x=>x.s)),e0=Math.max(...g.map(x=>Math.min(x.e,1440))),hgt=Math.max(20,(e0-s0)/60*H-2);
+      const sorted=g.slice().sort((a,b)=>a.s-b.s||allOrder()(a.t,b.t));
+      const dots=sorted.slice(0,4).map(x=>'<i style="--cc:var(--'+catOf(x.t).color+')"'+(x.ghost?' class="gh"':'')+'></i>').join("");
+      const lines=Math.max(0,Math.floor((hgt-24)/15));
+      h+='<button type="button" class="blk grpb" style="top:'+px(s0)+'px;height:'+hgt.toFixed(1)+'px;left:1px;width:calc(100% - 2px)" data-act="tgroup" data-k="'+k+'" data-c="'+cid+'" aria-label="겹친 일정 '+g.length+'개">'+
+        '<span class="gn"><b>'+g.length+'개</b><span class="dots">'+dots+'</span></span>'+sorted.slice(0,lines).map(x=>'<span class="gl'+(x.t.done?' done':'')+'">'+esc(x.t.title)+'</span>').join("")+'</button>';
+    }
+    S.ttGroups=S.ttGroups||{};S.ttGroups[k]=groups;
+    for(const x of laid){
+      if(merged.has(x.cl))continue;
       const t=x.t,cat=catOf(t),hgt=Math.max(20,(Math.min(x.e,1440)-x.s)/60*H-2);
       const pos='top:'+px(x.s)+'px;height:'+hgt.toFixed(1)+'px;left:calc('+(100*x.col/x.n).toFixed(3)+'% + 1px);width:calc('+(100/x.n).toFixed(3)+'% - 2px)';
       const thin=colW/x.n<34;
@@ -584,6 +600,17 @@ function drawInfo(){
   const t=S.tasks.get(S.infoId);if(!t){closeDlg();return;}
   drawSheet(infoBody(t,t.date,false)+'<div class="actions"><button class="btn sec" type="button" data-act="iedit">편집</button><span class="sp"></span>'+
     '<button class="btn '+(t.done?'sec':'pri')+'" type="button" data-act="toggle" data-id="'+t.id+'">'+(t.done?'완료 취소':'완료')+'</button></div>');
+}
+/* 시간표에서 묶인 일정 목록 */
+function drawGroup(){
+  const k=S.groupK,d=parse(k);
+  const list=(S.groupList||[]).map(x=>({x,t:x.ghost?S.tpls.get(x.id):S.tasks.get(x.id)})).filter(o=>o.t);
+  if(!list.length){closeDlg();return;}
+  drawSheet('<p class="eyebrow sheet-eb"><span>'+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')</span></p><h2>겹친 일정 '+list.length+'개</h2>'+
+    '<div class="glist">'+list.map(({x,t})=>{const c=catOf(t);
+      return '<button type="button" class="grow'+(t.done?' done':'')+(x.ghost?' ghost':'')+'" style="--cc:var(--'+c.color+')" data-act="'+(x.ghost?'ginfo':'info')+'" data-id="'+t.id+'" data-k="'+k+'">'+
+        '<span class="gt">'+fmtRange(t.time,t.end)+'</span><span class="gm"><span class="gtt">'+esc(t.title)+'</span><span class="gc"><i></i>'+esc(c.name)+(x.ghost?' · 반복 일정(아직 추가 안 함)':'')+(t.done?' · 완료':'')+'</span></span></button>';}).join("")+'</div>'+
+    '<div class="actions"><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button></div>');
 }
 function openInfo(id){if(!S.tasks.get(id))return;S.infoId=id;S.infoTpl=null;openSheet("info",drawInfo);}
 function openGhostInfo(id,k){if(!S.tpls.get(id))return;S.infoTpl=id;S.infoK=k;S.infoId=null;openSheet("info",drawInfo);}
@@ -796,7 +823,7 @@ document.addEventListener("mousedown",ev=>{if(ev.target.closest&&ev.target.close
 document.addEventListener("click",ev=>{
   const b=ev.target.closest&&ev.target.closest("[data-act]");if(!b||b.disabled)return;
   const a=b.dataset.act;
-  if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip)$/.test(a))return;
+  if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip|tgroup)$/.test(a))return;
   switch(a){
     case"view":{const v=b.dataset.v;if(v==="week"&&S.view!=="week")S.week=weekStart(S.sel);S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
     case"wnav":S.week=addDays(S.week||weekStart(S.sel),7*(+b.dataset.d));S.calDir=+b.dataset.d;render();break;
@@ -825,6 +852,8 @@ document.addEventListener("click",ev=>{
       patchTask(t.id,t.skipped?{done,doneAt:done?Date.now():null,skipped:false}:{done,doneAt:done?Date.now():null});if(S.sheet==="info")drawInfo();break;}
     case"edit":openEdit(b.dataset.id);break;
     case"info":openInfo(b.dataset.id);break;
+    case"tgroup":{const g=S.ttGroups&&S.ttGroups[b.dataset.k]&&S.ttGroups[b.dataset.k].get(+b.dataset.c);if(!g)break;
+      S.groupK=b.dataset.k;S.groupList=g.slice().sort((a,c)=>a.s-c.s||allOrder()(a.t,c.t)).map(x=>({id:x.t.id,ghost:x.ghost}));openSheet("group",drawGroup);break;}
     case"ginfo":openGhostInfo(b.dataset.id,b.dataset.k);break;
     case"isub":{const t=S.tasks.get(S.infoId);if(!t)break;const subs=(t.subtasks||[]).map(x=>x.id===b.dataset.sid?Object.assign({},x,{done:!x.done}):x);patchTask(t.id,{subtasks:subs});
       S.tasks.set(t.id,Object.assign({},t,{subtasks:subs}));drawInfo();break;}
@@ -1022,7 +1051,7 @@ window.TodoApp={
     store=s;
     render();
     store.start({
-      onData(d){S.tasks=d.tasks;S.tpls=d.tpls instanceof Map?d.tpls:new Map();if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();if(S.sheet==="info"&&dlg.open&&!sheetClosing)drawInfo();},
+      onData(d){S.tasks=d.tasks;S.tpls=d.tpls instanceof Map?d.tpls:new Map();if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();if(S.sheet==="info"&&dlg.open&&!sheetClosing)drawInfo();else if(S.sheet==="group"&&dlg.open&&!sheetClosing)drawGroup();},
       onStatus(m){if(m===S.mode)return;if(m==="live")setTimeout(()=>openDate(location.hash),0);if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
         const out=x=>x==="signedout"||x==="config";
         if(out(m)!==out(S.mode))$("#main").innerHTML="";
