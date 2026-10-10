@@ -1,4 +1,4 @@
-/* 할 일 수첩 — 화면 코드. 저장소(store)는 TodoApp.boot(store)로 받는다.
+/* 또박 — 화면 코드. 저장소(store)는 TodoApp.boot(store)로 받는다.
    store: { kind, start(cb), set(id,body), update(id,patch), remove(id), saveCats(cats), importAll(data)→Promise<number>,
             signIn?(email,pw), signOut?(), email? }
    cb: { onData({tasks:Map, cats:Array|null}), onStatus("loading"|"live"|"local"|"signedout"|"config"), onError(err) } */
@@ -7,8 +7,8 @@
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const DOW=["일","월","화","수","목","금","토"];
-const COLORS=["c1","c2","c3","c4","c5","c6","c7","c8"];
-const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c5",subs:[]},{id:"k2",name:"업무·공부",color:"c3",subs:[]},{id:"k3",name:"건강",color:"c1",subs:[]}];
+const COLORS=["c7","c1","c2","c3","c4","c5","c6","c8"];
+const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"업무·공부",color:"c5",subs:[]},{id:"k3",name:"건강",color:"c3",subs:[]}];
 const pad=n=>String(n).padStart(2,"0");
 const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const parse=k=>{const a=k.split("-").map(Number);return new Date(a[0],a[1]-1,a[2]);};
@@ -22,8 +22,8 @@ const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
 
 const S={tasks:new Map(),cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
   calMode:pref.get("calMode",narrow?"week":"month"),showDone:false,mode:"loading",
-  adding:null,addSub:null,addDraft:"",lastSub:{},just:null,
-  sheet:null,editing:null,edit:null,delArm:false,catDraft:null,catDelArm:null,importData:null};
+  adding:null,addSub:null,addDraft:"",lastSub:{},focusAdd:false,
+  sheet:null,editing:null,edit:null,editGone:false,catDraft:null,catDelArm:null,importData:null};
 let store=null;
 
 const catOf=t=>S.cats.find(c=>c.id===t.cat)||S.cats[0];
@@ -34,6 +34,16 @@ const byDateTime=(a,b)=>{const x=a.date||"9999",y=b.date||"9999";return x<y?-1:x
 function relWord(k){if(k===today)return"오늘";if(k===addDays(today,1))return"내일";if(k===addDays(today,-1))return"어제";return"";}
 function shortDate(k){const d=parse(k);return (d.getMonth()+1)+"월 "+d.getDate()+"일 ("+DOW[d.getDay()]+")";}
 function fmtTime(t){if(!t)return"";const [h,m]=t.split(":").map(Number);return (h<12?"오전 ":"오후 ")+((h%12)||12)+":"+pad(m);}
+
+/* 화면 바꿔 그리기: 바뀐 부분만 고쳐서 입력 중인 칸, 포커스, 스크롤, 애니메이션을 지킨다 */
+function morph(el,html){
+  if(!window.morphdom){el.innerHTML=html;return;}
+  const w=document.createElement(el.tagName);w.innerHTML=html;
+  window.morphdom(el,w,{childrenOnly:true,onBeforeElUpdated(from,to){
+    if(from===document.activeElement&&(from.tagName==="INPUT"||from.tagName==="TEXTAREA"))return false;
+    return !from.isEqualNode(to);
+  }});
+}
 
 /* ---------- 저장 ---------- */
 const setTask=(id,b)=>store.set(id,b);
@@ -51,6 +61,12 @@ function addTask(cat,sub,title,date){
   title=title.trim();if(!title)return;
   setTask(uid8("t_"),{title,note:"",date:date||null,time:null,cat,sub:sub||null,done:false,doneAt:null,createdAt:Date.now(),subtasks:[]});
 }
+function removeWithUndo(id){
+  const t=S.tasks.get(id);if(!t)return;
+  const body=Object.assign({},t);delete body.id;
+  delTask(id);
+  toast("삭제했어요.",{label:"되돌리기",fn:()=>setTask(id,body)});
+}
 
 /* ---------- 렌더 ---------- */
 function render(){
@@ -61,30 +77,32 @@ function render(){
   $("#vAll").setAttribute("aria-pressed",S.view==="all");
   const bn=$("#banner");
   bn.hidden=S.mode!=="local";
-  if(S.mode==="local")bn.textContent="로그인한 상태로 열어야 할 일이 저장되고 폰·PC 사이에서 동기화돼요. 지금 적는 내용은 이 창을 닫으면 사라져요.";
+  if(S.mode==="local")bn.textContent="로그인한 상태가 아니라서 지금 적는 내용은 이 창을 닫으면 사라져요.";
   if(S.mode==="signedout")return renderLogin();
   if(S.mode==="config")return renderConfig();
   if(S.view==="day"){renderCal();renderDay();}else renderAll();
-  if(S.adding){const inp=document.getElementById("add-"+S.adding);if(inp){inp.value=S.addDraft;inp.focus({preventScroll:true});try{inp.setSelectionRange(inp.value.length,inp.value.length);}catch(e){}}}
+  if(S.focusAdd&&S.adding){S.focusAdd=false;const inp=document.getElementById("add-"+S.adding);if(inp){inp.focus({preventScroll:false});}}
 }
 
+const markSvg='<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="9"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.1" transform="translate(0 -0.4)"><polyline class="ck" opacity=".6" points="6.5,16.8 10.9,21.2 17.4,12.6"/><polyline class="ck" points="14.2,16.8 18.6,21.2 25.4,11.2"/></g></svg>';
 function renderLogin(){
   if($("#loginForm"))return;
-  $("#main").innerHTML='<div class="auth"><h1>로그인</h1><p>로그인하면 폰과 PC에서 같은 할 일을 봐요.</p>'+
+  $("#main").innerHTML='<div class="auth">'+markSvg+'<h1>또박에 로그인</h1><p>로그인하면 폰과 PC에서 같은 할 일을 봐요.</p>'+
     '<form id="loginForm" novalidate><label>이메일<input class="inp" id="l-email" type="email" autocomplete="username" inputmode="email" required></label>'+
     '<label>비밀번호<input class="inp" id="l-pw" type="password" autocomplete="current-password" required></label>'+
     '<div class="err" id="l-err"></div><button class="btn pri" id="l-btn" type="submit">로그인</button></form></div>';
 }
 function renderConfig(){
-  $("#main").innerHTML='<div class="auth"><h1>설정이 남았어요</h1><p><code>firebase-config.js</code> 파일에 Firebase 설정값을 붙여넣은 뒤 다시 올려 주세요. 설치 가이드 2단계에 방법이 있어요.</p></div>';
+  $("#main").innerHTML='<div class="auth">'+markSvg+'<h1>설정이 남았어요</h1><p><code>firebase-config.js</code> 파일에 Firebase 설정값을 붙여넣은 뒤 다시 올려 주세요. 설치 가이드 2단계에 방법이 있어요.</p></div>';
 }
 
 function ring(s){
   if(!s)return '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"></svg>';
   if(s.d===s.n)return '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="full" cx="12" cy="12" r="10.5"/><path class="ck" d="M7.5 12.3l3 3 6-6.3" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const C=2*Math.PI*9.5,off=C*(1-s.d/s.n);
-  return '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="bgc" cx="12" cy="12" r="9.5" fill="none" stroke-width="2.4"/><circle class="fgc" cx="12" cy="12" r="9.5" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="'+off.toFixed(2)+'" transform="rotate(-90 12 12)"/><text x="12" y="15.2" text-anchor="middle">'+(s.n-s.d)+'</text></svg>';
+  return '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="bgc" cx="12" cy="12" r="9.5" fill="none" stroke-width="2.4"/><circle class="fgc" cx="12" cy="12" r="9.5" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="'+C.toFixed(2)+'" stroke-dashoffset="'+off.toFixed(2)+'" transform="rotate(-90 12 12)"/><text x="12" y="15.3" text-anchor="middle">'+(s.n-s.d)+'</text></svg>';
 }
+const chev=d=>'<svg width="16" height="16" viewBox="0 0 16 16"><path d="'+(d<0?"M10 3L5 8l5 5":"M6 3l5 5-5 5")+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function renderCal(){
   const stats={};
@@ -96,10 +114,11 @@ function renderCal(){
     start=new Date(first);start.setDate(1-first.getDay());
     cells=Math.ceil((first.getDay()+days)/7)*7;
   }else{start=new Date(c);start.setDate(c.getDate()-c.getDay());cells=7;}
+  const unit=S.calMode==="month"?"달":"주";
   let h='<div class="calhead"><h2>'+c.getFullYear()+'년 '+(c.getMonth()+1)+'월</h2>'+
     (S.sel!==today||S.cursor!==today?'<button class="small" type="button" data-act="today">오늘</button>':'')+
-    '<button class="icon" type="button" data-act="nav" data-d="-1" aria-label="'+(S.calMode==="month"?"이전 달":"이전 주")+'"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-    '<button class="icon" type="button" data-act="nav" data-d="1" aria-label="'+(S.calMode==="month"?"다음 달":"다음 주")+'"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>';
+    '<button class="icon" type="button" data-act="nav" data-d="-1" aria-label="이전 '+unit+'">'+chev(-1)+'</button>'+
+    '<button class="icon" type="button" data-act="nav" data-d="1" aria-label="다음 '+unit+'">'+chev(1)+'</button></div>';
   h+='<div class="dows">'+DOW.map(d=>'<span>'+d+'</span>').join("")+'</div><div class="grid">';
   for(let i=0;i<cells;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);const k=keyOf(d),s=stats[k];
@@ -109,8 +128,8 @@ function renderCal(){
     const lab=(d.getMonth()+1)+"월 "+d.getDate()+"일"+(k===today?" 오늘":"")+(s?", 할 일 "+s.n+"개 중 "+s.d+"개 완료":"");
     h+='<button type="button" class="'+cls.join(" ")+'" data-act="pick" data-k="'+k+'" aria-label="'+lab+'"'+(k===S.sel?' aria-current="date"':'')+'><span class="num">'+d.getDate()+'</span>'+ring(s)+'</button>';
   }
-  h+='</div><div class="calfoot"><button class="linkish" type="button" data-act="calmode">'+(S.calMode==="month"?"한 주만 보기 ▴":"한 달 보기 ▾")+'</button></div>';
-  $("#cal").innerHTML=h;
+  h+='</div><div class="calfoot"><button class="linkish" type="button" data-act="calmode">'+(S.calMode==="month"?"한 주만 보기":"한 달 보기")+'</button></div>';
+  morph($("#cal"),h);
 }
 
 function chk(t){
@@ -130,27 +149,24 @@ function row(t,withDate){
   const subs=Array.isArray(t.subtasks)?t.subtasks:[];
   if(subs.length)meta.push('<span>세부 '+subs.filter(s=>s.done).length+'/'+subs.length+'</span>');
   if(t.note)meta.push('<span>메모</span>');
-  let just="",delay="";
-  if(t.done&&S.just&&S.just.id===t.id){const el=Date.now()-S.just.at;if(el<500){just=" just";delay=' style="animation-delay:-'+el+'ms"';}}
-  return '<li class="task'+(t.done?' done':'')+just+'" style="--cc:var(--'+cat.color+')">'+chk(t)+
-    '<button class="ttl" type="button" data-act="edit" data-id="'+t.id+'"><span class="tline"><span class="t"'+delay+'>'+esc(t.title)+'</span>'+(sub?'<span class="tag">'+esc(sub.name)+'</span>':'')+'</span>'+
+  return '<li id="tk-'+t.id+'" class="task'+(t.done?' done':'')+'" style="--cc:var(--'+cat.color+')">'+chk(t)+
+    '<button class="ttl" type="button" data-act="edit" data-id="'+t.id+'"><span class="tline"><span class="t">'+esc(t.title)+'</span>'+(sub?'<span class="tag">'+esc(sub.name)+'</span>':'')+'</span>'+
     (meta.length?'<span class="meta">'+meta.join("")+'</span>':'')+'</button></li>';
 }
 const plusSvg='<svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 function group(cat,items,withDate){
   const subs=subsOf(cat);
   const cnt=!items.length?"":withDate?String(items.length):items.filter(t=>t.done).length+"/"+items.length;
-  let h='<section class="grp" style="--cc:var(--'+cat.color+')"><div class="ghead"><span class="dot"></span><h3>'+esc(cat.name)+'</h3><span class="cnt">'+cnt+'</span>'+
-    '<button class="plus" type="button" data-act="add" data-cat="'+cat.id+'" aria-label="'+esc(cat.name)+'에 할 일 추가">'+plusSvg+'</button></div><ul class="tasks">';
-  h+=items.map(t=>row(t,withDate)).join("");
+  let h='<section id="g-'+cat.id+'" class="grp" style="--cc:var(--'+cat.color+')"><div class="ghead"><span class="dot"></span><h3>'+esc(cat.name)+'</h3><span class="cnt">'+cnt+'</span>'+
+    '<button class="plus" type="button" data-act="add" data-cat="'+cat.id+'" aria-label="'+esc(cat.name)+'에 할 일 추가">'+plusSvg+'</button></div>';
+  /* 목록과 입력 줄은 형제로 둔다: 할 일이 늘어도 입력 줄이 DOM에서 옮겨지지 않아 포커스·키보드가 유지된다 */
+  h+='<ul class="tasks">'+items.map(t=>row(t,withDate)).join("")+'</ul>';
   if(S.adding===cat.id){
     const cur=subs.find(s=>s.id===S.addSub);
-    h+='<li class="addrow"><input id="add-'+cat.id+'" type="text" data-cat="'+cat.id+'" placeholder="할 일을 적고 Enter" autocomplete="off" enterkeyhint="done" aria-label="새 할 일">';
+    h+='<div class="addrow" id="addrow-'+cat.id+'"><input id="add-'+cat.id+'" type="text" data-cat="'+cat.id+'" placeholder="할 일을 적고 엔터" autocomplete="off" enterkeyhint="done" aria-label="새 할 일">';
     if(subs.length)h+='<div class="addsubs" role="group" aria-label="소분류"><button class="pill" type="button" data-keep data-act="addsub" data-sub="" aria-pressed="'+(!cur)+'">없음</button>'+subs.map(s=>'<button class="pill" type="button" data-keep data-act="addsub" data-sub="'+s.id+'" aria-pressed="'+(!!cur&&cur.id===s.id)+'">'+esc(s.name)+'</button>').join("")+'</div>';
-    h+='</li>';
+    h+='</div>';
   }
-  h+='</ul>';
-  if(!items.length&&S.adding!==cat.id)h+='<button class="emptyadd" type="button" data-act="add" data-cat="'+cat.id+'">+ 할 일 추가</button>';
   return h+'</section>';
 }
 
@@ -159,7 +175,7 @@ function renderDay(){
   const list=[...S.tasks.values()].filter(t=>t.date===k).sort(byTime);
   const n=list.length,dn=list.filter(t=>t.done).length;
   let h='<div class="dayhead"><h1>'+(d.getMonth()+1)+'월 '+d.getDate()+'일<small>'+DOW[d.getDay()]+'요일</small></h1>'+(r?'<span class="rel">'+r+'</span>':'')+'</div>';
-  if(S.mode==="loading")h+='<div class="prog loading">불러오는 중…</div>';
+  if(S.mode==="loading")h+='<div class="prog"></div>';
   else h+='<div class="prog">'+(n?(dn===n?n+'개 모두 끝냈어요':n+'개 중 '+dn+'개 완료'):'아직 적은 할 일이 없어요')+'<div class="bar"><i style="width:'+(n?Math.round(dn/n*100):0)+'%"></i></div></div>';
   if(k===today){
     const od=[...S.tasks.values()].filter(t=>t.date&&t.date<today&&!t.done);
@@ -167,7 +183,7 @@ function renderDay(){
   }
   if(S.mode!=="loading"&&S.tasks.size===0)h+='<p class="hint">카테고리 옆 <b>+</b>를 눌러 첫 할 일을 적어 보세요. 시간이나 메모는 적은 할 일을 누르면 넣을 수 있어요.</p>';
   h+='<div class="groups">'+S.cats.map(c=>group(c,list.filter(t=>catOf(t).id===c.id),false)).join("")+'</div>';
-  $("#main").innerHTML=h;
+  morph($("#main"),h);
 }
 
 function renderAll(){
@@ -175,42 +191,56 @@ function renderAll(){
   const open=all.filter(t=>!t.done).sort(byDateTime);
   const done=all.filter(t=>t.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
   let h='<div class="dayhead"><h1>전체 할 일</h1></div>';
-  h+=S.mode==="loading"?'<div class="prog loading">불러오는 중…</div>':'<div class="prog">남은 할 일 '+open.length+'개 · 날짜와 시간 순</div>';
+  h+=S.mode==="loading"?'<div class="prog"></div>':'<div class="prog">남은 할 일 '+open.length+'개 · 날짜와 시간 순</div>';
   h+='<div class="groups">'+S.cats.map(c=>group(c,open.filter(t=>catOf(t).id===c.id),true)).join("")+'</div>';
   if(done.length){
     h+='<div class="donebox"><button class="linkish" type="button" data-act="showdone">'+(S.showDone?'완료한 할 일 접기':'완료한 할 일 '+done.length+'개 보기')+'</button>';
     if(S.showDone)h+='<section class="grp" style="--cc:var(--c8);margin-top:8px"><ul class="tasks">'+done.slice(0,150).map(t=>row(t,true)).join("")+'</ul></section>';
     h+='</div>';
   }
-  $("#main").innerHTML=h;
+  morph($("#main"),h);
 }
 
-/* ---------- 시트 공통 ---------- */
+/* ---------- 시트 공통: 뒤로가기로 닫히고, 닫을 때 저장 ---------- */
 const dlg=$("#dlg"),sheet=$("#sheet");
-function openSheet(kind,draw){S.sheet=kind;draw();if(!dlg.open)dlg.showModal();}
-function closeDlg(){if(dlg.open)dlg.close();}
-dlg.addEventListener("close",()=>{S.sheet=null;S.editing=null;S.edit=null;S.catDraft=null;S.importData=null;});
+const grab='<div class="grab" aria-hidden="true"></div>';
+function drawSheet(html){morph(sheet,grab+html);}
+function openSheet(kind,draw){
+  S.sheet=kind;draw();
+  if(!dlg.open){dlg.showModal();try{history.pushState({sheet:1},"");}catch(e){}}
+}
+function closeDlg(){
+  if(!dlg.open)return;
+  if(history.state&&history.state.sheet){history.back();}else dlg.close();
+}
+window.addEventListener("popstate",()=>{if(dlg.open)dlg.close();});
+dlg.addEventListener("cancel",ev=>{ev.preventDefault();closeDlg();});
 dlg.addEventListener("click",ev=>{if(ev.target===dlg)closeDlg();});
+dlg.addEventListener("close",()=>{
+  if(S.sheet==="edit")commitEdit();
+  else if(S.sheet==="cats")commitCats();
+  if(history.state&&history.state.sheet){try{history.back();}catch(e){}}
+  S.sheet=null;S.editing=null;S.edit=null;S.editGone=false;S.catDraft=null;S.importData=null;
+  sheet.innerHTML="";
+});
 
 /* ---------- 더보기 ---------- */
 function drawMenu(){
   let h='<h2>더보기</h2><div class="menu">'+
     '<button type="button" data-act="cats">카테고리와 소분류<small>이름, 색, 소분류(과목 등) 편집</small></button>'+
-    '<button type="button" data-act="export">데이터 내보내기<small>다른 곳으로 옮길 때 쓰는 백업 텍스트</small></button>'+
+    '<button type="button" data-act="export">데이터 내보내기<small>백업하거나 다른 곳으로 옮길 때</small></button>'+
     '<button type="button" data-act="import">데이터 가져오기<small>내보낸 텍스트를 붙여넣어 불러오기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
-  h+='</div><div class="actions"><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button></div>';
-  sheet.innerHTML=h;
+  h+='</div>';
+  drawSheet(h);
 }
 function exportJSON(){
-  const tasks=[...S.tasks.values()].map(t=>{const o=Object.assign({},t);return o;});
-  return JSON.stringify({app:"todo-notebook",version:1,exportedAt:new Date().toISOString(),cats:S.cats,tasks});
+  return JSON.stringify({app:"ttobak",version:1,exportedAt:new Date().toISOString(),cats:S.cats,tasks:[...S.tasks.values()]});
 }
 function drawExport(){
-  const n=S.tasks.size;
-  sheet.innerHTML='<h2>데이터 내보내기</h2><p>할 일 '+n+'개와 카테고리 '+S.cats.length+'개가 들어 있어요. 복사해서 새 앱의 <b>데이터 가져오기</b>에 붙여넣으면 돼요.</p>'+
+  drawSheet('<h2>데이터 내보내기</h2><p>할 일 '+S.tasks.size+'개와 카테고리 '+S.cats.length+'개가 들어 있어요. 복사해서 다른 곳의 <b>데이터 가져오기</b>에 붙여넣으면 돼요.</p>'+
     '<textarea class="inp code" id="x-out" readonly aria-label="내보낸 데이터">'+esc(exportJSON())+'</textarea>'+
-    '<div class="actions"><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button><button class="btn pri" type="button" data-act="copy">복사</button></div>';
+    '<div class="actions"><span class="sp"></span><button class="btn pri" type="button" data-act="copy">복사</button></div>');
 }
 function clean(t){
   const s=v=>typeof v==="string"?v:"";
@@ -233,17 +263,17 @@ function parseImport(text){
 }
 function drawImport(){
   const d=S.importData;
-  sheet.innerHTML='<h2>데이터 가져오기</h2><p>다른 곳에서 <b>데이터 내보내기</b>로 복사한 텍스트를 붙여넣어 주세요. 같은 할 일은 덮어쓰고, 지금 있는 다른 할 일은 그대로 둬요.</p>'+
+  drawSheet('<h2>데이터 가져오기</h2><p><b>데이터 내보내기</b>로 복사한 텍스트를 붙여넣어 주세요. 같은 할 일은 덮어쓰고, 지금 있는 다른 할 일은 그대로 둬요.</p>'+
     '<textarea class="inp code" id="i-in" placeholder="여기에 붙여넣기" aria-label="가져올 데이터"></textarea><div class="err" id="i-err"></div>'+
     (d?'<p id="i-sum">할 일 <b>'+d.tasks.length+'개</b>'+(d.cats?', 카테고리 <b>'+d.cats.length+'개</b>':'')+'를 가져와요.</p>':'')+
-    '<div class="actions"><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button><button class="btn pri" type="button" data-act="'+(d?'importgo':'importcheck')+'">'+(d?'가져오기':'확인')+'</button></div>';
+    '<div class="actions"><span class="sp"></span><button class="btn pri" type="button" data-act="'+(d?'importgo':'importcheck')+'">'+(d?'가져오기':'확인')+'</button></div>');
 }
 
 /* ---------- 편집 시트 ---------- */
 function openEdit(id){
   const t=S.tasks.get(id);if(!t)return;
   const cat=catOf(t);
-  S.editing=id;S.delArm=false;
+  S.editing=id;S.editGone=false;
   S.edit={title:t.title,note:t.note||"",date:t.date||"",time:t.time||"",nodate:!t.date,cat:cat.id,
     sub:subsOf(cat).some(s=>s.id===t.sub)?t.sub:null,subDraft:"",
     subtasks:(t.subtasks||[]).map(s=>({id:s.id,t:s.t,done:!!s.done}))};
@@ -258,64 +288,67 @@ function syncEdit(){
   if(g("e-time"))e.time=g("e-time").value;
   if(g("e-nodate"))e.nodate=g("e-nodate").checked;
   e.subtasks.forEach(s=>{const i=g("s-"+s.id),c=g("sc-"+s.id);if(i)s.t=i.value;if(c)s.done=c.checked;});
-  const n=g("s-new");e.subDraft=n?n.value:"";
+  const n=g("s-new");if(n)e.subDraft=n.value;
 }
 function drawEdit(){
   const e=S.edit,cat=S.cats.find(c=>c.id===e.cat)||S.cats[0],subs=subsOf(cat);
-  let h='<h2>할 일 수정</h2>';
-  h+='<div class="field"><label for="e-title">할 일</label><input class="inp" id="e-title" type="text" value="'+esc(e.title)+'" autocomplete="off"><div class="err" id="e-err"></div></div>';
+  let h='<input class="inp big" id="e-title" type="text" value="'+esc(e.title)+'" autocomplete="off" aria-label="할 일">';
   h+='<div class="field"><span class="lbl">카테고리</span><div class="catpick">'+S.cats.map(c=>'<button type="button" style="--cc:var(--'+c.color+')" aria-pressed="'+(c.id===e.cat)+'" data-act="ecat" data-cat="'+c.id+'"><i></i>'+esc(c.name)+'</button>').join("")+'</div>';
-  if(subs.length)h+='<div class="catpick" style="--cc:var(--'+cat.color+');margin-top:4px">'+[{id:"",name:"소분류 없음"}].concat(subs).map(s=>'<button type="button" class="pill" aria-pressed="'+((s.id||null)===e.sub)+'" data-act="esub" data-sub="'+s.id+'">'+esc(s.name)+'</button>').join("")+'</div>';
+  if(subs.length)h+='<div class="catpick" style="--cc:var(--'+cat.color+')">'+[{id:"",name:"소분류 없음"}].concat(subs).map(s=>'<button type="button" class="pill" aria-pressed="'+((s.id||null)===e.sub)+'" data-act="esub" data-sub="'+s.id+'">'+esc(s.name)+'</button>').join("")+'</div>';
   h+='</div>';
   h+='<div class="field"><label for="e-date">날짜와 시간</label><div class="row">'+
     '<input class="inp" id="e-date" type="date" value="'+esc(e.date||S.sel)+'" style="max-width:170px"'+(e.nodate?' disabled':'')+'>'+
     '<input class="inp" id="e-time" type="time" value="'+esc(e.time)+'" style="max-width:130px" aria-label="시간"'+(e.nodate?' disabled':'')+'>'+
     (e.time&&!e.nodate?'<button class="linkish" type="button" data-act="notime">시간 빼기</button>':'')+
     '<label class="opt"><input type="checkbox" id="e-nodate" data-act="nodate"'+(e.nodate?' checked':'')+'>날짜 없음</label></div></div>';
-  h+='<div class="field"><span class="lbl">세부 할 일</span><ul class="subs">'+e.subtasks.map(s=>'<li><input type="checkbox" id="sc-'+s.id+'"'+(s.done?' checked':'')+' aria-label="완료"><input type="text" id="s-'+s.id+'" value="'+esc(s.t)+'" aria-label="세부 할 일"><button class="x" type="button" data-act="subdel" data-sid="'+s.id+'" aria-label="지우기">×</button></li>').join("")+
-    '<li><input type="text" id="s-new" value="'+esc(e.subDraft||"")+'" placeholder="+ 세부 할 일 추가 (Enter)" autocomplete="off" style="margin-left:25px"></li></ul></div>';
+  h+='<div class="field"><span class="lbl">세부 할 일</span><ul class="subs">'+e.subtasks.map(s=>'<li id="sl-'+s.id+'"><input type="checkbox" id="sc-'+s.id+'"'+(s.done?' checked':'')+' aria-label="완료"><input type="text" id="s-'+s.id+'" value="'+esc(s.t)+'" aria-label="세부 할 일"><button class="x" type="button" data-act="subdel" data-sid="'+s.id+'" aria-label="지우기">×</button></li>').join("")+
+    '<li class="new"><input class="field-soft" type="text" id="s-new" value="'+esc(e.subDraft||"")+'" placeholder="+ 세부 할 일 추가" autocomplete="off" enterkeyhint="done"></li></ul></div>';
   h+='<div class="field"><label for="e-note">메모</label><textarea class="inp" id="e-note" placeholder="필요한 내용을 적어 두세요">'+esc(e.note)+'</textarea></div>';
-  h+='<div class="actions"><button class="btn dng'+(S.delArm?' armed':'')+'" type="button" data-act="del">'+(S.delArm?'한 번 더 누르면 삭제':'삭제')+'</button><button class="btn sec" type="button" data-act="tomorrow">내일로 미루기</button><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button><button class="btn pri" type="button" data-act="save">저장</button></div>';
-  sheet.innerHTML=h;
+  h+='<div class="actions"><button class="btn dng" type="button" data-act="del">삭제</button><button class="btn sec" type="button" data-act="tomorrow">내일로 미루기</button><span class="sp"></span><button class="btn pri" type="button" data-act="close">완료</button></div>';
+  drawSheet(h);
 }
-function saveEdit(){
-  syncEdit();const e=S.edit,id=S.editing;
-  const title=e.title.trim();
-  if(!title){$("#e-err").textContent="할 일 이름을 적어 주세요.";$("#e-title").focus();return;}
+const norm=t=>({title:t.title||"",note:t.note||"",date:t.date||null,time:t.time||null,cat:t.cat||null,sub:t.sub||null,
+  subtasks:(t.subtasks||[]).map(s=>({id:s.id,t:s.t,done:!!s.done}))});
+function commitEdit(){
+  syncEdit();const e=S.edit,id=S.editing,t=id&&S.tasks.get(id);
+  if(!e||!t||S.editGone)return;
   const subtasks=e.subtasks.filter(s=>s.t.trim()).map(s=>({id:s.id,t:s.t.trim(),done:!!s.done}));
   if(e.subDraft&&e.subDraft.trim())subtasks.push({id:uid8("s"),t:e.subDraft.trim(),done:false});
   const date=e.nodate?null:(e.date||null);
-  patchTask(id,{title,note:e.note.trim(),date,time:date&&e.time?e.time:null,cat:e.cat,sub:e.sub||null,subtasks});
-  closeDlg();
+  const next={title:e.title.trim()||t.title,note:e.note.trim(),date,time:date&&e.time?e.time:null,cat:e.cat,sub:e.sub||null,subtasks};
+  if(JSON.stringify(norm(t))!==JSON.stringify(next))patchTask(id,next);
 }
 
 /* ---------- 카테고리 시트 ---------- */
 function openCats(){S.catDraft=S.cats.map(c=>({id:c.id,name:c.name,color:c.color,subs:subsOf(c).map(s=>({id:s.id,name:s.name})),subNew:""}));S.catDelArm=null;openSheet("cats",drawCats);}
-function syncCats(){(S.catDraft||[]).forEach(c=>{const i=document.getElementById("cn-"+c.id);if(i)c.name=i.value;c.subs.forEach(s=>{const j=document.getElementById("sn-"+s.id);if(j)s.name=j.value;});const n=document.getElementById("snew-"+c.id);c.subNew=n?n.value:"";});}
+function syncCats(){(S.catDraft||[]).forEach(c=>{const i=document.getElementById("cn-"+c.id);if(i)c.name=i.value;c.subs.forEach(s=>{const j=document.getElementById("sn-"+s.id);if(j)s.name=j.value;});const n=document.getElementById("snew-"+c.id);if(n)c.subNew=n.value;});}
 function drawCats(){
   const counts={};for(const t of S.tasks.values()){const k=catOf(t).id;counts[k]=(counts[k]||0)+1;}
-  let h='<h2>카테고리와 소분류</h2><p>소분류는 할 일 이름 옆에 작은 태그로 붙어요. 과목이나 프로젝트처럼 나눌 때 써요.</p><div>'+S.catDraft.map(c=>'<div class="catrow" style="--cc:var(--'+c.color+')"><div class="row"><input class="inp" id="cn-'+c.id+'" type="text" value="'+esc(c.name)+'" placeholder="카테고리 이름" aria-label="카테고리 이름" maxlength="24">'+
+  let h='<h2>카테고리와 소분류</h2><p>소분류는 할 일 이름 옆에 작은 태그로 붙어요. 과목이나 프로젝트를 나눌 때 써요.</p><div>'+S.catDraft.map(c=>'<div class="catrow" id="cr-'+c.id+'" style="--cc:var(--'+c.color+')"><div class="row"><input class="inp" id="cn-'+c.id+'" type="text" value="'+esc(c.name)+'" placeholder="카테고리 이름" aria-label="카테고리 이름" maxlength="24">'+
     (S.catDraft.length>1?'<button class="btn dng'+(S.catDelArm===c.id?' armed':'')+'" type="button" data-act="catdel" data-cat="'+c.id+'">'+(S.catDelArm===c.id?(counts[c.id]?'할 일 '+counts[c.id]+'개는 첫 카테고리로. 삭제':'한 번 더 누르면 삭제'):'삭제')+'</button>':'')+'</div>'+
     '<div class="sw" role="group" aria-label="색">'+COLORS.map(k=>'<button type="button" style="--cc:var(--'+k+')" aria-pressed="'+(k===c.color)+'" aria-label="색 '+k.slice(1)+'" data-act="catcolor" data-cat="'+c.id+'" data-color="'+k+'"></button>').join("")+'</div>'+
     '<div class="subl">'+c.subs.map(s=>'<span class="subitem"><input id="sn-'+s.id+'" type="text" value="'+esc(s.name)+'" aria-label="소분류 이름" maxlength="20"><button class="x" type="button" data-act="subrm" data-cat="'+c.id+'" data-sub="'+s.id+'" aria-label="소분류 지우기">×</button></span>').join("")+
-    '<input class="subnew" id="snew-'+c.id+'" data-cat="'+c.id+'" type="text" value="'+esc(c.subNew||"")+'" placeholder="+ 소분류 (예: 과목) Enter" maxlength="20" autocomplete="off"></div></div>').join("")+'</div>';
-  h+='<div class="actions"><button class="btn sec" type="button" data-act="catadd">+ 카테고리 추가</button><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button><button class="btn pri" type="button" data-act="catsave">저장</button></div>';
-  sheet.innerHTML=h;
+    '<input class="subnew" id="snew-'+c.id+'" data-cat="'+c.id+'" type="text" value="'+esc(c.subNew||"")+'" placeholder="+ 소분류 (예: 과목)" maxlength="20" autocomplete="off" enterkeyhint="done"></div></div>').join("")+'</div>';
+  h+='<div class="actions"><button class="btn sec" type="button" data-act="catadd">+ 카테고리 추가</button><span class="sp"></span><button class="btn pri" type="button" data-act="close">완료</button></div>';
+  drawSheet(h);
 }
-function saveCatsFromDraft(){
+function commitCats(){
+  if(!S.catDraft)return;
   syncCats();
   const cats=S.catDraft.map(c=>{
     const subs=c.subs.filter(s=>s.name.trim()).map(s=>({id:s.id,name:s.name.trim()}));
     if(c.subNew&&c.subNew.trim())subs.push({id:uid8("b"),name:c.subNew.trim()});
     return {id:c.id,name:c.name.trim()||"이름 없음",color:c.color,subs};
   });
+  const cur=S.cats.map(c=>({id:c.id,name:c.name,color:c.color,subs:subsOf(c).map(s=>({id:s.id,name:s.name}))}));
+  if(JSON.stringify(cur)===JSON.stringify(cats))return;
   const byId=new Map(cats.map(c=>[c.id,c]));
   for(const t of S.tasks.values()){
     const cat=byId.get(t.cat)||cats[0];
     const sub=t.sub&&cat.subs.some(s=>s.id===t.sub)?t.sub:null;
     if(cat.id!==t.cat||sub!==(t.sub||null))patchTask(t.id,{cat:cat.id,sub});
   }
-  saveCats(cats);closeDlg();toast("카테고리를 저장했어요.");
+  saveCats(cats);toast("카테고리를 저장했어요.");
 }
 
 /* ---------- 이벤트 ---------- */
@@ -327,13 +360,13 @@ document.addEventListener("click",ev=>{
     case"view":S.view=b.dataset.v;pref.set("view",S.view);S.adding=null;render();break;
     case"pick":S.sel=b.dataset.k;S.cursor=b.dataset.k;S.adding=null;render();break;
     case"today":S.sel=today;S.cursor=today;render();break;
-    case"nav":{const d=+b.dataset.d;if(S.calMode==="month"){const c=parse(S.cursor);S.cursor=keyOf(new Date(c.getFullYear(),c.getMonth()+d,1));}else S.cursor=addDays(S.cursor,7*d);render();break;}
+    case"nav":navCal(+b.dataset.d);break;
     case"calmode":S.calMode=S.calMode==="month"?"week":"month";S.cursor=S.sel;pref.set("calMode",S.calMode);render();break;
-    case"add":{const cat=b.dataset.cat;S.adding=cat;S.addDraft="";S.addSub=S.lastSub[cat]||null;render();break;}
-    case"addsub":S.addSub=b.dataset.sub||null;S.lastSub[S.adding]=S.addSub;render();break;
+    case"add":{const cat=b.dataset.cat;if(S.adding===cat){const i=document.getElementById("add-"+cat);if(i)i.focus();break;}S.adding=cat;S.addDraft="";S.addSub=S.lastSub[cat]||null;S.focusAdd=true;render();break;}
+    case"addsub":S.addSub=b.dataset.sub||null;S.lastSub[S.adding]=S.addSub;render();{const i=document.getElementById("add-"+S.adding);if(i&&document.activeElement!==i)i.focus();}break;
     case"toggle":{const t=S.tasks.get(b.dataset.id);if(!t)break;const done=!t.done;
-      b.setAttribute("aria-checked",done);const li=b.closest(".task");
-      if(done){S.just={id:t.id,at:Date.now()};if(li)li.classList.add("done","just");}else if(li)li.classList.remove("done","just");
+      b.setAttribute("aria-checked",done);const li=b.closest(".task");if(li)li.classList.toggle("done",done);
+      if(done&&navigator.vibrate)try{navigator.vibrate(8);}catch(e){}
       patchTask(t.id,{done,doneAt:done?Date.now():null});break;}
     case"edit":openEdit(b.dataset.id);break;
     case"carry":{let n=0;for(const t of S.tasks.values())if(t.date&&t.date<today&&!t.done){patchTask(t.id,{date:today});n++;}toast(n+"개를 오늘로 가져왔어요.");break;}
@@ -346,26 +379,39 @@ document.addEventListener("click",ev=>{
     case"import":S.importData=null;openSheet("import",drawImport);break;
     case"importcheck":{const txt=$("#i-in").value;const r=parseImport(txt);if(r.err){$("#i-err").textContent=r.err;break;}
       if(!r.tasks.length&&!r.cats){$("#i-err").textContent="가져올 할 일이 없어요.";break;}
-      S.importData=r;drawImport();$("#i-in").value=txt;break;}
+      S.importData=r;drawImport();break;}
     case"importgo":{const d=S.importData;if(!d)break;b.disabled=true;b.textContent="가져오는 중…";
       store.importAll(d).then(n=>{closeDlg();toast("할 일 "+n+"개를 가져왔어요.");},e=>{onError(e);b.disabled=false;b.textContent="가져오기";});break;}
-    case"logout":closeDlg();store.signOut();break;
+    case"logout":S.sheet=null;closeDlg();store.signOut();break;
     case"close":closeDlg();break;
-    case"save":saveEdit();break;
     case"ecat":syncEdit();if(S.edit.cat!==b.dataset.cat){S.edit.cat=b.dataset.cat;S.edit.sub=null;}drawEdit();break;
     case"esub":syncEdit();S.edit.sub=b.dataset.sub||null;drawEdit();break;
     case"nodate":syncEdit();drawEdit();break;
     case"notime":syncEdit();S.edit.time="";drawEdit();break;
     case"subdel":syncEdit();S.edit.subtasks=S.edit.subtasks.filter(s=>s.id!==b.dataset.sid);drawEdit();break;
-    case"del":if(!S.delArm){syncEdit();S.delArm=true;drawEdit();}else{delTask(S.editing);closeDlg();toast("삭제했어요.");}break;
-    case"tomorrow":{syncEdit();const base=(!S.edit.nodate&&S.edit.date)||today;const nd=addDays(base,1);patchTask(S.editing,{date:nd});closeDlg();toast(shortDate(nd)+"로 미뤘어요.");break;}
+    case"del":{const id=S.editing;S.editGone=true;closeDlg();removeWithUndo(id);break;}
+    case"tomorrow":{syncEdit();const base=(!S.edit.nodate&&S.edit.date)||today;const nd=addDays(base,1);S.edit.nodate=false;S.edit.date=nd;
+      const de=$("#e-date");if(de){de.disabled=false;de.value=nd;}const nc=$("#e-nodate");if(nc)nc.checked=false;
+      closeDlg();toast(shortDate(nd)+"로 미뤘어요.");break;}
     case"catcolor":syncCats();S.catDraft.find(c=>c.id===b.dataset.cat).color=b.dataset.color;drawCats();break;
     case"catdel":syncCats();if(S.catDelArm!==b.dataset.cat){S.catDelArm=b.dataset.cat;}else{S.catDraft=S.catDraft.filter(c=>c.id!==b.dataset.cat);S.catDelArm=null;}drawCats();break;
     case"subrm":{syncCats();const c=S.catDraft.find(x=>x.id===b.dataset.cat);c.subs=c.subs.filter(s=>s.id!==b.dataset.sub);drawCats();break;}
     case"catadd":{syncCats();const used=new Set(S.catDraft.map(c=>c.color));const color=COLORS.find(c=>!used.has(c))||COLORS[S.catDraft.length%8];const id=uid8("k");S.catDraft.push({id,name:"",color,subs:[],subNew:""});drawCats();const i=document.getElementById("cn-"+id);if(i)i.focus();break;}
-    case"catsave":saveCatsFromDraft();break;
   }
 });
+function navCal(d){
+  if(S.calMode==="month"){const c=parse(S.cursor);S.cursor=keyOf(new Date(c.getFullYear(),c.getMonth()+d,1));}
+  else{S.cursor=addDays(S.cursor,7*d);S.sel=addDays(S.sel,7*d);}
+  render();
+}
+/* 달력 좌우로 밀어서 넘기기 */
+(function(){
+  let x0=null,y0=0;
+  const cal=$("#cal");
+  cal.addEventListener("touchstart",e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+  cal.addEventListener("touchend",e=>{if(x0==null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+    if(Math.abs(dx)>48&&Math.abs(dy)<40)navCal(dx<0?1:-1);},{passive:true});
+})();
 document.addEventListener("submit",ev=>{
   if(ev.target.id!=="loginForm")return;
   ev.preventDefault();
@@ -387,15 +433,13 @@ document.addEventListener("keydown",ev=>{
   if(el.matches(".addrow input")){
     if(enter){ev.preventDefault();addTask(el.dataset.cat,S.addSub,el.value,S.view==="day"?S.sel:null);S.addDraft="";el.value="";}
     else if(ev.key==="Escape"){ev.preventDefault();S.adding=null;render();}
-  }else if(el.id==="e-title"&&enter){ev.preventDefault();saveEdit();}
+  }else if(el.id==="e-title"&&enter){ev.preventDefault();closeDlg();}
   else if(el.id==="s-new"&&enter){
     ev.preventDefault();const v=el.value.trim();if(!v)return;syncEdit();
-    S.edit.subtasks.push({id:uid8("s"),t:v,done:false});S.edit.subDraft="";drawEdit();
-    const n=$("#s-new");if(n)n.focus();
+    S.edit.subtasks.push({id:uid8("s"),t:v,done:false});S.edit.subDraft="";el.value="";drawEdit();
   }else if(el.matches(".subnew")&&enter){
     ev.preventDefault();const v=el.value.trim();if(!v)return;syncCats();
-    const c=S.catDraft.find(x=>x.id===el.dataset.cat);c.subs.push({id:uid8("b"),name:v});c.subNew="";drawCats();
-    const n=document.getElementById("snew-"+c.id);if(n)n.focus();
+    const c=S.catDraft.find(x=>x.id===el.dataset.cat);c.subs.push({id:uid8("b"),name:v});c.subNew="";el.value="";drawCats();
   }
 });
 document.addEventListener("input",ev=>{if(ev.target.matches&&ev.target.matches(".addrow input"))S.addDraft=ev.target.value;});
@@ -407,24 +451,30 @@ document.addEventListener("focusout",ev=>{
 });
 
 let tt;
-function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600);}
+function toast(msg,action){
+  const t=$("#toast"),b=$("#toastAct");
+  $("#toastMsg").textContent=msg;
+  b.hidden=!action;t.classList.toggle("has-act",!!action);
+  b.onclick=action?()=>{t.hidden=true;action.fn();}:null;
+  if(action)b.textContent=action.label;
+  t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,action?5000:2600);
+}
 
 function tick(){const k=keyOf(new Date());if(k!==today){if(S.sel===today){S.sel=k;S.cursor=k;}today=k;render();}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
 setInterval(tick,60000);
 
-/* ---------- 메모리 저장소 (로그인 안 됐을 때·테스트용) ---------- */
+/* ---------- 메모리 저장소 (테스트용) ---------- */
 function memoryStore(){
   const tasks=new Map();let cats=null,cb=null;
   const emit=()=>{if(cb)cb.onData({tasks:new Map(tasks),cats});};
-  const st={kind:"memory",
+  return {kind:"memory",
     start(c){cb=c;cb.onStatus("local");emit();},
     set(id,b){tasks.set(id,Object.assign({id},b));emit();return Promise.resolve();},
     update(id,p){const t=tasks.get(id);if(t)tasks.set(id,Object.assign({},t,p));emit();return Promise.resolve();},
     remove(id){tasks.delete(id);emit();return Promise.resolve();},
     saveCats(c){cats=c;emit();return Promise.resolve();},
     importAll(d){if(d.cats)cats=d.cats;d.tasks.forEach(t=>{const b=Object.assign({},t);delete b.id;tasks.set(t.id,Object.assign({id:t.id},b));});emit();return Promise.resolve(d.tasks.length);}};
-  return st;
 }
 
 window.TodoApp={
@@ -434,7 +484,7 @@ window.TodoApp={
     render();
     store.start({
       onData(d){S.tasks=d.tasks;if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();},
-      onStatus(m){if(m===S.mode)return;if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();closeDlg();}S.mode=m;$("#main").innerHTML="";render();},
+      onStatus(m){if(m===S.mode)return;if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();if(dlg.open)dlg.close();}S.mode=m;$("#main").innerHTML="";render();},
       onError
     });
   }

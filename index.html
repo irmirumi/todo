@@ -3,25 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>할 일 수첩</title>
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F4F7">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#10131A">
+<title>또박</title>
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F5F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141113">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="할 일">
+<meta name="apple-mobile-web-app-title" content="또박">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="fonts/WantedSansVariable.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="brand"><i aria-hidden="true"></i>할 일 수첩</div>
+    <div class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="9"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.1" transform="translate(0 -0.4)"><polyline class="ck" opacity=".6" points="6.5,16.8 10.9,21.2 17.4,12.6"/><polyline class="ck" points="14.2,16.8 18.6,21.2 25.4,11.2"/></g></svg>또박</div>
     <div class="seg" role="group" aria-label="보기">
       <button id="vDay" type="button" data-act="view" data-v="day">날짜별</button>
       <button id="vAll" type="button" data-act="view" data-v="all">전체 목록</button>
@@ -34,8 +32,9 @@
     <main id="main"></main>
   </div>
 </div>
-<dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
-<div id="toast" class="toast" role="status" hidden></div>
+<dialog id="dlg"><div class="sheet" id="sheet" tabindex="-1" autofocus></div></dialog>
+<div id="toast" class="toast" role="status" hidden><span id="toastMsg"></span><button id="toastAct" type="button" hidden></button></div>
+<script src="vendor/morphdom.min.js"></script>
 <script src="ui.js"></script>
 <script type="module" src="app.js"></script>
 </body>
