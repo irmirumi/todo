@@ -1,6 +1,6 @@
 // 앱 껍데기를 저장해 두어 빠르게, 인터넷 없이도 열리게 한다.
 // 내 코드 파일은 최신을 먼저 받아 오고(실패하면 저장본), 글꼴·Firebase 라이브러리는 저장본을 먼저 쓴다.
-const CACHE = "ttobak-1.0.0";
+const CACHE = "ttobak-1.1.0";
 const SHELL = ["./", "./index.html", "./style.css", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png"];
