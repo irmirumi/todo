@@ -14,6 +14,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
+const VERSION="1.0.0";
 const WEEK=[1,2,3,4,5,6,0];
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
@@ -113,6 +114,7 @@ function onError(e){
   const c=e&&e.code;
   if(c==="quota_exceeded"||c==="resource-exhausted")toast("저장 공간이 부족해요. 완료한 할 일을 지워 주세요.");
   else if(c==="network")toast("연결이 끊겼어요. 다시 시도하는 중…");
+  else if(c==="not_ready")toast("아직 불러오는 중이에요. 잠시 후 다시 해 주세요.");
   else if(c==="invalid_argument"||c==="permission-denied")toast("저장 권한이 없어요. 다시 로그인해 주세요.");
   else toast("저장하지 못했어요. 다시 시도해 주세요.");
 }
@@ -243,7 +245,7 @@ function group(cat,items,withDate){
   h+='<ul class="tasks">'+items.slice().sort(inCatOrder(cat,withDate)).map(t=>row(t,withDate)).join("")+'</ul>';
   if(S.adding===cat.id){
     const cur=subs.find(s=>s.id===S.addSub);
-    h+='<div class="addrow" id="addrow-'+cat.id+'"><input id="add-'+cat.id+'" type="text" data-cat="'+cat.id+'" placeholder="할 일 입력" autocomplete="off" enterkeyhint="done" aria-label="새 할 일">';
+    h+='<div class="addrow" id="addrow-'+cat.id+'"><input id="add-'+cat.id+'" type="text" data-cat="'+cat.id+'" value="'+esc(S.addDraft)+'" placeholder="할 일 입력" autocomplete="off" enterkeyhint="done" aria-label="새 할 일">';
     if(subs.length)h+='<div class="addsubs" role="group" aria-label="소분류"><button class="pill" type="button" data-keep data-act="addsub" data-sub="" aria-pressed="'+(!cur)+'">없음</button>'+subs.map(s=>'<button class="pill" type="button" data-keep data-act="addsub" data-sub="'+s.id+'" aria-pressed="'+(!!cur&&cur.id===s.id)+'">'+esc(s.name)+'</button>').join("")+'</div>';
     h+='</div>';
   }
@@ -290,8 +292,9 @@ function renderAll(){
 const dlg=$("#dlg"),sheet=$("#sheet");
 const grab='<div class="grab" aria-hidden="true"><i></i></div>';
 function drawSheet(html){morph(sheet,grab+html);}
+let sheetClosing=false;
 function openSheet(kind,draw){
-  S.sheet=kind;draw();
+  sheetClosing=false;S.sheet=kind;draw();
   if(!dlg.open){dlg.classList.remove("closing");dlg.style.transform="";dlg.showModal();try{history.pushState({sheet:1},"");}catch(e){}}
 }
 function hideDlg(){
@@ -302,6 +305,7 @@ function hideDlg(){
 }
 function closeDlg(){
   if(!dlg.open)return;
+  sheetClosing=true;
   if(history.state&&history.state.sheet){history.back();}else hideDlg();
 }
 window.addEventListener("popstate",()=>{if(dlg.open)hideDlg();});
@@ -316,7 +320,8 @@ dlg.addEventListener("close",()=>{
   else if(S.sheet==="cats")commitCats();
   if(history.state&&history.state.sheet){try{history.back();}catch(e){}}
   S.sheet=null;S.editing=null;S.edit=null;S.editGone=false;S.catDraft=null;S.importData=null;S.tplSrc=null;
-  sheet.innerHTML="";
+  sheet.innerHTML="";sheetClosing=false;
+  if(toastEl.parentNode===dlg)placeToast();
 });
 (function(){/* 손잡이를 아래로 밀어 닫기 */
   let y0=null,dy=0;
@@ -335,7 +340,7 @@ function drawMenu(){
     '<button type="button" data-act="export">내보내기<small>백업 텍스트 복사</small></button>'+
     '<button type="button" data-act="import">가져오기<small>백업 텍스트 붙여넣기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
-  h+='</div>';
+  h+='</div><p class="ver">또박 '+VERSION+'</p>';
   drawSheet(h);
 }
 const NSTATE={"on":"이 기기에서 받는 중","off":"이 기기에서 꺼짐","denied":"차단됨","ios-install":"홈 화면 앱에서만 가능","unsupported":"이 브라우저는 지원 안 함","...":"확인 중…"};
@@ -380,7 +385,7 @@ function clean(t){
     cat:s(t.cat)||null,sub:s(t.sub)||null,done:!!t.done,doneAt:typeof t.doneAt==="number"?t.doneAt:null,
     createdAt:typeof t.createdAt==="number"?t.createdAt:Date.now(),
     remind:TIME_RE.test(t.time)&&Number.isInteger(t.remind)&&t.remind>=0&&t.remind<=10080?t.remind:null,
-    subtasks:Array.isArray(t.subtasks)?t.subtasks.filter(x=>x&&typeof x.t==="string").slice(0,100).map(x=>({id:s(x.id)||uid8("s"),t:x.t.slice(0,300),done:!!x.done})):[],
+    subtasks:Array.isArray(t.subtasks)?t.subtasks.filter(x=>x&&typeof x.t==="string").slice(0,100).map(x=>({id:/^[A-Za-z0-9_-]{1,40}$/.test(x.id)?x.id:uid8("s"),t:x.t.slice(0,300),done:!!x.done})):[],
     ...(typeof t.tpl==="string"&&/^r_[A-Za-z0-9_-]{1,60}$/.test(t.tpl)?{tpl:t.tpl}:{})};
 }
 function cleanTpl(r){
@@ -477,7 +482,7 @@ function drawEdit(){
     h+='<div class="field"><span class="lbl">반복</span><div class="row"><button class="repbtn" type="button" data-act="tplfrom">'+repSvg+
       (r?'매주 '+daysLabel(r.days)+' 반복 일정 수정':'매주 반복 일정으로 만들기')+'</button></div></div>';
   }
-  h+='<div class="field"><span class="lbl">세부 할 일</span><ul class="subs'+(tp?' plain':'')+'">'+e.subtasks.map(s=>'<li id="sl-'+s.id+'">'+(tp?'':'<input type="checkbox" id="sc-'+s.id+'"'+(s.done?' checked':'')+' aria-label="완료">')+'<input type="text" id="s-'+s.id+'" value="'+esc(s.t)+'" aria-label="세부 할 일"><button class="x" type="button" data-act="subdel" data-sid="'+s.id+'" aria-label="지우기">×</button></li>').join("")+
+  h+='<div class="field"><span class="lbl">세부 할 일</span><ul class="subs'+(tp?' plain':'')+'">'+e.subtasks.map(s=>{const i=esc(s.id);return '<li id="sl-'+i+'">'+(tp?'':'<input type="checkbox" id="sc-'+i+'"'+(s.done?' checked':'')+' aria-label="완료">')+'<input type="text" id="s-'+i+'" value="'+esc(s.t)+'" aria-label="세부 할 일"><button class="x" type="button" data-act="subdel" data-sid="'+i+'" aria-label="지우기">×</button></li>';}).join("")+
     '<li class="new"><input class="field-soft" type="text" id="s-new" value="'+esc(e.subDraft||"")+'" placeholder="세부 할 일 추가" autocomplete="off" enterkeyhint="done"></li></ul></div>';
   h+='<div class="field"><label for="e-note">메모</label><textarea class="inp" id="e-note" placeholder="메모">'+esc(e.note)+'</textarea></div>';
   if(tp)h+='<p class="tnote">고쳐도 이미 추가한 할 일은 그대로예요</p><div class="actions">'+(S.editing?'<button class="btn dng" type="button" data-act="tpldel">삭제</button>':'<button class="btn ghost" type="button" data-act="tplcancel">취소</button>')+'<span class="sp"></span><button class="btn pri" type="button" data-act="close">'+(S.editing?'완료':'저장')+'</button></div>';
@@ -588,6 +593,7 @@ document.addEventListener("mousedown",ev=>{if(ev.target.closest&&ev.target.close
 document.addEventListener("click",ev=>{
   const b=ev.target.closest&&ev.target.closest("[data-act]");if(!b||b.disabled)return;
   const a=b.dataset.act;
+  if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd)$/.test(a))return;
   switch(a){
     case"view":S.view=b.dataset.v;pref.set("view",S.view);S.adding=null;render();break;
     case"pick":S.sel=b.dataset.k;S.cursor=b.dataset.k;S.adding=null;render();break;
@@ -726,15 +732,23 @@ document.addEventListener("focusout",ev=>{
   }
 });
 
+/* 알림 문구: 시트가 열려 있으면 시트 안(최상단 레이어)에 띄워서 가려지거나 눌리지 않는 일이 없게 한다 */
 let tt;
+const toastEl=$("#toast"),canPop=typeof toastEl.showPopover==="function";
+function hideToast(){toastEl.hidden=true;if(canPop)try{toastEl.hidePopover();}catch(e){}}
+function placeToast(){
+  const host=dlg.open&&!sheetClosing?dlg:document.body;
+  if(toastEl.parentNode!==host)host.appendChild(toastEl);
+  if(canPop){try{toastEl.hidePopover();}catch(e){}if(!toastEl.hidden)try{toastEl.showPopover();}catch(e){}}
+}
 function toast(msg,action){
-  const t=$("#toast"),b=$("#toastAct");
+  const t=toastEl,b=$("#toastAct");
   $("#toastMsg").textContent=msg;
   b.hidden=!action;t.classList.toggle("has-act",!!action);
-  b.onclick=action?()=>{t.hidden=true;action.fn();}:null;
+  b.onclick=action?()=>{hideToast();action.fn();}:null;
   if(action)b.textContent=action.label;
-  t.hidden=true;void t.offsetWidth;t.hidden=false;
-  clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,action?5000:2400);
+  t.hidden=true;void t.offsetWidth;t.hidden=false;placeToast();
+  clearTimeout(tt);tt=setTimeout(hideToast,action?5000:2400);
 }
 
 function openDate(u){
@@ -768,7 +782,9 @@ window.TodoApp={
     store.start({
       onData(d){S.tasks=d.tasks;S.tpls=d.tpls instanceof Map?d.tpls:new Map();if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();},
       onStatus(m){if(m===S.mode)return;if(m==="live")setTimeout(()=>openDate(location.hash),0);if(m==="signedout"){S.tasks=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
-        S.mode=m;$("#main").innerHTML="";render();
+        const out=x=>x==="signedout"||x==="config";
+        if(out(m)!==out(S.mode))$("#main").innerHTML="";
+        S.mode=m;render();
         if(m==="live"||m==="local")setTimeout(()=>{S.anim=true;},300);},
       onError
     });

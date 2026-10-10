@@ -12,7 +12,7 @@ export function remindersFrom(tasks, cats, base, now = Date.now()) {
     if (t.done || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
     const [y, mo, d] = t.date.split("-").map(Number), [h, mi] = t.time.split(":").map(Number);
     const at = new Date(y, mo - 1, d, h, mi).getTime() - t.remind * 60000;
-    if (!(at >= now - 60000 && at <= max)) continue;
+    if (!(at > now && at <= max)) continue;
     const lead = LABEL[t.remind] || (t.remind + "분 후");
     out.push({ id: t.id, at, title: t.title, body: lead + " · " + fmt(t.time), url: new URL("./#d=" + t.date, base).href });
   }
@@ -27,9 +27,9 @@ export function createPush({ url, getToken, uidKey }) {
   const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 
-  async function api(path, body) {
+  async function api(path, body, keepalive) {
     const tok = await getToken();
-    const r = await fetch(RURL + path, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok }, body: JSON.stringify(body || {}) });
+    const r = await fetch(RURL + path, { method: "POST", keepalive: !!keepalive, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok }, body: JSON.stringify(body || {}) });
     if (!r.ok) throw { code: "push_" + r.status };
     return r.json();
   }
@@ -43,16 +43,19 @@ export function createPush({ url, getToken, uidKey }) {
     latest = { tasks, cats };
     clearTimeout(timer); timer = setTimeout(flush, 1200);
   }
-  async function flush() {
+  async function flush(keepalive) {
+    clearTimeout(timer);
     if (!latest || !navigator.onLine) return;
     const list = remindersFrom(latest.tasks, latest.cats, location.href);
     const hash = JSON.stringify(list);
     let prev = null; try { prev = localStorage.getItem(hashKey()); } catch (e) {}
     if (prev === hash) return;
-    try { await api("/sync", { reminders: list }); try { localStorage.setItem(hashKey(), hash); } catch (e) {} clearTimeout(retry); }
+    try { await api("/sync", { reminders: list }, keepalive); try { localStorage.setItem(hashKey(), hash); } catch (e) {} clearTimeout(retry); }
     catch (e) { clearTimeout(retry); retry = setTimeout(flush, 60000); }
   }
   window.addEventListener("online", () => { clearTimeout(timer); timer = setTimeout(flush, 1500); });
+  // 알림을 정하고 바로 앱을 닫거나 화면을 꺼도 서버에 닿도록, 가려지는 순간 바로 보낸다
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(true); });
 
   const push = {
     /* "on" | "off" | "denied" | "ios-install" | "unsupported" */

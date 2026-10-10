@@ -7,6 +7,7 @@ const V = "10.12.2";
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/여기/.test(firebaseConfig.apiKey));
 let cb = null, fb = null, auth = null, db = null, col = null, unsub = null;
 const fail = e => { if (cb) cb.onError(e); };
+const notReady = () => { fail({ code: "not_ready" }); return Promise.resolve(); };
 const bodyOf = t => { const b = Object.assign({}, t); delete b.id; return b; };
 
 async function loadFirebase() {
@@ -41,7 +42,7 @@ const store = {
       if (store.push) store.push.refresh();
       cb.onStatus("loading");
       let first = true;
-      unsub = fb.onSnapshot(col, snap => {
+      unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
         const tasks = new Map(), tpls = new Map(); let cats = null;
         snap.forEach(d => {
           const v = d.data();
@@ -50,17 +51,19 @@ const store = {
           else if (d.id.startsWith("r_")) tpls.set(d.id, Object.assign({ id: d.id }, v));
         });
         cb.onData({ tasks, cats, tpls });
-        if (store.push) store.push.schedule(tasks, cats);
+        // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
+        if (store.push && !snap.metadata.fromCache) store.push.schedule(tasks, cats);
         if (first) { first = false; cb.onStatus("live"); }
       }, fail);
     });
   },
   // 오프라인이어도 화면에는 바로 반영되고, 연결되면 서버로 올라간다.
-  set(id, b) { return fb.setDoc(fb.doc(col, id), b).catch(fail); },
-  update(id, p) { return fb.updateDoc(fb.doc(col, id), p).catch(fail); },
-  remove(id) { return fb.deleteDoc(fb.doc(col, id)).catch(fail); },
-  saveCats(cats) { return fb.setDoc(fb.doc(col, "meta"), { cats }).catch(fail); },
+  set(id, b) { return col ? fb.setDoc(fb.doc(col, id), b).catch(fail) : notReady(); },
+  update(id, p) { return col ? fb.updateDoc(fb.doc(col, id), p).catch(fail) : notReady(); },
+  remove(id) { return col ? fb.deleteDoc(fb.doc(col, id)).catch(fail) : notReady(); },
+  saveCats(cats) { return col ? fb.setDoc(fb.doc(col, "meta"), { cats }).catch(fail) : notReady(); },
   async importAll(d) {
+    if (!col) throw { code: "not_ready" };
     const ops = [];
     if (d.cats) ops.push(["meta", { cats: d.cats }]);
     d.tasks.forEach(t => ops.push([t.id, bodyOf(t)]));

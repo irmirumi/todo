@@ -311,3 +311,11 @@ button,input,label,a{touch-action:manipulation}
 .tplrow.arc{opacity:.55}
 @media (hover:none){.repbtn:hover,.tplrow:hover,.chk.gadd:hover{background:transparent}}
 .tnote{font-size:.8rem;color:var(--muted);margin:4px 0 0}
+/* 알림 문구를 최상단 레이어(popover)로 띄울 때 기본 스타일 덮기 */
+.toast{inset:auto;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));margin:0;border:0;overflow:visible;width:max-content;height:auto}
+.ver{margin:14px 0 0;text-align:center;font-size:.76rem;color:var(--muted)}
+.toast span{word-break:keep-all}
+/* 시트가 열려 있을 땐 버튼을 가리지 않게 위쪽에 */
+dialog .toast{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto}
+dialog .toast:not([hidden]){animation:toastdown .2s ease-out}
+@keyframes toastdown{from{opacity:0;transform:translate(-50%,-8px)}}

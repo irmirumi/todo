@@ -9,13 +9,15 @@
    - POST /test         이 사람의 모든 기기로 테스트 알림
    - GET  /vapid        푸시용 공개키(처음 요청 때 자동으로 만들어 D1에 보관)
    - 매분: 시간이 된 알림을 Web Push(암호화, VAPID 서명)로 보냄
-   모든 요청은 Firebase 로그인 토큰(이 프로젝트)으로 확인합니다. */
+   모든 요청은 Firebase 로그인 토큰(이 프로젝트)으로 확인하고, 처음 쓴 계정 하나만 받습니다(주인 고정). */
 
 const FIREBASE_PROJECT_ID = "my-todo-e4949";
 const APP_URL = "https://irmirumi.github.io/todo/";
 const ALLOWED_ORIGINS = ["https://irmirumi.github.io"];
 const MAX_PUSHES_PER_RUN = 4;     // 무료 플랜 CPU 한도(실행당 10ms) 안에서 넉넉히. 넘치면 다음 분에
 const DROP_IF_LATE_MS = 60 * 60 * 1000; // 1시간 넘게 밀린 알림은 보내지 않고 버림
+// 브라우저 푸시 서비스 주소만 받는다(크롬·안드로이드, 아이폰·맥, 파이어폭스, 엣지)
+const PUSH_HOSTS = /^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|[a-z0-9.-]+\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//;
 
 /* ---------------- 공용 ---------------- */
 const enc = new TextEncoder();
@@ -142,6 +144,17 @@ async function verifyUser(req) {
   return ok ? claims.sub : null;
 }
 
+/* 주인 고정: 처음 로그인해서 쓴 계정만 받는다. 바꾸려면 D1 콘솔에서 DELETE FROM kv WHERE k='owner' */
+let ownerCache = null;
+async function isOwner(env, uid) {
+  if (!ownerCache) {
+    await env.DB.prepare("INSERT OR IGNORE INTO kv (k, v) VALUES ('owner', ?)").bind(uid).run();
+    const row = await env.DB.prepare("SELECT v FROM kv WHERE k = 'owner'").first();
+    ownerCache = row && row.v;
+  }
+  return ownerCache === uid;
+}
+
 /* ---------------- 요청 처리 ---------------- */
 const str = (v, n) => typeof v === "string" ? v.slice(0, n) : "";
 async function handle(req, env) {
@@ -153,24 +166,29 @@ async function handle(req, env) {
   if (req.method !== "POST") return json(req, { error: "not_found" }, 404);
   const uid = await verifyUser(req);
   if (!uid) return json(req, { error: "unauthorized" }, 401);
+  if (!(await isOwner(env, uid))) return json(req, { error: "forbidden" }, 403);
   let data = {};
   try { data = await req.json(); } catch (e) { return json(req, { error: "bad_json" }, 400); }
 
   if (url.pathname === "/sync") {
-    const list = Array.isArray(data.reminders) ? data.reminders.slice(0, 300) : [];
-    const stmts = [env.DB.prepare("DELETE FROM rem WHERE uid = ?").bind(uid)];
-    for (const r of list) {
-      const id = str(r.id, 80), at = Number(r.at);
-      if (!id || !Number.isFinite(at)) continue;
-      stmts.push(env.DB.prepare("INSERT OR REPLACE INTO rem (uid, id, at, title, body, url) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(uid, id, Math.round(at), str(r.title, 200) || "할 일", str(r.body, 200), str(r.url, 300) || APP_URL));
+    // 이미 지난 알림은 받지 않는다(보낸 직후 다시 동기화돼 두 번 울리는 것 방지)
+    const now = Date.now(), rows = [];
+    for (const r of Array.isArray(data.reminders) ? data.reminders.slice(0, 300) : []) {
+      const id = str(r && r.id, 80), at = Math.round(Number(r && r.at));
+      if (!id || !Number.isFinite(at) || at <= now) continue;
+      rows.push({ id, at, title: str(r.title, 200) || "할 일", body: str(r.body, 200), url: /^https:\/\//.test(r.url) ? str(r.url, 300) : APP_URL });
     }
-    await env.DB.batch(stmts);
-    return json(req, { ok: true, count: stmts.length - 1 });
+    // 무료 플랜의 실행당 쿼리 수 한도와 상관없게, 목록 전체를 쿼리 두 개로 교체한다
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM rem WHERE uid = ?").bind(uid),
+      env.DB.prepare("INSERT OR REPLACE INTO rem (uid, id, at, title, body, url) SELECT ?, json_extract(value, '$.id'), json_extract(value, '$.at'), json_extract(value, '$.title'), json_extract(value, '$.body'), json_extract(value, '$.url') FROM json_each(?)")
+        .bind(uid, JSON.stringify(rows))
+    ]);
+    return json(req, { ok: true, count: rows.length });
   }
   if (url.pathname === "/subscribe") {
     const ep = str(data.endpoint, 1000), p = str(data.keys && data.keys.p256dh, 200), a = str(data.keys && data.keys.auth, 100);
-    if (!/^https:\/\//.test(ep) || !p || !a) return json(req, { error: "bad_subscription" }, 400);
+    if (!PUSH_HOSTS.test(ep) || !p || !a) return json(req, { error: "bad_subscription" }, 400);
     await env.DB.prepare("INSERT OR REPLACE INTO subs (endpoint, uid, p256dh, auth, created) VALUES (?, ?, ?, ?, ?)").bind(ep, uid, p, a, Date.now()).run();
     return json(req, { ok: true });
   }
