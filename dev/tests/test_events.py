@@ -45,11 +45,11 @@ def go(w,h,tag):
     print(tag,"ev form days:",[x.inner_text() for x in pg.locator(".days .pill[aria-pressed=true]").all()],"time:",pg.input_value("#e-time"),pg.input_value("#e-end"))
     pg.keyboard.type("동아리"); pg.fill("#e-place","학생회관"); pg.click("[data-act=evcolor][data-color=c3]")
     pg.screenshot(path=OUT+tag+"4-evedit.png")
-    pg.click("[data-act=close]"); pg.wait_for_timeout(400); print(tag,"toast:",pg.inner_text("#toastMsg"),"| ev blocks:",pg.locator(".blk.ev").count())
+    pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400); print(tag,"toast:",pg.inner_text("#toastMsg"),"| ev blocks:",pg.locator(".blk.ev").count())
     # slot → 할 일
     col=pg.locator(".ttcol >> nth=5"); bb=col.bounding_box()
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.3); pg.wait_for_timeout(300)
-    pg.click("[data-act=slottask]"); pg.wait_for_timeout(300); pg.keyboard.type("슬롯 할 일"); pg.click("[data-act=close]"); pg.wait_for_timeout(400)
+    pg.click("[data-act=slottask]"); pg.wait_for_timeout(300); pg.keyboard.type("슬롯 할 일"); pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)
     t=[x for x in pg.evaluate("[...__d.tasks.values()]") if x["title"]=="슬롯 할 일"]; print(tag,"slot task:",t and (t[0]["date"],t[0]["time"],t[0]["end"]))
     # menu list + archive
     pg.click("[data-act=menu]"); pg.wait_for_timeout(200); print(tag,"menu:",pg.inner_text(".menu").replace("\n"," | ")[:120])

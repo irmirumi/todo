@@ -655,3 +655,24 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 .laterpick button small{font-size:.76rem;color:var(--muted)}
 @media (hover:hover){.laterpick button:hover{background:var(--sunk)}}
 .tt3 .ttallL{align-self:stretch}
+/* 2.2.0 이름 뒤 소분류 태그, 길이 줄 */
+.ntag{display:inline-block;font-size:.84em;font-weight:600;line-height:1.35;padding:0 .42em;border-radius:5px;margin-left:1px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:baseline;
+  background:color-mix(in srgb,currentColor 13%,transparent);text-decoration:none}
+.blk.ev .ntag{background:rgba(255,255,255,.22)}
+.ititle .ntag{font-size:.5em;font-weight:600;padding:.08em .5em;border-radius:6px;background:color-mix(in srgb,var(--cc) 12%,transparent);color:color-mix(in srgb,var(--cc) 70%,var(--ink))}
+.ititle.done .ntag{opacity:.6}
+.durrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;margin-top:8px}
+.durrow .dlbl{font-size:.8rem;font-weight:600;color:var(--muted);margin-right:2px}
+.durrow .inp.dur{width:96px;height:34px;padding:0 10px;font-size:16px;border-radius:999px}
+/* 이름 + 태그: 이름만 줄어들고 태그는 늘 보이게 */
+.uchip,.grpb .gl,.tplrow .nm,.glist .gtt{display:flex;align-items:baseline;gap:4px;min-width:0}
+.uchip .nt,.grpb .gl .nt,.tplrow .nm .nt,.glist .gtt .nt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ntag{flex:none}
+.uchip .ntag,.grpb .gl .ntag{font-size:.9em;padding:0 .35em}
+.blk .btl{display:flex;align-items:baseline;gap:3px;min-width:0;flex:none}
+.blk .btl .bt{flex:0 1 auto;min-width:0}
+.blk .btl .ntag{font-size:.82em;line-height:1.3}
+.ucarry b{flex:none}
+/* 칸 안 태그는 이름보다 한 단계 작게(기준을 칸 글자 크기로 고정) */
+.blk .ntag,.blk .btl .ntag{font-size:.62rem;line-height:13px}
+.tt3 .blk .ntag,.tt3 .blk .btl .ntag{font-size:.66rem;line-height:15px}

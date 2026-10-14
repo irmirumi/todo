@@ -56,7 +56,16 @@ with sync_playwright() as p:
     pg.click("#g-k1 .ttl:has-text('장보기')")
     check(pg.inner_text(".sheet .btn.pri") == "저장", "편집 시트 주 버튼은 '저장'")
     pg.fill("#e-time", "18:30"); pg.mouse.click(5, 5); pg.wait_for_timeout(300)
-    check("오후 6:30" in pg.inner_text("#g-k1"), "바깥 눌러 닫으면 시간 저장")
+    check("오후 6:30" not in pg.inner_text("#g-k1"), "바깥 눌러 닫으면 저장 안 함")
+    check(pg.inner_text("#toastMsg") == "저장 안 하고 닫았어요" and pg.inner_text("#toastAct") == "다시 열기", "'다시 열기' 알림")
+    pg.click("#toastAct"); pg.wait_for_timeout(250)
+    check(pg.input_value("#e-time") == "18:30", "다시 열면 고치던 그대로")
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+    check(pg.inner_text("#toastAct") == "다시 열기", "다시 연 뒤 또 닫아도 다시 열기")
+    pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)
+    check("오후 6:30" in pg.inner_text("#g-k1"), "저장 버튼으로 저장")
+    pg.click("#g-k1 .ttl:has-text('장보기')"); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+    check(not pg.is_visible("#toast") or pg.inner_text("#toastMsg") != "저장 안 하고 닫았어요", "안 고치고 닫으면 알림 없음")
 
     # 삭제 → 되돌리기
     pg.click("#g-k1 .ttl:has-text('빨래')"); pg.click(".sheet [data-act=del]"); pg.wait_for_timeout(250)

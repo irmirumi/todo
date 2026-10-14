@@ -33,7 +33,7 @@ with sync_playwright() as p:
     check(heads == ["일", "월", "화", "수", "목", "금", "토"], "시간표 한 주는 일요일부터: " + str(heads))
     # 소분류 태그
     blk = pg.locator(".blk.tblk:has-text('과제 풀기')")
-    check("과제 풀기 자료구조" in blk.inner_text() and "수업" not in blk.inner_text(), "할 일 칸: 소분류 + 이름(카테고리 이름 없음)")
+    check("과제 풀기 자료구조" in " ".join(blk.inner_text().split()) and "수업" not in blk.inner_text(), "할 일 칸: 소분류 + 이름(카테고리 이름 없음)")
     # 보기 필터
     check(pg.get_attribute("[data-act=ttshow][data-v=all]", "aria-pressed") == "true", "기본은 모두")
     pg.click("[data-act=ttshow][data-v=ev]"); pg.wait_for_timeout(150)
@@ -47,7 +47,7 @@ with sync_playwright() as p:
     pg.click(f".ttcol[data-k='{tk}'] .blk.ev")
     pg.click("[data-act=evday]")
     check(pg.inner_text(".sheet h2") == "이 날만 바꾸기" and pg.input_value("#e-time") == "15:00" and pg.input_value("#e-place") == "공학관", "이 날만 바꾸기: 원래 값으로 시작")
-    pg.fill("#e-time", "1100"); pg.fill("#e-end", "1230"); pg.fill("#e-place", "인문관 101"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(250)
+    pg.fill("#e-time", "1100"); pg.fill("#e-end", "1230"); pg.fill("#e-place", "인문관 101"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(250)
     o = ev()["ovr"]
     check(o == {tk: {"time": "11:00", "end": "12:30", "place": "인문관 101"}}, "이 날만 저장: " + str(o))
     check(ev()["time"] == "15:00" and ev()["place"] == "공학관", "평소 값은 그대로")
@@ -63,10 +63,10 @@ with sync_playwright() as p:
     check(not ev().get("ovr"), "원래대로 → 변경 지움")
     check("15:00–16:30" in pg.locator(f".ttcol[data-k='{tk}'] .blk.ev").inner_text(), "시간표도 원래대로")
     # 안 바꾸고 닫으면 안 씀
-    pg.click(f".ttcol[data-k='{tk}'] .blk.ev"); pg.click("[data-act=evday]"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(200)
+    pg.click(f".ttcol[data-k='{tk}'] .blk.ev"); pg.click("[data-act=evday]"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(200)
     check(not ev().get("ovr"), "그대로 닫으면 변경 없음")
     # 캘린더 줄
-    pg.click(f".ttcol[data-k='{tk}'] .blk.ev"); pg.click("[data-act=evday]"); pg.fill("#e-place", "온라인"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(200)
+    pg.click(f".ttcol[data-k='{tk}'] .blk.ev"); pg.click("[data-act=evday]"); pg.fill("#e-place", "온라인"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(200)
     pg.click(f".tth[data-k='{tk}']"); pg.wait_for_timeout(200)
     row = pg.locator(".evrow").inner_text()
     check("온라인" in row and "이 날만 변경" in row and "오후 3:00" in row, "캘린더 고정 일정 줄에 이 날만 변경 표시: " + row.replace("\n", " "))

@@ -30,7 +30,7 @@ with sync_playwright() as p:
     pg.click(".remind [data-m='10']"); pg.wait_for_timeout(200)
     print("toast (push off):", pg.inner_text("#toast"))
     pg.screenshot(path=OUT+"r-edit.png")
-    pg.go_back(); pg.wait_for_timeout(350)
+    pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(350)
     print("row meta:", pg.locator("#main .meta").first.inner_text().replace("\n"," | "))
     pg.click("[data-act=menu]"); pg.wait_for_timeout(150)
     print("menu notify:", pg.inner_text("#m-notify"))

@@ -26,7 +26,8 @@ with sync_playwright() as p:
     pg.mouse.move(box["x"]+10,box["y"]+10); pg.mouse.down(); pg.mouse.move(20,20,steps=5); pg.mouse.up()
     print("drag to outside keeps open:", pg.is_visible("#dlg"))
     pg.mouse.click(20,20); pg.wait_for_timeout(300)
-    print("click outside closes:", not pg.is_visible("#dlg"))
+    print("click outside closes:", not pg.is_visible("#dlg"), "| toast:", pg.inner_text("#toastMsg"))
+    pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)  # 2.2.0~: 다시 열기 → 저장
     # 할 일들: 수업 카테고리
     pg.click("[data-act=add][data-cat=k2]")
     def add(title,sub):

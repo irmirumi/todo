@@ -53,7 +53,7 @@ def go(w,h,tag):
     pg.click("#sheet [data-act=toggle]"); pg.wait_for_timeout(300); print(tag,"info after done:",pg.inner_text("#sheet .actions"))
     pg.click("[data-act=iedit]"); pg.wait_for_timeout(250); print(tag,"edit opened:",pg.locator("#e-title").count())
     pg.screenshot(path=OUT+tag+"2-edit.png")
-    pg.click("[data-act=close]"); pg.wait_for_timeout(300)
+    pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     if pg.locator(".blk.ghost").count():
         pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); print(tag,"ghost info:",pg.inner_text("#sheet").replace("\n"," | ")[:160])
         pg.screenshot(path=OUT+tag+"2-ginfo.png")

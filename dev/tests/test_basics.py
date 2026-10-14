@@ -28,7 +28,7 @@ def seed(pg):
     pg.fill("#cn-k2", "수업")
     for n in ["자료구조", "영어"]:
         pg.fill("#snew-k2", n); pg.press("#snew-k2", "Enter")
-    pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
+    pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     pg.click("[data-act=add][data-cat=k2]")
     pg.click(".addsubs [data-sub]:nth-child(2)")
     pg.fill("#add-k2", "과제 3 제출"); pg.press("#add-k2", "Enter")
@@ -41,11 +41,12 @@ def seed(pg):
     pg.keyboard.type("엄마 생신 선물 고르기"); pg.keyboard.press("Enter"); pg.keyboard.press("Escape")
     pg.click("text=장보기")
     pg.fill("#e-time", "18:30"); pg.fill("#s-new", "우유"); pg.press("#s-new", "Enter"); pg.fill("#s-new", "계란")
-    pg.mouse.click(5, 5)  # 바깥 눌러 닫기 → 자동 저장
+    pg.click(".sheet [data-act=save]")  # 2.2.0~: 저장은 저장 버튼으로만
     pg.wait_for_timeout(300)
     print("autosave time:", pg.locator("#main .chip.time").all_inner_texts(), "subs:", pg.locator("#main .meta").first.inner_text())
     pg.click("text=과제 3 제출"); pg.fill("#e-time", "09:00")
-    pg.go_back(); pg.wait_for_timeout(300)  # 뒤로가기로 닫기
+    pg.go_back(); pg.wait_for_timeout(300)  # 뒤로가기는 저장 안 하고 닫음 → 다시 열기 → 저장
+    print("discard toast:", pg.inner_text("#toastMsg")); pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)
     print("back closes sheet:", not pg.is_visible("#dlg"), "| times:", pg.locator("#main .chip.time").all_inner_texts())
     pg.click(".task:has-text('단어') .chk"); pg.wait_for_timeout(500)
     # 삭제 + 되돌리기
@@ -80,10 +81,10 @@ def extra(pg):
     pg.click("[data-act=catup][data-cat=k3]"); pg.wait_for_timeout(100)
     pg.click("[data-act=catarc][data-cat=k2]"); pg.wait_for_timeout(100)
     pg.screenshot(path=OUT+"p-cats.png")
-    pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
+    pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     print("order after:", pg.locator(".ghead h3").all_inner_texts())
     print("archived hidden:", pg.locator("text=과제 3 제출").count()==0)
-    pg.click("[data-act=menu]"); pg.click("[data-act=cats]"); pg.click("[data-act=catunarc][data-cat=k2]"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
+    pg.click("[data-act=menu]"); pg.click("[data-act=cats]"); pg.click("[data-act=catunarc][data-cat=k2]"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     print("restored order:", pg.locator(".ghead h3").all_inner_texts())
     # 공휴일: 10/9
     if pg.locator("[data-k='2026-10-09']").count()==0: pg.click("[data-act=calmode]"); pg.wait_for_timeout(200)

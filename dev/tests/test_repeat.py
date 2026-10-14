@@ -31,7 +31,7 @@ def run(w,h,touch,tag):
     pg.click(".days [data-d='1']"); pg.click(".days [data-d='3']"); pg.wait_for_timeout(100)
     print("label:",pg.inner_text(".field .lbl >> nth=1"))
     pg.screenshot(path=OUT+tag+"-tpl.png")
-    pg.click("[data-act=close]"); pg.wait_for_timeout(400)
+    pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)
     print("toast:",pg.inner_text("#toastMsg"))
     d=pg.evaluate("({t:[...__d.tasks.values()],r:[...__d.tpls.values()]})")
     print("tpls:",[(r["title"],r["days"],r["time"],r["remind"],len(r["subtasks"])) for r in d["r"]], "| task linked:",d["t"][0].get("tpl")==d["r"][0]["id"], "| task kept time/remind/sub:",d["t"][0]["time"],d["t"][0]["remind"],len(d["t"][0]["subtasks"]))
@@ -65,12 +65,12 @@ def run(w,h,touch,tag):
     for dd in ["1","3",str(td.isoweekday()%7)]:
         if pg.get_attribute(f".days [data-d='{dd}']","aria-pressed")=="true": pg.click(f".days [data-d='{dd}']")
     pg.click(".days [data-d='0']" if nxt.isoweekday()%7!=0 else ".days [data-d='2']"); pg.wait_for_timeout(100)
-    pg.click("[data-act=close]"); pg.wait_for_timeout(400)
+    pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)
     print("after day change ghosts on",k,":",pg.locator(".task.ghost").count())
     # new template from menu
     pg.click("[data-act=menu]"); pg.wait_for_timeout(200); pg.click("[data-act=tpls]"); pg.wait_for_timeout(200); pg.click("[data-act=tplnew]"); pg.wait_for_timeout(200)
     print("focused title:",pg.evaluate("document.activeElement.id"))
-    pg.keyboard.type("운동"); print("new tpl default day:",[x.inner_text() for x in pg.locator(".days .pill[aria-pressed=true]").all()]); pg.click("[data-act=close]"); pg.wait_for_timeout(400)
+    pg.keyboard.type("운동"); print("new tpl default day:",[x.inner_text() for x in pg.locator(".days .pill[aria-pressed=true]").all()]); pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)
     print("ghosts now:",[x.inner_text().split("\n")[0] for x in pg.locator(".task.ghost").all()])
     # cancel new template
     pg.click("[data-act=menu]"); pg.wait_for_timeout(200); pg.click("[data-act=tpls]"); pg.wait_for_timeout(200); pg.click("[data-act=tplnew]"); pg.wait_for_timeout(200)
