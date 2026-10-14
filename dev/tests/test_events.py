@@ -38,7 +38,7 @@ def go(w,h,tag):
     pg.click("[data-act=eskipday]"); pg.wait_for_timeout(300); print(tag,"after skip:",pg.inner_text("#sheet [data-act=eskipday]"))
     pg.go_back(); pg.wait_for_timeout(300); print(tag,"off blocks:",pg.locator(".blk.ev.off").count())
     # slot → 고정 일정
-    col=pg.locator(".ttcol >> nth=3"); bb=col.bounding_box()
+    col=pg.locator(".ttcol >> nth=4"); bb=col.bounding_box()
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.8); pg.wait_for_timeout(300)
     print(tag,"slot sheet:",pg.inner_text("#sheet").replace("\n"," | "))
     pg.click("[data-act=slotev]"); pg.wait_for_timeout(300)
@@ -47,7 +47,7 @@ def go(w,h,tag):
     pg.screenshot(path=OUT+tag+"4-evedit.png")
     pg.click("[data-act=close]"); pg.wait_for_timeout(400); print(tag,"toast:",pg.inner_text("#toastMsg"),"| ev blocks:",pg.locator(".blk.ev").count())
     # slot → 할 일
-    col=pg.locator(".ttcol >> nth=4"); bb=col.bounding_box()
+    col=pg.locator(".ttcol >> nth=5"); bb=col.bounding_box()
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.3); pg.wait_for_timeout(300)
     pg.click("[data-act=slottask]"); pg.wait_for_timeout(300); pg.keyboard.type("슬롯 할 일"); pg.click("[data-act=close]"); pg.wait_for_timeout(400)
     t=[x for x in pg.evaluate("[...__d.tasks.values()]") if x["title"]=="슬롯 할 일"]; print(tag,"slot task:",t and (t[0]["date"],t[0]["time"],t[0]["end"]))

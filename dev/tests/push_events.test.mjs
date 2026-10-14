@@ -12,15 +12,10 @@ assert.equal(r.length, 6);
 assert.deepEqual(r.map(x => x.id.split("@")[1]), ["2026-10-05","2026-10-16","2026-10-19","2026-10-23","2026-10-26","2026-10-30"]);
 assert.equal(r[0].body, "10분 후 · 오전 9:00 · 공학관");
 assert.equal(new Date(r[0].at).toTimeString().slice(0, 5), "08:50");
-// 마감 알림: 시간 있으면 그 시각 기준, 없으면 그날 9시 기준. 완료·알림 끔은 제외
-const due = remindersFrom(new Map([
-  ["t_a", { id: "t_a", title: "과제", due: "2026-10-07", dueTime: "15:00", dueRemind: 1440, cat: "k1" }],
-  ["t_b", { id: "t_b", title: "리포트", due: "2026-10-09", dueTime: null, dueRemind: 60, cat: "k1" }],
-  ["t_c", { id: "t_c", title: "끝남", due: "2026-10-09", dueRemind: 60, done: true, cat: "k1" }],
-  ["t_d", { id: "t_d", title: "알림 없음", due: "2026-10-09", dueRemind: null, cat: "k1" }]]), [], "https://x/todo/", now, null);
-assert.deepEqual(due.map(x => x.id), ["t_a#due", "t_b#due"]);
-assert.equal(new Date(due[0].at).toString().slice(0, 21), new Date(2026, 9, 6, 15, 0).toString().slice(0, 21));
-assert.equal(due[0].body, "내일 마감 · 오후 3:00");
-assert.equal(new Date(due[1].at).getHours(), 8);
-assert.ok(due[1].url.endsWith("#d=2026-10-09"));
+// 이 날만 바꾸기: 10/16(금) 11:00 · 인문관
+events.get("e_1").ovr = { "2026-10-16": { time: "11:00", end: null, place: "인문관" } };
+const r2 = remindersFrom(new Map(), [], "https://x/todo/", now, events);
+const f = r2.find(x => x.id === "e_1@2026-10-16");
+assert.equal(new Date(f.at).toTimeString().slice(0, 5), "10:50");
+assert.equal(f.body, "10분 후 · 오전 11:00 · 인문관");
 console.log("PASS");

@@ -101,9 +101,9 @@ dev/
 
 | 접두어 | 의미 | 주요 필드 |
 |---|---|---|
-| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, due(YYYY-MM-DD), dueTime(HH:MM), dueRemind(분)` — 마감(1.5.0)은 '할 날(date)'과 따로. 마감 필드는 없을 수도 있다(옛 문서) |
+| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
 | `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, subtasks[{id,t}], createdAt` |
-| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, from, until, holOff, remind, note, skips[날짜], archived, createdAt` |
+| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다 |
 | `a_YYYY-MM` | 묶인 옛 기록(1.4.0) | `tasks: {t_id: 할 일 본문}` — 60일 지난 완료·안 함. `archive.js`가 하루 한 번(기기별 localStorage `ttobak.arch.<uid>`) 묶고, 화면에는 보통 할 일로 펼쳐 준다. 고치거나 지우면 `writeOps`가 원래 문서로 되살리며 묶음에서 뺀다(한 쓰기 묶음으로). 같은 id가 따로도 있으면 따로 있는 쪽이 이기고, 옛 사본은 다음 묶기 때 지운다 |
 | `meta` | 카테고리 | `cats: [{id, name, color, subs:[{id,name}], archived?}]` (배열 순서 = 화면 순서) |
 
@@ -168,7 +168,7 @@ dev/
 - **`test_archive.py` + `fake_firebase.js`**: 실제 `app.js`를 띄우고 gstatic Firebase만 가짜로 바꿔 끼운 통합 테스트(묶기·펼치기·풀기·되돌리기·하루 한 번). 가짜는 merge 깊은 병합, `deleteField`, 배치 원자성, undefined 거부를 흉내 낸다. Firestore 에뮬레이터는 내려받기가 막혀 못 썼다. 서비스 워커는 막고 돈다.
 - **`archive.test.mjs`**: 묶기 한도(배치 500, 문서당 1500개, 60일 경계).
 - **`test_quick.py`**: 한 줄 입력 해석 표(22개, 기준일 고정)와 입력 흐름, 폰 종일 줄 개수, 23:40 칸 안 잘림, `#add`·`#week` 바로가기.
-- **`test_due.py`**: 마감(D-n, 마감 지남, 캘린더 점, 그날 마감 줄, 수업에서 과제 추가, 안 고치면 안 씀, undefined 쓰기 거부).
+- **`test_week_ev.py`**: 시간표 일요일 시작·보기 필터(기억)·소분류 태그, 고정 일정 이 날만 바꾸기(저장·표시·원래대로·내보내기).
 - **`test_asserts.py`**: 핵심 흐름 회귀 테스트(assert 20개). 추가·편집 저장·삭제/되돌리기·밀린 할 일 옮기기/되돌리기·스와이프·시간표 24시간제·창 크기 바뀔 때 다시 그리기·XSS. **새 기능을 넣으면 여기에 assert를 같이 넣는다.**
 - **`test_*.py`(나머지)**: 화면 테스트. **assert가 없고 값을 출력만 한다.** run_all.sh는 오류·Traceback·비정상 종료만 실패로 잡으니, 출력값은 직접 읽어 본다. 메모리 저장소를 주입하고, 폰(390px)과 PC(1280px) 크기에서 흐름을 확인한다. 스크린샷은 `dev/tests/out/`에 쌓이니까 **바뀐 화면은 직접 열어서 눈으로 확인한다.** 레이아웃 버그 대부분이 이 과정에서 잡혔다.
 - **날짜 의존**: 테스트 데이터는 대부분 "오늘" 기준이라 실행하는 요일에 따라 결과가 달라질 수 있다. 실패하면 앱 버그인지 테스트 가정이 깨진 건지부터 본다.
@@ -217,7 +217,8 @@ dev/
 - **1.2.0**: 탭 이름 '캘린더·시간표·전체', 지난 할 일 접기와 '안 함', 시간표 정보 시트·종일 줄, 폰 여백 복원
 - **1.2.1**: 시간표 겹침 묶음
 - **1.3.0**: 고정 일정(수업), 시간표 빈칸으로 추가, '반복 일정' 이름을 '반복 할 일'로 변경
+- **1.7.0**: 시간표 일요일 시작(`weekStart`; 한 줄 입력의 '이번 주/다음 주'는 `monStart` 월요일 기준 유지), 보기 필터 `todo.ttShow`(all/ev/task), 칸 안 소분류 태그, 고정 일정 이 날만 바꾸기(`ovr`, 시트 `evday`). **마감·과제 추가 제거**(사용자: 할 일과 역할이 겹침)
 - **1.6.0**: 한 줄 입력(`parseQuick`: 낱말 단위, 오늘·내일·요일·날짜·n시·오전/오후·범위, 오전/오후 없는 1~6시는 오후, 해석한 걸 빼고 제목이 비면 안 함, 입력칸 아래 미리보기 + '그대로 쓰기'), 폰 종일 줄 개수 칩, manifest `shortcuts`(`#add`, `#week` — `openDate`에서 처리), 자정 근처 칸 잘림 수정
-- **1.5.0**: 마감(D-n·캘린더 점·그날 마감 줄·마감 알림 1시간/하루/3일 전, 시간 없으면 9시 기준), 고정 일정 정보 → '과제 추가'(마감 = 다음 수업, 카테고리는 지난번 것 `todo.evcat`)
+- **1.5.0**(1.7.0에서 제거): 마감(D-n·캘린더 점·그날 마감 줄·마감 알림 1시간/하루/3일 전, 시간 없으면 9시 기준), 고정 일정 정보 → '과제 추가'(마감 = 다음 수업, 카테고리는 지난번 것 `todo.evcat`)
 - **1.4.0**: 오래된 기록 월별 묶기(`a_YYYY-MM`)
 - **1.3.1**: 점검 반영. 창 크기 바뀌면 시간표 다시 그림, 실시간 연결 끊기면 재연결(지수 대기, 최대 1분), 서비스 워커가 `cache: no-cache`로 확인(새 버전이 한 번 열 때 들어오게), 알림 목록 하루 한 번 강제 동기화, 시간표 칸 시간 24시간제, 편집 시트 버튼 '저장', '오늘로 옮기기' 되돌리기, 테스트 러너가 크래시도 실패로 잡게
