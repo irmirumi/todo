@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="1.9.1";
+const VERSION="2.0.0";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
@@ -221,8 +221,10 @@ function render(){
   document.body.dataset.auth=out?"out":"in";
   for(const v of ["day","week","all"]){const b=document.querySelector('[data-act=view][data-v="'+v+'"]');if(b)b.setAttribute("aria-pressed",S.view===v);}
   const bn=$("#banner");
-  bn.hidden=S.mode!=="local";
+  const offline=S.mode!=="local"&&!out&&navigator.onLine===false;
+  bn.hidden=S.mode!=="local"&&!offline;bn.classList.toggle("offline",offline);
   if(S.mode==="local")bn.textContent="로그인하지 않아 저장되지 않아요";
+  else if(offline)bn.textContent="오프라인이에요. 고친 건 연결되면 저장돼요";
   if(S.mode==="signedout")return renderLogin();
   if(S.mode==="config")return renderConfig();
   if(S.view==="day"){renderCal();renderDay();}else if(S.view==="week")renderWeek();else renderAll();
@@ -302,7 +304,7 @@ function ghostRow(t){
   meta.push('<span class="rep">'+repSvg+'매주 '+daysLabel(t.days)+'</span>');
   return '<li id="gh-'+t.id+'" class="task ghost" style="--cc:var(--'+cat.color+')">'+
     '<button class="chk gadd" type="button" data-act="tpladd" data-id="'+t.id+'" data-k="'+t.date+'" aria-label="'+esc(t.title)+' 할 일로 추가">'+addSvg+'</button>'+
-    '<button class="ttl" type="button" data-act="tpl" data-id="'+t.id+'"><span class="tline"><span class="t">'+esc(t.title)+'</span>'+(sub?'<span class="tag">'+esc(sub.name)+'</span>':'')+'</span>'+
+    '<button class="ttl" type="button" data-act="ginfo" data-id="'+t.id+'" data-k="'+t.date+'"><span class="tline"><span class="t">'+esc(t.title)+'</span>'+(sub?'<span class="tag">'+esc(sub.name)+'</span>':'')+'</span>'+
     '<span class="meta">'+meta.join("")+'</span></button></li>';
 }
 /* withDate: 날짜 칩 표시(완료 목록), withCat: 카테고리 이름 표시(전체 탭) */
@@ -473,7 +475,7 @@ function renderWeek(){
   h1=Math.min(24,Math.max(h1,h0+1));
   const H=wide?48:40,px=m=>((m-h0*60)/60*H).toFixed(1);
   const mainW=($("#main")&&$("#main").clientWidth)||Math.min(window.innerWidth,1060)-24;
-  const colW=three?Math.floor((mainW-2-30)/3*10)/10:(mainW-(wide?40:30))/cols.length;
+  const colW=three?Math.floor((mainW-2-30)/3.12*10)/10:(mainW-(wide?40:30))/cols.length;
   const first=three?S.ttFirst:days[0],{title,rel}=ttTitle(first,three);
   const thisWeek=weekStart(today);
   const seg=[["all","모두"],["ev","고정 일정"],["task","할 일"]];
@@ -575,8 +577,8 @@ const ttHasToday=first=>today>=first&&today<=addDays(first,2);
 function placeTT3(days,colW,h0,H,nowM){
   const tt=$("#main .tt3");if(!tt)return;
   const hd=tt.querySelector(".tthead");if(hd)tt.style.setProperty("--hdh",hd.offsetHeight+"px");
-  const top=tt.getBoundingClientRect().top+window.scrollY;
-  tt.style.maxHeight=Math.max(320,window.innerHeight-Math.min(top,260)-12)+"px";
+  const top=tt.getBoundingClientRect().top+window.scrollY,ft=$("#main .ttfoot"),fh=ft?ft.offsetHeight+12:0;
+  tt.style.maxHeight=Math.max(300,window.innerHeight-Math.min(top,260)-fh-16)+"px";
   const i=Math.max(0,days.indexOf(S.ttFirst)),x=Math.round(i*colW);
   S.ttPlacing=true;
   if(Math.abs(tt.scrollLeft-x)>2)tt.scrollLeft=x;
@@ -1140,7 +1142,7 @@ document.addEventListener("mousedown",ev=>{if(ev.target.closest&&ev.target.close
 document.addEventListener("click",ev=>{
   const b=ev.target.closest&&ev.target.closest("[data-act]");if(!b||b.disabled)return;
   const a=b.dataset.act;
-  if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip|tgroup|einfo|slot|evs)$/.test(a))return;
+  if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip|tgroup|einfo|slot|evs)$/.test(a)){if(!S.loadTold){S.loadTold=true;toast("불러오는 중이에요. 잠시만요");setTimeout(()=>{S.loadTold=false;},2500);}return;}
   switch(a){
     case"view":{const v=b.dataset.v;if(v==="week"&&S.view!=="week"){S.week=weekStart(S.sel);S.ttFirst=S.sel;}S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
     case"ttshow":S.ttShow=b.dataset.v;pref.set("ttShow",S.ttShow);render();break;
@@ -1387,6 +1389,9 @@ if(navigator.serviceWorker)navigator.serviceWorker.addEventListener("message",e=
 function tick(){const k=keyOf(new Date());if(k!==today){if(S.sel===today){S.sel=k;S.cursor=k;}today=k;render();}else if(S.view==="week"&&!document.hidden&&S.mode==="live")render();}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
 setInterval(tick,60000);
+/* 연결이 끊기고 돌아올 때 위 알림 줄 갱신 */
+window.addEventListener("offline",()=>render());
+window.addEventListener("online",()=>{render();if(S.mode==="live")toast("다시 연결됐어요");});
 (function(){let w0=window.innerWidth,rz=null;
   window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=window.innerWidth;
     if(w===w0){if(S.view==="week"&&S.ttDays&&$("#main .tt3"))placeTT3(S.ttDays,S.ttColW,0,0,0);return;}

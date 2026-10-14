@@ -77,7 +77,7 @@ def run(w,h,touch,tag):
     pg.keyboard.type("취소될 것"); pg.click("[data-act=tplcancel]"); pg.wait_for_timeout(300)
     print("tpl count after cancel:",pg.evaluate("__d.tpls.size"))
     # delete + undo via ghost title
-    pg.click(".task.ghost .ttl >> nth=0"); pg.wait_for_timeout(200); pg.click("[data-act=tpldel]"); pg.wait_for_timeout(300)
+    pg.click(".task.ghost .ttl >> nth=0"); pg.wait_for_timeout(200); pg.click("[data-act=itpl]"); pg.wait_for_timeout(200); pg.click("[data-act=tpldel]"); pg.wait_for_timeout(300)
     print("after del:",pg.evaluate("__d.tpls.size")); pg.click("#toastAct"); pg.wait_for_timeout(300); print("after undo:",pg.evaluate("__d.tpls.size"))
     # export/import roundtrip
     exp=pg.evaluate("(()=>{document.querySelector('[data-act=menu]').click();return 1})()"); pg.wait_for_timeout(200); pg.click("[data-act=export]"); pg.wait_for_timeout(200)

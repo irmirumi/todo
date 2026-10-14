@@ -39,6 +39,10 @@ with sync_playwright() as p:
     check(pg.evaluate("window.__xss") is None, "제목의 HTML이 실행되지 않음")
     check(pg.locator(".task:has-text('img src=x')").count() == 1, "HTML 제목이 글자로 보임")
 
+    # 오프라인 알림 줄(메모리 저장소는 'local'이라 원래 줄이 떠 있음 → 문구만 바뀌지 않는지 확인)
+    ctx.set_offline(True); pg.wait_for_timeout(200)
+    check("로그인하지 않아" in pg.inner_text("#banner"), "로그인 안 한 상태 알림이 오프라인 알림보다 먼저")
+    ctx.set_offline(False); pg.wait_for_timeout(200)
     # 추가: 엔터로 두 개, 포커스 유지
     before = pg.locator("#g-k1 .task:not(.ghost)").count()
     pg.click("[data-act=add][data-cat=k1]")
