@@ -613,3 +613,11 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 /* 한국어는 낱말 단위로 줄바꿈(너무 길면 그때만 끊음) */
 p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overflow-wrap:anywhere}
 .navs .ttshow{margin-right:10px;align-self:center}
+
+/* 폰 3일 보기(시안): 시간표 상자 안에서 가로·세로로 움직이고, 날짜 줄과 시각 눈금은 붙어 있게 */
+.tt3{overflow:auto;max-height:calc(100dvh - 190px);overscroll-behavior:contain;scroll-snap-type:x mandatory;padding-right:0}
+.tt3 .tthead,.tt3 .ttall,.tt3 .ttbody{grid-template-columns:30px repeat(var(--cols),var(--cw));width:max-content}
+.tt3 .tthead>span:first-child,.tt3 .ttallL,.tt3 .ttgut{position:sticky;left:0;z-index:3;background:var(--surface)}
+.tt3 .tthead{top:0}
+.tt3 .ttall{position:sticky;top:58px;z-index:2;background:var(--surface)}
+.tt3 .ttcol,.tt3 .tth{scroll-snap-align:start;scroll-margin-left:30px}

@@ -43,7 +43,7 @@ const pref={get(k,d){try{const v=localStorage.getItem("todo."+k);return v==null?
 const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
 
 const S={tasks:new Map(),tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
-  calMode:pref.get("calMode",narrow?"week":"month"),ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
+  calMode:pref.get("calMode",narrow?"week":"month"),tt3:pref.get("tt3","")==="1",ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
   adding:null,addSub:null,addDraft:"",lastSub:{},focusAdd:false,
   sheet:null,editing:null,edit:null,editGone:false,catDraft:null,catDelArm:null,catMoved:null,importData:null};
 let store=null;
@@ -460,7 +460,9 @@ function renderWeek(){
   }
   const wide=window.matchMedia&&window.matchMedia("(min-width: 700px)").matches;
   /* 폰: 주말에 아무것도 없으면 월~금만 */
-  const cols=wide||items[days[0]].length||items[days[6]].length?days:days.slice(1,6);
+  /* 폰 3일 보기(시안): 일주일을 3칸 폭으로 깔고 가로로 민다 */
+  const three=!wide&&S.tt3;
+  const cols=three||wide||items[days[0]].length||items[days[6]].length?days:days.slice(1,6);
   const all=cols.flatMap(k=>items[k]);
   let h0=9,h1=18;
   for(const x of all){h0=Math.min(h0,Math.floor(x.s/60));h1=Math.max(h1,Math.ceil(Math.min(x.e,1440)/60));}
@@ -469,7 +471,7 @@ function renderWeek(){
   h1=Math.min(24,Math.max(h1,h0+1));
   const H=wide?48:40,px=m=>((m-h0*60)/60*H).toFixed(1);
   const mainW=($("#main")&&$("#main").clientWidth)||Math.min(window.innerWidth,1060)-24;
-  const colW=(mainW-(wide?40:30))/cols.length;
+  const colW=three?(mainW-30)/3:(mainW-(wide?40:30))/cols.length;
   const a=parse(days[0]),b=parse(days[6]);
   const title=(a.getMonth()+1)+'월 '+a.getDate()+'일 – '+(a.getMonth()===b.getMonth()?'':(b.getMonth()+1)+'월 ')+b.getDate()+'일';
   const thisWeek=weekStart(today);
@@ -480,7 +482,7 @@ function renderWeek(){
   let h='<div class="dayhead"><div class="ebrow"><p class="eyebrow"><span>시간표</span>'+(rel?'<span class="rel'+(rel==="이번 주"?' now':'')+'">'+rel+'</span>':'')+'</p>'+(wide?'':segH)+'</div>'+
     '<div class="hrow"><h1>'+title+'</h1><span class="navs">'+(wide?segH:'')+(ws!==thisWeek?'<button class="small" type="button" data-act="wtoday">이번 주</button>':'')+
     '<button class="icon" type="button" data-act="wnav" data-d="-1" aria-label="이전 주">'+chev(-1)+'</button><button class="icon" type="button" data-act="wnav" data-d="1" aria-label="다음 주">'+chev(1)+'</button></span></div></div>';
-  h+='<div class="tt" style="--cols:'+cols.length+';--hh:'+H+'px">';
+  h+='<div class="tt'+(three?' tt3':'')+'" style="--cols:'+cols.length+';--hh:'+H+'px'+(three?';--cw:'+colW.toFixed(1)+'px':'')+'">';
   h+='<div class="tthead"><span></span>'+cols.map(k=>{const d=parse(k),hn=holName(k);
     return '<button type="button" class="tth d'+d.getDay()+(hn?' hol':'')+(k===today?' today':'')+'" data-act="goday" data-k="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 캘린더에서 보기"'+(hn?' title="'+esc(hn)+'"':'')+'><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b></button>';}).join("")+'</div>';
   /* 시간 없는 할 일: 날짜 아래 한 줄에 작게(최대 2개 + 나머지 수) */
