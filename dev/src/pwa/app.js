@@ -43,16 +43,17 @@ const store = {
       cb.onStatus("loading");
       let first = true;
       unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
-        const tasks = new Map(), tpls = new Map(); let cats = null;
+        const tasks = new Map(), tpls = new Map(), events = new Map(); let cats = null;
         snap.forEach(d => {
           const v = d.data();
           if (d.id === "meta") cats = v.cats;
           else if (d.id.startsWith("t_")) tasks.set(d.id, Object.assign({ id: d.id }, v));
           else if (d.id.startsWith("r_")) tpls.set(d.id, Object.assign({ id: d.id }, v));
+          else if (d.id.startsWith("e_")) events.set(d.id, Object.assign({ id: d.id }, v));
         });
-        cb.onData({ tasks, cats, tpls });
+        cb.onData({ tasks, cats, tpls, events });
         // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
-        if (store.push && !snap.metadata.fromCache) store.push.schedule(tasks, cats);
+        if (store.push && !snap.metadata.fromCache) store.push.schedule(tasks, cats, events);
         if (first) { first = false; cb.onStatus("live"); }
       }, fail);
     });
@@ -68,6 +69,7 @@ const store = {
     if (d.cats) ops.push(["meta", { cats: d.cats }]);
     d.tasks.forEach(t => ops.push([t.id, bodyOf(t)]));
     (d.tpls || []).forEach(r => ops.push([r.id, bodyOf(r)]));
+    (d.events || []).forEach(e => ops.push([e.id, bodyOf(e)]));
     for (let i = 0; i < ops.length; i += 400) {
       const batch = fb.writeBatch(db);
       ops.slice(i, i + 400).forEach(([id, b]) => batch.set(fb.doc(col, id), b));

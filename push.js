@@ -5,7 +5,7 @@ const fmt = t => { const [h, m] = t.split(":").map(Number); return (h < 12 ? "�
 const unb64 = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
 
 /* 할 일 목록 → 서버에 보낼 알림 목록(완료·보관 카테고리·지난 알림 제외, 약 두 달 치) */
-export function remindersFrom(tasks, cats, base, now = Date.now()) {
+export function remindersFrom(tasks, cats, base, now = Date.now(), events = null) {
   const arch = new Set((cats || []).filter(c => c.archived).map(c => c.id));
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
@@ -15,6 +15,27 @@ export function remindersFrom(tasks, cats, base, now = Date.now()) {
     if (!(at > now && at <= max)) continue;
     const lead = LABEL[t.remind] || (t.remind + "분 후");
     out.push({ id: t.id, at, title: t.title, body: lead + " · " + fmt(t.time), url: new URL("./#d=" + t.date, base).href });
+  }
+  // 고정 일정(수업 등): 앞으로 두 달 동안 그 요일마다
+  if (events && events.size) {
+    const HOL = (typeof window !== "undefined" && window.TTOBAK_HOLIDAYS) || {};
+    const key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const start = new Date(now); start.setHours(0, 0, 0, 0);
+    for (const e of events.values()) {
+      if (e.archived || e.remind == null || !e.time || !Array.isArray(e.days) || !e.days.length) continue;
+      const [h, mi] = e.time.split(":").map(Number);
+      for (let i = 0; i <= 62; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const k = key(d);
+        if (!e.days.includes(d.getDay()) || (e.from && k < e.from) || (e.until && k > e.until)) continue;
+        if (e.holOff !== false && HOL[k]) continue;
+        if (Array.isArray(e.skips) && e.skips.includes(k)) continue;
+        const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, mi).getTime() - e.remind * 60000;
+        if (!(at > now && at <= max)) continue;
+        const lead = LABEL[e.remind] || (e.remind + "분 후");
+        out.push({ id: e.id + "@" + k, at, title: e.title, body: lead + " · " + fmt(e.time) + (e.place ? " · " + e.place : ""), url: new URL("./#d=" + k, base).href });
+      }
+    }
   }
   out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
   return out.slice(0, 300);
@@ -39,14 +60,14 @@ export function createPush({ url, getToken, uidKey }) {
   /* 앞으로 울릴 알림 목록 동기화: 바뀌었을 때만, 잠깐 모았다가 한 번에 */
   let timer = null, latest = null, retry = null;
   const hashKey = () => "ttobak.rem." + uidKey();
-  function schedule(tasks, cats) {
-    latest = { tasks, cats };
+  function schedule(tasks, cats, events) {
+    latest = { tasks, cats, events };
     clearTimeout(timer); timer = setTimeout(flush, 1200);
   }
   async function flush(keepalive) {
     clearTimeout(timer);
     if (!latest || !navigator.onLine) return;
-    const list = remindersFrom(latest.tasks, latest.cats, location.href);
+    const list = remindersFrom(latest.tasks, latest.cats, location.href, Date.now(), latest.events);
     const hash = JSON.stringify(list);
     let prev = null; try { prev = localStorage.getItem(hashKey()); } catch (e) {}
     if (prev === hash) return;
