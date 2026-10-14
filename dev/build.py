@@ -42,7 +42,7 @@ open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<link rel="stylesheet" href="style.css">\n</head>\n<body>\n' + markup +
     '<script src="vendor/morphdom.min.js"></script>\n<script src="holidays.js"></script>\n<script src="ui.js"></script>\n'
     '<script type="module" src="app.js"></script>\n</body>\n</html>\n')
-for name in ["app.js", "push.js", "reminder-config.js", "firebase-config.js", "sw.js", "manifest.webmanifest", "firestore.rules", "README.md"]:
+for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "sw.js", "manifest.webmanifest", "firestore.rules", "README.md"]:
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))
 open(os.path.join(APP, ".nojekyll"), "w").close()
 os.makedirs(os.path.join(APP, "server"), exist_ok=True)

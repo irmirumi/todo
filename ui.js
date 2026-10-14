@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="1.3.1";
+const VERSION="1.4.0";
 const WEEK=[1,2,3,4,5,6,0];
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
