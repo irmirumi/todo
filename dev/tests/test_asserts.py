@@ -18,6 +18,7 @@ TodoApp.boot(m);"""
 errs = []
 def open_page(b, w, h):
     ctx = b.new_context(viewport={"width": w, "height": h}, has_touch=w < 600)
+    ctx.add_init_script("try{localStorage.setItem('todo.tt7','1')}catch(e){}")  # 폰 7일 보기 기준 테스트(3일 보기는 test_tt3.py)
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))

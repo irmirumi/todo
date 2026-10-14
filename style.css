@@ -615,3 +615,14 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 /* 한국어는 낱말 단위로 줄바꿈(너무 길면 그때만 끊음) */
 p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overflow-wrap:anywhere}
 .navs .ttshow{margin-right:10px;align-self:center}
+/* 1.9.0 폰 3일 보기: 시간표 상자 안에서 가로(하루씩 맞춰)·세로로 움직이고, 날짜 줄·종일 줄·시각 눈금은 붙어 있다 */
+.tt3{overflow:auto;overscroll-behavior:contain;scroll-snap-type:x mandatory;padding:0 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tt3::-webkit-scrollbar{display:none}
+.tt3 .tthead,.tt3 .ttall,.tt3 .ttbody{grid-template-columns:30px repeat(var(--cols),var(--cw));width:max-content}
+.tt3 .tthead{position:sticky;top:0;z-index:4;padding-top:6px}
+.tt3 .ttall{position:sticky;top:var(--hdh,58px);z-index:3;background:var(--surface)}
+.tt3 .tthead>span:first-child,.tt3 .ttallL,.tt3 .ttgut{position:sticky;left:0;z-index:3;background:var(--surface)}
+.tt3 .tthead>span:first-child{z-index:5}
+.tt3 .tth{scroll-snap-align:start;scroll-margin-left:30px}
+.ttfacts{display:flex;align-items:center;gap:6px;flex:none}
+@media (max-width:560px){.ttfacts{align-self:flex-start;flex-direction:row-reverse}}

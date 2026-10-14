@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="1.8.0";
+const VERSION="1.9.0";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
@@ -43,7 +43,7 @@ const pref={get(k,d){try{const v=localStorage.getItem("todo."+k);return v==null?
 const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
 
 const S={tasks:new Map(),tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
-  calMode:pref.get("calMode",narrow?"week":"month"),ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
+  calMode:pref.get("calMode",narrow?"week":"month"),tt7:pref.get("tt7","")==="1",ttFirst:null,ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
   adding:null,addSub:null,addDraft:"",lastSub:{},focusAdd:false,
   sheet:null,editing:null,edit:null,editGone:false,catDraft:null,catDelArm:null,catMoved:null,importData:null};
 let store=null;
@@ -445,9 +445,13 @@ function layLanes(items){
   return items;
 }
 const xColor=x=>x.kind==="ev"?(x.t.color||"c5"):catOf(x.t).color;
+/* 폰 3일 보기: 지난주·이번 주·다음 주(21일)를 3칸 폭으로 깔고 가로로 민다. 가장자리 주에 닿으면 기준 주를 옮겨 다시 깐다(끝없이 밀기) */
+const isThree=()=>!(window.matchMedia&&window.matchMedia("(min-width: 700px)").matches)&&!S.tt7;
 function renderWeek(){
   const ws=S.week||(S.week=weekStart(S.sel));
-  const days=[0,1,2,3,4,5,6].map(i=>addDays(ws,i));
+  const three=isThree();
+  if(three&&!S.ttFirst)S.ttFirst=ws===weekStart(today)?today:ws;
+  const days=three?Array.from({length:21},(_,i)=>addDays(ws,i-7)):[0,1,2,3,4,5,6].map(i=>addDays(ws,i));
   const ld=S.mode==="loading",vis=ld?[]:visibleTasks();
   /* 보기: 둘 다 / 고정 일정만 / 할 일만(반복 할 일 포함) */
   const show=S.ttShow,useT=show!=="ev",useE=show!=="task";
@@ -459,8 +463,8 @@ function renderWeek(){
     items[k]=list.map(x=>{const s0=mins(x.t.time),e0=okEnd(x.t.time,x.t.end)?mins(x.t.end):s0+60;return Object.assign(x,{k,s:s0,e0,e:Math.max(e0,s0+30)});});
   }
   const wide=window.matchMedia&&window.matchMedia("(min-width: 700px)").matches;
-  /* 폰: 주말에 아무것도 없으면 월~금만 */
-  const cols=wide||items[days[0]].length||items[days[6]].length?days:days.slice(1,6);
+  /* 폰 7일 보기: 주말에 아무것도 없으면 월~금만 */
+  const cols=three||wide||items[days[0]].length||items[days[6]].length?days:days.slice(1,6);
   const all=cols.flatMap(k=>items[k]);
   let h0=9,h1=18;
   for(const x of all){h0=Math.min(h0,Math.floor(x.s/60));h1=Math.max(h1,Math.ceil(Math.min(x.e,1440)/60));}
@@ -469,18 +473,17 @@ function renderWeek(){
   h1=Math.min(24,Math.max(h1,h0+1));
   const H=wide?48:40,px=m=>((m-h0*60)/60*H).toFixed(1);
   const mainW=($("#main")&&$("#main").clientWidth)||Math.min(window.innerWidth,1060)-24;
-  const colW=(mainW-(wide?40:30))/cols.length;
-  const a=parse(days[0]),b=parse(days[6]);
-  const title=(a.getMonth()+1)+'월 '+a.getDate()+'일 – '+(a.getMonth()===b.getMonth()?'':(b.getMonth()+1)+'월 ')+b.getDate()+'일';
+  const colW=three?Math.floor((mainW-2-30)/3*10)/10:(mainW-(wide?40:30))/cols.length;
+  const first=three?S.ttFirst:days[0],{title,rel}=ttTitle(first,three);
   const thisWeek=weekStart(today);
-  const rel=ws===thisWeek?"이번 주":ws===addDays(thisWeek,7)?"다음 주":ws===addDays(thisWeek,-7)?"지난주":"";
   const seg=[["all","모두"],["ev","고정 일정"],["task","할 일"]];
   /* 보기 버튼: 폰은 위 줄 오른쪽, 넓은 화면은 주 넘기기 옆 */
   const segH='<div class="ttshow" role="group" aria-label="시간표에 보일 것">'+seg.map(x=>'<button type="button" data-act="ttshow" data-v="'+x[0]+'" aria-pressed="'+(show===x[0])+'">'+x[1]+'</button>').join("")+'</div>';
-  let h='<div class="dayhead"><div class="ebrow"><p class="eyebrow"><span>시간표</span>'+(rel?'<span class="rel'+(rel==="이번 주"?' now':'')+'">'+rel+'</span>':'')+'</p>'+(wide?'':segH)+'</div>'+
-    '<div class="hrow"><h1>'+title+'</h1><span class="navs">'+(wide?segH:'')+(ws!==thisWeek?'<button class="small" type="button" data-act="wtoday">이번 주</button>':'')+
-    '<button class="icon" type="button" data-act="wnav" data-d="-1" aria-label="이전 주">'+chev(-1)+'</button><button class="icon" type="button" data-act="wnav" data-d="1" aria-label="다음 주">'+chev(1)+'</button></span></div></div>';
-  h+='<div class="tt" style="--cols:'+cols.length+';--hh:'+H+'px">';
+  let h='<div class="dayhead"><div class="ebrow"><p class="eyebrow"><span>시간표</span>'+(rel?'<span class="rel'+(rel==="이번 주"||rel==="오늘"?' now':'')+'">'+rel+'</span>':'')+'</p>'+(wide?'':segH)+'</div>'+
+    '<div class="hrow"><h1 id="tttitle">'+title+'</h1><span class="navs">'+(wide?segH:'')+
+    (three?'<button class="small" type="button" data-act="wtoday"'+(ttHasToday(first)?' hidden':'')+'>오늘</button>':ws!==thisWeek?'<button class="small" type="button" data-act="wtoday">이번 주</button>':'')+
+    '<button class="icon" type="button" data-act="wnav" data-d="-1" aria-label="'+(three?'이전 3일':'이전 주')+'">'+chev(-1)+'</button><button class="icon" type="button" data-act="wnav" data-d="1" aria-label="'+(three?'다음 3일':'다음 주')+'">'+chev(1)+'</button></span></div></div>';
+  h+='<div class="tt'+(three?' tt3':'')+'" style="--cols:'+cols.length+';--hh:'+H+'px'+(three?';--cw:'+colW.toFixed(1)+'px':'')+'">';
   h+='<div class="tthead"><span></span>'+cols.map(k=>{const d=parse(k),hn=holName(k);
     return '<button type="button" class="tth d'+d.getDay()+(hn?' hol':'')+(k===today?' today':'')+'" data-act="goday" data-k="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 캘린더에서 보기"'+(hn?' title="'+esc(hn)+'"':'')+'><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b></button>';}).join("")+'</div>';
   /* 시간 없는 할 일: 날짜 아래 한 줄에 작게(최대 2개 + 나머지 수) */
@@ -524,7 +527,6 @@ function renderWeek(){
       const t=x.t,hgt=Math.max(20,(Math.min(x.e,1440)-x.s)/60*H-2);
       const pos='top:'+topOf(x.s,hgt)+'px;height:'+hgt.toFixed(1)+'px;left:calc('+(100*x.col/x.n).toFixed(3)+'% + 1px);width:calc('+(100/x.n).toFixed(3)+'% - 2px)';
       const thin=colW/x.n<34;
-      /* 칸 높이에 맞춰 줄 수를 정한다: 제목 → 시간 → 장소 순으로 넣고, 넘치는 건 말줄임 */
       /* 칸 높이에 맞춰 넣는다. 우선순위: 제목 → 소분류(할 일) → 시간 → 장소(고정 일정). 카테고리는 색으로 보이니 안 씀 */
       const sb=x.kind!=="ev"&&t.sub?subsOf(catOf(t)).find(z=>z.id===t.sub):null;
       /* 제목이 몇 줄 필요한지 칸 폭으로 어림(글자 약 11px). 좁은 칸은 제목에 두 줄까지 먼저 준다 */
@@ -546,15 +548,57 @@ function renderWeek(){
   }
   h+='</div></div>';
   /* 안내는 한 번에 하나만 */
-  const tip=S.mode!=="loading"&&!all.length?(show==="ev"?'이번 주엔 고정 일정이 없어요':show==="task"?'이번 주엔 시간을 정한 할 일이 없어요':'이번 주엔 시간이 정해진 일정이 없어요. 수업처럼 매주 같은 건 ‘고정 일정’으로 넣어 두세요')
+  const span=three?'이 무렵엔':'이번 주엔';
+  const tip=S.mode!=="loading"&&!all.length?(show==="ev"?span+' 고정 일정이 없어요':show==="task"?span+' 시간을 정한 할 일이 없어요':span+' 시간이 정해진 일정이 없어요. 수업처럼 매주 같은 건 ‘고정 일정’으로 넣어 두세요')
     :all.some(x=>x.kind==="ghost")?'빗금 칸은 아직 추가하지 않은 반복 할 일이에요':'빈칸을 누르면 그 시간에 할 일이나 고정 일정을 넣을 수 있어요';
   h+='<div class="ttfoot"><p class="hint tthint">'+tip+'</p>'+
-    '<button class="small" type="button" data-act="evs">고정 일정 '+(S.events.size?[...S.events.values()].filter(e=>!evOff(e)).length+'개':'추가')+'</button></div>';
+    '<div class="ttfacts">'+(wide?'':'<button class="linkish" type="button" data-act="tt7">'+(three?'7일 보기':'3일 보기')+'</button>')+
+    '<button class="small" type="button" data-act="evs">고정 일정 '+(S.events.size?[...S.events.values()].filter(e=>!evOff(e)).length+'개':'추가')+'</button></div></div>';
   morph($("#main"),h);
+  if(three)placeTT3(days,colW,h0,H,nowM);
   if(S.calDir&&!reduced){const g=$("#main .tt");if(g){const cl=S.calDir>0?"from-next":"from-prev";g.classList.add(cl);setTimeout(()=>g.classList.remove(cl),260);}}
   S.calDir=0;
 }
 
+/* 제목: 7일 보기는 그 주, 3일 보기는 보이는 3일 */
+function ttTitle(first,three){
+  const last=three?addDays(first,2):addDays(first,6),a=parse(first),b=parse(last);
+  const title=(a.getMonth()+1)+'월 '+a.getDate()+'일 – '+(a.getMonth()===b.getMonth()?'':(b.getMonth()+1)+'월 ')+b.getDate()+'일';
+  const tw=weekStart(today);
+  const rel=three?(ttHasToday(first)?"오늘":weekStart(first)===tw?"이번 주":weekStart(first)===addDays(tw,7)?"다음 주":weekStart(first)===addDays(tw,-7)?"지난주":"")
+    :first===tw?"이번 주":first===addDays(tw,7)?"다음 주":first===addDays(tw,-7)?"지난주":"";
+  return {title,rel};
+}
+const ttHasToday=first=>today>=first&&today<=addDays(first,2);
+/* 3일 보기 자리 잡기: 보던 첫날이 왼쪽에 오게 가로 위치를 맞추고, 처음 열 때는 세로를 지금 시각(없으면 첫 일정) 근처로 */
+function placeTT3(days,colW,h0,H,nowM){
+  const tt=$("#main .tt3");if(!tt)return;
+  const hd=tt.querySelector(".tthead");if(hd)tt.style.setProperty("--hdh",hd.offsetHeight+"px");
+  const top=tt.getBoundingClientRect().top+window.scrollY;
+  tt.style.maxHeight=Math.max(320,window.innerHeight-Math.min(top,260)-12)+"px";
+  const i=Math.max(0,days.indexOf(S.ttFirst)),x=Math.round(i*colW);
+  S.ttPlacing=true;
+  if(Math.abs(tt.scrollLeft-x)>2)tt.scrollLeft=x;
+  if(!tt.dataset.vy){tt.dataset.vy="1";const m=days.slice(i,i+3).includes(today)?nowM-90:h0*60;tt.scrollTop=Math.max(0,(m-h0*60)/60*H);}
+  requestAnimationFrame(()=>{S.ttPlacing=false;});
+  S.ttDays=days;S.ttColW=colW;
+}
+/* 밀 때: 제목을 보이는 3일로 바꾸고, 멈추면 가장자리 주에서 기준 주를 옮긴다 */
+(function(){
+  let raf=0,idle=0;
+  document.addEventListener("scroll",ev=>{
+    const tt=ev.target;if(!tt.classList||!tt.classList.contains("tt3")||S.ttPlacing||!S.ttDays)return;
+    if(!raf)raf=requestAnimationFrame(()=>{raf=0;
+      const i=Math.max(0,Math.min(S.ttDays.length-3,Math.round(tt.scrollLeft/S.ttColW)));S.ttFirst=S.ttDays[i];
+      const {title,rel}=ttTitle(S.ttFirst,true),h1=$("#tttitle");if(h1&&h1.textContent!==title)h1.textContent=title;
+      const eb=$("#main .ebrow .eyebrow");if(eb)eb.innerHTML='<span>시간표</span>'+(rel?'<span class="rel'+(rel==="오늘"||rel==="이번 주"?' now':'')+'">'+rel+'</span>':'');
+      const tb=$("#main [data-act=wtoday]");if(tb)tb.hidden=ttHasToday(S.ttFirst);});
+    clearTimeout(idle);idle=setTimeout(()=>{
+      const i=S.ttDays.indexOf(S.ttFirst);
+      if(i<5||i>S.ttDays.length-3-5){S.week=weekStart(S.ttFirst);render();}
+    },180);
+  },true);
+})();
 /* ---------- 시트 공통: 뒤로가기·아래로 밀기로 닫히고, 닫을 때 저장 ---------- */
 const dlg=$("#dlg"),sheet=$("#sheet");
 const grab='<div class="grab" aria-hidden="true"><i></i></div>';
@@ -1097,10 +1141,14 @@ document.addEventListener("click",ev=>{
   const a=b.dataset.act;
   if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip|tgroup|einfo|slot|evs)$/.test(a))return;
   switch(a){
-    case"view":{const v=b.dataset.v;if(v==="week"&&S.view!=="week")S.week=weekStart(S.sel);S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
+    case"view":{const v=b.dataset.v;if(v==="week"&&S.view!=="week"){S.week=weekStart(S.sel);S.ttFirst=S.sel;}S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
     case"ttshow":S.ttShow=b.dataset.v;pref.set("ttShow",S.ttShow);render();break;
-    case"wnav":S.week=addDays(S.week||weekStart(S.sel),7*(+b.dataset.d));S.calDir=+b.dataset.d;render();break;
-    case"wtoday":{const w=weekStart(today);S.calDir=w>S.week?1:-1;S.week=w;render();break;}
+    case"wnav":{const d=+b.dataset.d;
+      if(isThree()){const tt=$("#main .tt3");if(tt&&S.ttColW)tt.scrollBy({left:d*3*S.ttColW,behavior:reduced?"auto":"smooth"});break;}
+      S.week=addDays(S.week||weekStart(S.sel),7*d);S.calDir=d;render();break;}
+    case"wtoday":{if(isThree()){S.ttFirst=today;S.week=weekStart(today);const tt=$("#main .tt3");if(tt)delete tt.dataset.vy;render();break;}
+      const w=weekStart(today);S.calDir=w>S.week?1:-1;S.week=w;render();break;}
+    case"tt7":S.tt7=!S.tt7;pref.set("tt7",S.tt7?"1":"");if(!S.tt7)S.ttFirst=weekStart(S.week||today)===weekStart(today)?today:S.week;window.scrollTo(0,0);render();break;
     case"goday":S.sel=b.dataset.k;S.cursor=b.dataset.k;S.view="day";pref.set("view","day");S.adding=null;window.scrollTo(0,0);render();break;
     case"addcat":S.addCat=b.dataset.cat;S.addSub=S.lastSub[S.addCat]||null;render();{const i=$("#add-all");if(i&&document.activeElement!==i)i.focus();}break;
     case"adddate":S.addDate=b.dataset.k;render();{const i=$("#add-all");if(i&&document.activeElement!==i)i.focus();}break;
@@ -1242,7 +1290,7 @@ function navCal(d){
 /* 시간표 좌우로 밀어서 주 넘기기 */
 (function(){
   let x0=null,y0=0;const m=$("#main");
-  m.addEventListener("touchstart",e=>{if(S.view!=="week"||!e.target.closest(".tt")){x0=null;return;}const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+  m.addEventListener("touchstart",e=>{if(S.view!=="week"||!e.target.closest(".tt")||isThree()){x0=null;return;}const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
   m.addEventListener("touchend",e=>{if(x0==null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
     if(Math.abs(dx)>56&&Math.abs(dy)<40){const d=dx<0?1:-1;S.week=addDays(S.week||weekStart(S.sel),7*d);S.calDir=d;render();}},{passive:true});
 })();
@@ -1327,7 +1375,7 @@ function toast(msg,action){
 function openDate(u){
   const sc=/#(add|week)$/.exec(u||"");
   if(sc){if(dlg.open)closeDlg();
-    if(sc[1]==="week"){S.view="week";S.week=weekStart(today);}
+    if(sc[1]==="week"){S.view="week";S.week=weekStart(today);S.ttFirst=today;}
     else{S.view="day";S.sel=today;S.cursor=today;const c=active()[0];S.adding=c.id;S.addDraft="";S.addRaw=false;S.addSub=S.lastSub[c.id]||null;S.focusAdd=true;}
     render();try{history.replaceState(history.state,"",location.pathname+location.search);}catch(e){}return;}
   const m=/#d=(\d{4}-\d{2}-\d{2})/.exec(u||"");if(!m)return;

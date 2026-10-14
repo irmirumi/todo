@@ -23,7 +23,7 @@ TodoApp.boot(s);"""%json.dumps(data,ensure_ascii=False)
 errs=[]
 def go(w,h,tag):
   with sync_playwright() as p:
-    b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=w<600,device_scale_factor=2 if w<600 else 1); pg=ctx.new_page()
+    b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=w<600,device_scale_factor=2 if w<600 else 1); ctx.add_init_script("try{localStorage.setItem('todo.tt7','1')}catch(e){}"); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
     pg.goto("http://localhost:8784/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
