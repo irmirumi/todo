@@ -40,7 +40,7 @@ def go(w,h,tag):
     pg.screenshot(path=OUT+tag+"-week.png",full_page=True)
     pg.click("[data-act=wnav][data-d='1']"); pg.wait_for_timeout(300); print(tag,"next week:",pg.inner_text(".dayhead .eyebrow"))
     pg.click("[data-act=wtoday]"); pg.wait_for_timeout(300)
-    pg.click(".blk.task >> nth=0"); pg.wait_for_timeout(300); pg.click("[data-act=iedit]"); pg.wait_for_timeout(250)
+    pg.click(".blk.tblk >> nth=0"); pg.wait_for_timeout(300); pg.click("[data-act=iedit]"); pg.wait_for_timeout(250)
     print(tag,"edit from week, start/end:",pg.input_value("#e-time"),pg.input_value("#e-end"))
     pg.fill("#e-end","0900" if w>600 else "09:00"); pg.wait_for_timeout(150)
     if w>600: print(tag,"end before start preview:",pg.inner_text("#e-end-p"))

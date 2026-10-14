@@ -82,7 +82,7 @@ with sync_playwright() as p:
     check("15:00–16:30" in ev, "고정 일정 칸 시간 24시간제: " + ev.replace("\n", " "))
     check(pg.locator(".blk.grpb").count() >= 1, "폰: 겹친 할 일 3개가 묶임")
     pg.set_viewport_size({"width": 1280, "height": 900}); pg.wait_for_timeout(400)
-    check(pg.locator(".blk.grpb").count() == 0 and pg.locator(".blk.task").count() >= 3, "창을 넓히면 다시 그려서 나란히")
+    check(pg.locator(".blk.grpb").count() == 0 and pg.locator(".blk.tblk").count() >= 3, "창을 넓히면 다시 그려서 나란히")
     pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(400)
     check(pg.locator(".blk.grpb").count() >= 1, "다시 좁히면 묶음")
     pg.set_viewport_size({"width": 390, "height": 500}); pg.wait_for_timeout(400)
@@ -90,10 +90,10 @@ with sync_playwright() as p:
 
     # 정보 시트의 '완료'는 할 일 완료 체크
     pg.set_viewport_size({"width": 1280, "height": 900}); pg.wait_for_timeout(400)
-    pg.click(".blk.task:has-text('겹침 가')")
+    pg.click(".blk.tblk:has-text('겹침 가')")
     check(pg.inner_text(".sheet .btn.pri") == "완료", "정보 시트 주 버튼은 '완료'")
     pg.click(".sheet .btn.pri"); pg.wait_for_timeout(200)
-    check(pg.locator(".blk.task.done").count() == 1, "정보 시트 '완료'로 완료 처리")
+    check(pg.locator(".blk.tblk.done").count() == 1, "정보 시트 '완료'로 완료 처리")
     ctx.close(); b.close()
 srv.kill()
 print("checks:", n, "errors:", errs)

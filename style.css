@@ -504,7 +504,7 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 
 /* 폰: 간격은 넉넉히 되돌리고 글자·컨트롤만 살짝 작게 */
 @media (max-width:560px){
-  .wrap{padding-inline:14px;padding-block:10px 64px}
+  .wrap{padding-inline:16px;padding-block:10px 64px} /* 시트 안쪽 여백(16px)과 같게 */
   .top{padding-block:4px 14px}
   .layout{gap:16px}
   .cal{padding:10px 8px 4px}
@@ -551,8 +551,8 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 .blk.ev .bm{opacity:.9}
 .blk.ev.off{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--cc) 10%,transparent) 0 4px,transparent 4px 8px);color:var(--muted)}
 .blk.ev.off .bt{text-decoration:line-through}
-.blk.task .bt .tk{display:inline-block;width:8px;height:8px;border-radius:3px;border:1.5px solid currentColor;margin-right:3px;vertical-align:1px;opacity:.8}
-.blk.task .bt .tk.on{background:currentColor}
+.blk.tblk .bt .tk{display:inline-block;width:8px;height:8px;border-radius:3px;border:1.5px solid currentColor;margin-right:3px;vertical-align:1px;opacity:.8}
+.blk.tblk .bt .tk.on{background:currentColor}
 .grpb .dots i.ev{border-radius:2px}
 .ttcol{cursor:pointer}
 .ttfoot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:12px}
@@ -626,3 +626,13 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 .tt3 .tth{scroll-snap-align:start;scroll-margin-left:30px}
 .ttfacts{display:flex;align-items:center;gap:6px;flex:none}
 @media (max-width:560px){.ttfacts{align-self:flex-start;flex-direction:row-reverse}}
+
+/* 1.9.1 폰 레이아웃 점검 */
+/* 전체 탭 '완료 보기/접기' 링크: 글자 시작선을 카드 가장자리에 맞춤 */
+.donebox>.linkish{margin-left:-10px}
+/* 3일 보기: 칸이 넓어진 만큼 글자·줄 간격을 한 단계 키움(줄 수 계산은 ui.js에서 15px로) */
+.tt3 .blk,.tt3 .blk .bt,.tt3 .blk .bm{line-height:15px}
+.tt3 .blk .bt{font-size:.76rem}
+.tt3 .blk .bm{font-size:.68rem}
+.tt3 .blk .btag{font-size:.64rem;line-height:16px}
+.tt3 .blk{padding:3px 6px}

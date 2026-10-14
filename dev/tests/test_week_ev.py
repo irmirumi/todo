@@ -32,14 +32,14 @@ with sync_playwright() as p:
     heads = pg.locator(".tth small").all_inner_texts()
     check(heads == ["일", "월", "화", "수", "목", "금", "토"], "시간표 한 주는 일요일부터: " + str(heads))
     # 소분류 태그
-    blk = pg.locator(".blk.task:has-text('과제 풀기')")
+    blk = pg.locator(".blk.tblk:has-text('과제 풀기')")
     check(blk.locator(".btag").inner_text() == "자료구조" and "수업" not in blk.inner_text(), "할 일 칸에 소분류만(카테고리 이름 없음)")
     # 보기 필터
     check(pg.get_attribute("[data-act=ttshow][data-v=all]", "aria-pressed") == "true", "기본은 모두")
     pg.click("[data-act=ttshow][data-v=ev]"); pg.wait_for_timeout(150)
-    check(pg.locator(".blk.task").count() == 0 and pg.locator(".blk.ev").count() >= 7 and pg.locator(".ttall").count() == 0, "고정 일정만: 할 일·종일 줄 숨김")
+    check(pg.locator(".blk.tblk").count() == 0 and pg.locator(".blk.ev").count() >= 7 and pg.locator(".ttall").count() == 0, "고정 일정만: 할 일·종일 줄 숨김")
     pg.click("[data-act=ttshow][data-v=task]"); pg.wait_for_timeout(150)
-    check(pg.locator(".blk.ev").count() == 0 and pg.locator(".blk.task").count() == 1 and pg.locator(".ttall").count() == 1, "할 일만: 고정 일정 숨김")
+    check(pg.locator(".blk.ev").count() == 0 and pg.locator(".blk.tblk").count() == 1 and pg.locator(".ttall").count() == 1, "할 일만: 고정 일정 숨김")
     pg.reload(); pg.wait_for_selector(".tt")
     check(pg.get_attribute("[data-act=ttshow][data-v=task]", "aria-pressed") == "true", "보기 선택은 기억")
     pg.click("[data-act=ttshow][data-v=all]")

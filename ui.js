@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="1.9.0";
+const VERSION="1.9.1";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 function daysLabel(ds){
@@ -489,7 +489,7 @@ function renderWeek(){
   /* 시간 없는 할 일: 날짜 아래 한 줄에 작게(최대 2개 + 나머지 수) */
   const ao=allOrder();
   const untimed=cols.map(k=>useT?vis.filter(t=>t.date===k&&!t.time&&!t.skipped).sort((a,b)=>(a.done-b.done)||ao(a,b)):[]);
-  if(untimed.some(l=>l.length)&&colW<100){
+  if(untimed.some(l=>l.length)&&colW<80){
     /* 좁을 때(폰): 잘린 제목 대신 개수만. 누르면 그날 */
     h+='<div class="ttall"><span class="ttallL">종일</span>'+untimed.map((l,i)=>{if(!l.length)return '<div class="ttallC"></div>';
       const open=l.filter(t=>!t.done).length,d=parse(cols[i]);
@@ -530,7 +530,8 @@ function renderWeek(){
       /* 칸 높이에 맞춰 넣는다. 우선순위: 제목 → 소분류(할 일) → 시간 → 장소(고정 일정). 카테고리는 색으로 보이니 안 씀 */
       const sb=x.kind!=="ev"&&t.sub?subsOf(catOf(t)).find(z=>z.id===t.sub):null;
       /* 제목이 몇 줄 필요한지 칸 폭으로 어림(글자 약 11px). 좁은 칸은 제목에 두 줄까지 먼저 준다 */
-      const lines=Math.max(1,Math.floor((hgt-6)/13)),bw=colW/x.n-2,cpl=Math.max(1,Math.floor((bw-8)/11));
+      const LH=three?15:13,CH=three?12.2:11;
+      const lines=Math.max(1,Math.floor((hgt-6)/LH)),bw=colW/x.n-2,cpl=Math.max(1,Math.floor((bw-10)/CH));
       const need=Math.ceil(((t.title||"").length+(x.kind==="task"?1:0))/cpl);
       let left=lines-Math.min(bw<70?2:1,need,lines);
       const showS=!!sb&&left>0&&left-->0,showT=left>0&&left-->0,showP=x.kind==="ev"&&!!t.place&&left>0&&left-->0;
@@ -541,7 +542,7 @@ function renderWeek(){
       const st=' style="--cc:var(--'+xColor(x)+');'+pos+'"';
       if(x.kind==="ghost")h+='<button type="button" class="blk ghost'+(thin?' thin':'')+'"'+lab+st+' data-act="ginfo" data-id="'+t.id+'" data-k="'+k+'">'+inner+'</button>';
       else if(x.kind==="ev")h+='<button type="button" class="blk ev'+(x.off?' off':'')+(thin?' thin':'')+'"'+lab+st+' data-act="einfo" data-id="'+t.id+'" data-k="'+k+'">'+inner+'</button>';
-      else h+='<button type="button" class="blk task'+(t.done?' done':'')+(thin?' thin':'')+'"'+lab+st+' data-act="info" data-id="'+t.id+'">'+inner+'</button>';
+      else h+='<button type="button" class="blk tblk'+(t.done?' done':'')+(thin?' thin':'')+'"'+lab+st+' data-act="info" data-id="'+t.id+'">'+inner+'</button>';
     }
     if(k===today&&nowM>=h0*60&&nowM<=h1*60)h+='<i class="nowline" style="top:'+px(nowM)+'px"></i>';
     h+='</div>';
@@ -1387,7 +1388,9 @@ function tick(){const k=keyOf(new Date());if(k!==today){if(S.sel===today){S.sel=
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick();});
 setInterval(tick,60000);
 (function(){let w0=window.innerWidth,rz=null;
-  window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=window.innerWidth;if(w===w0)return;w0=w;if(S.view==="week"&&S.mode!=="signedout"&&S.mode!=="config")render();},150);});
+  window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=window.innerWidth;
+    if(w===w0){if(S.view==="week"&&S.ttDays&&$("#main .tt3"))placeTT3(S.ttDays,S.ttColW,0,0,0);return;}
+    w0=w;if(S.view==="week"&&S.mode!=="signedout"&&S.mode!=="config")render();},150);});
 })();
 
 /* ---------- 메모리 저장소 (테스트용) ---------- */
