@@ -68,7 +68,8 @@ export function createPush({ url, getToken, uidKey }) {
     clearTimeout(timer);
     if (!latest || !navigator.onLine) return;
     const list = remindersFrom(latest.tasks, latest.cats, location.href, Date.now(), latest.events);
-    const hash = JSON.stringify(list);
+    // 날짜를 섞어 두면 같은 목록이어도 하루 한 번은 다시 보낸다(서버 쪽 목록이 비었을 때 저절로 복구)
+    const hash = new Date().toDateString() + JSON.stringify(list);
     let prev = null; try { prev = localStorage.getItem(hashKey()); } catch (e) {}
     if (prev === hash) return;
     try { await api("/sync", { reminders: list }, keepalive); try { localStorage.setItem(hashKey(), hash); } catch (e) {} clearTimeout(retry); }

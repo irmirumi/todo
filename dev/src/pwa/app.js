@@ -18,6 +18,34 @@ async function loadFirebase() {
   return Object.assign({}, app, authM, fs);
 }
 
+let retryT = null, retries = 0;
+const stop = () => { clearTimeout(retryT); retryT = null; retries = 0; if (unsub) { unsub(); unsub = null; } };
+// 실시간 연결: 오류로 끊기면(서버 쪽 일시 오류 등) 잠시 뒤 다시 붙는다. 권한 오류는 다시 붙어도 소용없어서 알리기만 한다
+function listen(uid) {
+  let first = true;
+  unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
+    const tasks = new Map(), tpls = new Map(), events = new Map(); let cats = null;
+    snap.forEach(d => {
+      const v = d.data();
+      if (d.id === "meta") cats = v.cats;
+      else if (d.id.startsWith("t_")) tasks.set(d.id, Object.assign({ id: d.id }, v));
+      else if (d.id.startsWith("r_")) tpls.set(d.id, Object.assign({ id: d.id }, v));
+      else if (d.id.startsWith("e_")) events.set(d.id, Object.assign({ id: d.id }, v));
+    });
+    cb.onData({ tasks, cats, tpls, events });
+    // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
+    if (!snap.metadata.fromCache) { retries = 0; if (store.push) store.push.schedule(tasks, cats, events); }
+    if (first) { first = false; cb.onStatus("live"); }
+  }, err => {
+    if (unsub) { unsub(); unsub = null; }
+    if (err && err.code === "permission-denied") { fail(err); return; }
+    if (retries === 0) fail({ code: "sync_retry" });
+    const wait = Math.min(60000, 2000 * 2 ** retries++);
+    clearTimeout(retryT);
+    retryT = setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === uid && !unsub) listen(uid); }, wait);
+  });
+}
+
 const store = {
   kind: "pwa",
   email: null,
@@ -35,27 +63,13 @@ const store = {
       db = fb.initializeFirestore(app, {});
     }
     fb.onAuthStateChanged(auth, user => {
-      if (unsub) { unsub(); unsub = null; }
+      stop();
       if (!user) { col = null; store.email = null; cb.onStatus("signedout"); return; }
       store.email = user.email;
       col = fb.collection(db, "users", user.uid, "items");
       if (store.push) store.push.refresh();
       cb.onStatus("loading");
-      let first = true;
-      unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
-        const tasks = new Map(), tpls = new Map(), events = new Map(); let cats = null;
-        snap.forEach(d => {
-          const v = d.data();
-          if (d.id === "meta") cats = v.cats;
-          else if (d.id.startsWith("t_")) tasks.set(d.id, Object.assign({ id: d.id }, v));
-          else if (d.id.startsWith("r_")) tpls.set(d.id, Object.assign({ id: d.id }, v));
-          else if (d.id.startsWith("e_")) events.set(d.id, Object.assign({ id: d.id }, v));
-        });
-        cb.onData({ tasks, cats, tpls, events });
-        // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
-        if (store.push && !snap.metadata.fromCache) store.push.schedule(tasks, cats, events);
-        if (first) { first = false; cb.onStatus("live"); }
-      }, fail);
+      listen(user.uid);
     });
   },
   // 오프라인이어도 화면에는 바로 반영되고, 연결되면 서버로 올라간다.
