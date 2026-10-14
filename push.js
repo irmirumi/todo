@@ -1,5 +1,6 @@
 // 알림: 이 기기의 푸시 구독 관리 + 앞으로 울릴 알림 목록을 알림 서버(Cloudflare Worker)와 맞추기
 const LABEL = { 0: "지금", 5: "5분 후", 10: "10분 후", 30: "30분 후", 60: "1시간 후", 1440: "내일" };
+const DUE_LABEL = { 0: "지금 마감", 60: "1시간 후 마감", 1440: "내일 마감", 4320: "3일 후 마감" };
 const pad = n => String(n).padStart(2, "0");
 const fmt = t => { const [h, m] = t.split(":").map(Number); return (h < 12 ? "오전 " : "오후 ") + ((h % 12) || 12) + ":" + pad(m); };
 const unb64 = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
@@ -9,6 +10,12 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
   const arch = new Set((cats || []).filter(c => c.archived).map(c => c.id));
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
+    // 마감 알림: 마감 시각(시간이 없으면 그날 오전 9시)에서 정한 만큼 앞
+    if (!t.done && !t.skipped && t.due && t.dueRemind != null && !arch.has(t.cat)) {
+      const [y, mo, d] = t.due.split("-").map(Number), [h, mi] = (t.dueTime || "09:00").split(":").map(Number);
+      const at = new Date(y, mo - 1, d, h, mi).getTime() - t.dueRemind * 60000;
+      if (at > now && at <= max) out.push({ id: t.id + "#due", at, title: t.title, body: (DUE_LABEL[t.dueRemind] || "마감 " + t.dueRemind + "분 전") + (t.dueTime ? " · " + fmt(t.dueTime) : ""), url: new URL("./#d=" + t.due, base).href });
+    }
     if (t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
     const [y, mo, d] = t.date.split("-").map(Number), [h, mi] = t.time.split(":").map(Number);
     const at = new Date(y, mo - 1, d, h, mi).getTime() - t.remind * 60000;
