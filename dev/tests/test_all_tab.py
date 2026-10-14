@@ -58,8 +58,12 @@ def go(w,h,tag):
         pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); print(tag,"ghost info:",pg.inner_text("#sheet").replace("\n"," | ")[:160])
         pg.screenshot(path=OUT+tag+"2-ginfo.png")
         pg.click("[data-act=iadd]"); pg.wait_for_timeout(400); print(tag,"ghost add:",pg.inner_text("#toastMsg"),"| ghosts:",pg.locator(".blk.ghost").count())
-    pg.click(".uchip >> nth=0"); pg.wait_for_timeout(300); print(tag,"uchip info:",pg.inner_text("#sheet h2"))
-    pg.go_back(); pg.wait_for_timeout(300)
+    if pg.locator(".ucount").count():  # 폰(1.6.0~): 개수 칩 → 그날 캘린더
+        pg.click(".ucount >> nth=0"); pg.wait_for_timeout(300); print(tag,"ucount → view:",pg.evaluate("document.body.dataset.view"))
+        assert pg.evaluate("document.body.dataset.view") == "day"
+    else:
+        pg.click(".uchip >> nth=0"); pg.wait_for_timeout(300); print(tag,"uchip info:",pg.inner_text("#sheet h2"))
+        pg.go_back(); pg.wait_for_timeout(300)
     print(tag,"scrollW:",pg.evaluate("document.documentElement.scrollWidth"))
     b.close()
 go(390,844,"m"); go(1280,900,"pc")

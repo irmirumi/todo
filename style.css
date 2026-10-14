@@ -600,3 +600,13 @@ body[data-view="week"] .layout{grid-template-columns:minmax(0,1fr)}
 .duerow.done .dl{color:var(--muted)}
 @media (hover:hover){.duerow:hover{background:var(--sunk)}}
 @media (max-width:560px){.duerow{padding:9px 12px}.duerow .dw2{display:none}}
+
+/* 1.6.0 한 줄 입력 미리보기, 폰 종일 줄 개수 */
+.qhint{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;font-size:.78rem;color:var(--muted);padding:6px 4px 0}
+.qhint:empty{display:none}
+.qhint .qv{color:var(--ink);font-weight:700}
+.qhint .linkish{margin-left:6px;font-size:.78rem;padding:0}
+.uchip.ucount{background:var(--sunk);color:var(--ink-2);text-align:center;font-variant-numeric:tabular-nums}
+.uchip.ucount.done{text-decoration:none;opacity:1;color:var(--muted)}
+.qhint .linkish{position:relative}
+.qhint .linkish::after{content:"";position:absolute;inset:-12px -8px}
