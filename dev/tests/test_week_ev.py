@@ -33,7 +33,7 @@ with sync_playwright() as p:
     check(heads == ["일", "월", "화", "수", "목", "금", "토"], "시간표 한 주는 일요일부터: " + str(heads))
     # 소분류 태그
     blk = pg.locator(".blk.tblk:has-text('과제 풀기')")
-    check("자료구조 과제 풀기" in blk.inner_text() and "수업" not in blk.inner_text(), "할 일 칸: 소분류 + 이름(카테고리 이름 없음)")
+    check("과제 풀기 자료구조" in blk.inner_text() and "수업" not in blk.inner_text(), "할 일 칸: 소분류 + 이름(카테고리 이름 없음)")
     # 보기 필터
     check(pg.get_attribute("[data-act=ttshow][data-v=all]", "aria-pressed") == "true", "기본은 모두")
     pg.click("[data-act=ttshow][data-v=ev]"); pg.wait_for_timeout(150)

@@ -7,9 +7,9 @@ const unb64 = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.lengt
 /* 할 일 목록 → 서버에 보낼 알림 목록(완료·보관 카테고리·지난 알림 제외, 약 두 달 치) */
 export function remindersFrom(tasks, cats, base, now = Date.now(), events = null) {
   const arch = new Set((cats || []).filter(c => c.archived).map(c => c.id));
-  // 알림 제목에도 소분류를 이름 앞에 붙인다("자료구조 과제 3 풀기")
+  // 알림 제목에도 소분류를 이름 뒤에 함께("과제 3 풀기 · 자료구조")
   const subName = new Map(); for (const c of cats || []) for (const x of (c.subs || [])) subName.set(c.id + "/" + x.id, x.name);
-  const nameOf = t => { const n = t.sub && subName.get(t.cat + "/" + t.sub); return (n ? n + " " : "") + (t.title || ""); };
+  const nameOf = t => { const n = t.sub && subName.get(t.cat + "/" + t.sub); return (t.title || "") + (n ? " · " + n : ""); };
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
     if (t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;

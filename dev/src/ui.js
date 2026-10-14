@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="2.1.0";
+const VERSION="2.1.1";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 /* "매주 월·수", 매일이면 그냥 "매일" */
@@ -56,10 +56,11 @@ const shown=t=>!catOf(t).archived;
 const isOpen=t=>!t.done&&!t.skipped;
 const visibleTasks=()=>[...S.tasks.values()].filter(shown);
 const subsOf=c=>Array.isArray(c&&c.subs)?c.subs:[];
-/* 이름: 소분류도 이름의 일부로 앞에 붙인다("자료구조 과제 3 풀기"). 목록은 따로 태그로 보여 주니 칸·칩·알림·시트 제목에서 쓴다 */
+/* 이름: 소분류도 이름의 일부로 함께 보여 준다. 이름이 주인공이라 이름 → 소분류 순서, 소분류는 작고 옅게("과제 3 풀기 자료구조").
+   캘린더·전체 목록은 원래대로 이름 + 태그, 칸·칩·알림·시트 제목에서 쓴다 */
 const subOf=t=>t&&t.sub?subsOf(catOf(t)).find(x=>x.id===t.sub)||null:null;
-const nameH=t=>{const x=subOf(t);return (x?'<span class="sbp">'+esc(x.name)+'</span> ':'')+esc(t.title);};
-const nameT=t=>{const x=subOf(t);return (x?x.name+' ':'')+(t.title||"");};
+const nameH=t=>{const x=subOf(t);return esc(t.title)+(x?' <span class="sbp">'+esc(x.name)+'</span>':'');};
+const nameT=t=>{const x=subOf(t);return (t.title||"")+(x?' · '+x.name:'');};
 const byCreated=(a,b)=>(a.createdAt||0)-(b.createdAt||0);
 const byTime=(a,b)=>{const x=a.time||"99:99",y=b.time||"99:99";return x<y?-1:x>y?1:byCreated(a,b);};
 const byDateTime=(a,b)=>{const x=a.date||"9999",y=b.date||"9999";return x<y?-1:x>y?1:byTime(a,b);};

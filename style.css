@@ -642,8 +642,8 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 .tt3{overscroll-behavior-x:contain;overscroll-behavior-y:auto}
 .banner.offline{background:var(--sunk);border-color:var(--edge);color:var(--ink-2)}
 /* 2.1.0 소분류는 이름 앞에, 자정 넘김, 다른 날에 하기 */
-.sbp{opacity:.72;font-weight:inherit}
-.ititle .sbp{opacity:.6}
+.sbp{font-size:.88em;font-weight:500;opacity:.68;letter-spacing:0}
+.ititle .sbp{font-size:.62em;font-weight:600;opacity:.55;margin-left:2px} /* 크기가 달라도 baseline에 맞춤 */
 .uchip.ucarry{background:color-mix(in srgb,var(--cc) 14%,var(--surface));color:color-mix(in srgb,var(--cc) 55%,var(--ink))}
 .uchip.ucarry b{font-weight:800;font-variant-numeric:tabular-nums}
 .uchip.ucarry.gh{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--cc) 16%,transparent) 0 4px,transparent 4px 8px);color:var(--muted)}
