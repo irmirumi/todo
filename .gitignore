@@ -1,2 +1,5 @@
 dev/dist/
 __pycache__/
+dev/tests/node_modules/
+dev/tests/out/
+dev/tests/w.mjs

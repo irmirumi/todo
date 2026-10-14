@@ -1,0 +1,6 @@
+{
+  "name": "ttobak-tests",
+  "private": true,
+  "type": "module",
+  "dependencies": { "http_ece": "^1.2.0" }
+}
