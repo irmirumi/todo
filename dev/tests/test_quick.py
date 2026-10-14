@@ -64,7 +64,7 @@ with sync_playwright() as p:
     # 그대로 쓰기
     pg.keyboard.type("내일 할 일 정리")
     pg.click(".qhint [data-act=qraw]")
-    check("해석 안 함" in pg.inner_text(".qhint"), "'그대로 쓰기'로 끔")
+    check("쓴 그대로" in pg.inner_text(".qhint"), "'그대로 쓰기'로 끔")
     check(pg.evaluate("document.activeElement.id") == "add-k1", "끄기 눌러도 입력칸 포커스")
     pg.keyboard.press("Enter"); pg.wait_for_timeout(200)
     t = [x for x in tasks() if x["title"] == "내일 할 일 정리"]

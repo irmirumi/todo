@@ -57,7 +57,7 @@ with sync_playwright() as p:
     b2.click()
     info = pg.inner_text(".sheet")
     check("이 날만" in info and "평소" in info and "인문관 101" in info, "정보 시트에 이 날만·평소 표시")
-    check(pg.inner_text("[data-act=evday]") == "이 날 변경 고치기", "변경된 날은 버튼 이름이 바뀜")
+    check(pg.locator("[data-act=evdayreset]").count() == 0, "정보 시트엔 원래대로 버튼이 없음(바꾸기 시트 안에만)")
     pg.click("[data-act=evday]"); pg.click("[data-act=evdayreset]"); pg.wait_for_timeout(250)
     check(not ev().get("ovr"), "원래대로 → 변경 지움")
     check("15:00–16:30" in pg.locator(f".ttcol[data-k='{tk}'] .blk.ev").inner_text(), "시간표도 원래대로")
