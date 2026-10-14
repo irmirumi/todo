@@ -18,4 +18,8 @@ const r2 = remindersFrom(new Map(), [], "https://x/todo/", now, events);
 const f = r2.find(x => x.id === "e_1@2026-10-16");
 assert.equal(new Date(f.at).toTimeString().slice(0, 5), "10:50");
 assert.equal(f.body, "10분 후 · 오전 11:00 · 인문관");
+// 알림 제목에 소분류
+const r3 = remindersFrom(new Map([["t_s", { id: "t_s", title: "과제 3", date: "2026-10-06", time: "10:00", remind: 0, cat: "k2", sub: "b1" }]]),
+  [{ id: "k2", name: "수업", color: "c5", subs: [{ id: "b1", name: "자료구조" }] }], "https://x/todo/", now, null);
+assert.equal(r3[0].title, "자료구조 과제 3");
 console.log("PASS");

@@ -35,7 +35,7 @@ def go(w,h,tag):
     pg.click("[data-act=showpast]"); pg.wait_for_timeout(250)
     print(tag,"past open rows:",[x.inner_text() for x in pg.locator(".pastbox .task .t").all()])
     pg.screenshot(path=OUT+tag+"2-all-open.png",full_page=True)
-    pg.click(".pastbox .skipbtn >> nth=0"); pg.wait_for_timeout(300)
+    pg.click(".pastbox .skipbtn >> nth=0"); pg.click("[data-act=laterskip]"); pg.wait_for_timeout(300)  # 2.1.0~: 언제 할지 묻는 시트 → 안 하고 끝내기
     print(tag,"after skip past:",pg.locator(".pastbox .task").count(),"| toast:",pg.inner_text("#toastMsg"),"| donebox:",pg.inner_text(".donebox"))
     # check alignment of 지남? now headings: compare baselines of h3 and dw in first dsec
     print(tag,"baseline diff:",pg.evaluate("(()=>{const h=document.querySelector('.dsec .dlink h3'),d=document.querySelector('.dsec .dlink .rel')||document.querySelector('.dsec .dlink .dw');const a=h.getBoundingClientRect(),c=d.getBoundingClientRect();return Math.round(a.bottom-c.bottom)})()"))

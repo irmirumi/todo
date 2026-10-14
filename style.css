@@ -641,3 +641,17 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 /* 3일 보기: 시간표 끝까지 밀면 페이지가 이어서 내려간다(아래 버튼 줄에 닿도록) */
 .tt3{overscroll-behavior-x:contain;overscroll-behavior-y:auto}
 .banner.offline{background:var(--sunk);border-color:var(--edge);color:var(--ink-2)}
+/* 2.1.0 소분류는 이름 앞에, 자정 넘김, 다른 날에 하기 */
+.sbp{opacity:.72;font-weight:inherit}
+.ititle .sbp{opacity:.6}
+.uchip.ucarry{background:color-mix(in srgb,var(--cc) 14%,var(--surface));color:color-mix(in srgb,var(--cc) 55%,var(--ink))}
+.uchip.ucarry b{font-weight:800;font-variant-numeric:tabular-nums}
+.uchip.ucarry.gh{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--cc) 16%,transparent) 0 4px,transparent 4px 8px);color:var(--muted)}
+.tnight{display:block;width:100%;font-size:.8rem;color:var(--muted);margin-top:4px}
+.chip.again{background:color-mix(in srgb,var(--ink-2) 8%,transparent);color:var(--ink-2)}
+.laterpick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 6px}
+.laterpick button{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:14px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font:inherit}
+.laterpick button b{font-size:1rem;font-weight:700}
+.laterpick button small{font-size:.76rem;color:var(--muted)}
+@media (hover:hover){.laterpick button:hover{background:var(--sunk)}}
+.tt3 .ttallL{align-self:stretch}

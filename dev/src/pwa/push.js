@@ -7,6 +7,9 @@ const unb64 = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.lengt
 /* 할 일 목록 → 서버에 보낼 알림 목록(완료·보관 카테고리·지난 알림 제외, 약 두 달 치) */
 export function remindersFrom(tasks, cats, base, now = Date.now(), events = null) {
   const arch = new Set((cats || []).filter(c => c.archived).map(c => c.id));
+  // 알림 제목에도 소분류를 이름 앞에 붙인다("자료구조 과제 3 풀기")
+  const subName = new Map(); for (const c of cats || []) for (const x of (c.subs || [])) subName.set(c.id + "/" + x.id, x.name);
+  const nameOf = t => { const n = t.sub && subName.get(t.cat + "/" + t.sub); return (n ? n + " " : "") + (t.title || ""); };
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
     if (t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
@@ -14,7 +17,7 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
     const at = new Date(y, mo - 1, d, h, mi).getTime() - t.remind * 60000;
     if (!(at > now && at <= max)) continue;
     const lead = LABEL[t.remind] || (t.remind + "분 후");
-    out.push({ id: t.id, at, title: t.title, body: lead + " · " + fmt(t.time), url: new URL("./#d=" + t.date, base).href });
+    out.push({ id: t.id, at, title: nameOf(t), body: lead + " · " + fmt(t.time), url: new URL("./#d=" + t.date, base).href });
   }
   // 고정 일정(수업 등): 앞으로 두 달 동안 그 요일마다
   if (events && events.size) {
