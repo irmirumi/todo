@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"정각"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="2.3.0";
+const VERSION="2.3.1";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 /* "매주 월·수", 매일이면 그냥 "매일" */
@@ -87,23 +87,27 @@ function ghostsFor(k){
     .map(r=>Object.assign({},r,{date:k,ghost:true}));
 }
 /* 이 날의 고정 일정: 기간 안, 그 요일, 보관 안 됨, (공휴일 쉼이면) 공휴일 아님. off = 이 날만 쉼 */
-/* 고정 일정의 요일·시간 묶음(2.3.0). slots가 없으면 예전처럼 days·time·end 하나. 한 요일은 묶음 하나에만 들어간다(이 날만 바꾸기·쉼이 날짜로 구분되게).
-   days·time·end는 첫 묶음과 같게 저장해 둔다(예전 버전과 알림 계산이 첫 묶음은 알아보게) */
-const slotsOf=e=>Array.isArray(e.slots)&&e.slots.length?e.slots:[{days:Array.isArray(e.days)?e.days:[],time:e.time||null,end:e.end||null}];
-const slotFor=(e,w)=>slotsOf(e).find(s=>Array.isArray(s.days)&&s.days.includes(w));
-/* 그 날의 평소 모습(묶음 반영) → evBase, 이 날만 바꾼 것까지 → evAt */
-function evBase(e,k){const s=k?slotFor(e,parse(k).getDay()):null,f=s||slotsOf(e)[0];return Object.assign({},e,{days:f.days,time:f.time,end:f.end});}
-function evAt(e,k){const b=evBase(e,k),o=k&&e.ovr&&e.ovr[k];return o?Object.assign(b,{time:o.time||b.time,end:o.time?o.end||null:b.end,place:o.place!=null?o.place:b.place}):b;}
-/* "월·수 10:30–11:45 · 금 14:00–15:30" */
-const slotsLabel=e=>slotsOf(e).map(s=>daysLabel(s.days)+(s.time?' '+fmtRange(s.time,s.end):'')).join(" · ");
+/* 고정 일정의 요일·시간(2.3.0, 2.3.1에 다시 짬). slots: [{id,days,time,end}] — 같은 요일이 여러 줄에 있어도 된다(중간에 쉬는 수업 등).
+   slots가 없으면 예전처럼 days·time·end 한 줄(id ""). 이 날만 바꾸기(ovr)·쉼(skips)의 키는 occKey: id ""인 줄은 날짜 그대로(예전과 같게), 나머지는 "날짜#id".
+   days·time·end는 id ""인 줄(없으면 첫 줄)과 같게 저장해 둔다(예전 버전이 그 줄은 알아보게) */
+const slotsOf=e=>Array.isArray(e.slots)&&e.slots.length?e.slots.map(x=>({id:x.id||"",days:Array.isArray(x.days)?x.days:[],time:x.time||null,end:x.end||null})):
+  [{id:"",days:Array.isArray(e.days)?e.days:[],time:e.time||null,end:e.end||null}];
+const occKey=(k,sid)=>sid?k+"#"+sid:k;
+const KEY_RE=/^\d{4}-\d{2}-\d{2}(#[a-z0-9]{1,8})?$/;
+/* 그 날 그 줄의 평소 모습 → evBase(sid 없으면 그 요일 첫 줄), 이 날만 바꾼 것까지 → evAt. 결과에 sid가 붙는다 */
+function evBase(e,k,sid){const sl=slotsOf(e),w=k?parse(k).getDay():-1;
+  const f=(sid!=null&&sl.find(x=>x.id===sid))||sl.find(x=>x.days.includes(w))||sl[0];
+  return Object.assign({},e,{days:f.days,time:f.time,end:f.end,sid:f.id});}
+function evAt(e,k,sid){const b=evBase(e,k,sid),o=k&&e.ovr&&e.ovr[occKey(k,b.sid)];return o?Object.assign(b,{time:o.time||b.time,end:o.time?o.end||null:b.end,place:o.place!=null?o.place:b.place}):b;}
+const slotLine=x=>daysLabel(x.days)+(x.time?' '+fmtRange(x.time,x.end):'');
 function eventsOn(k){
   const w=parse(k).getDay(),out=[];
   for(const e of S.events.values()){
-    const s=slotFor(e,w);
-    if(e.archived||!s||!s.time)continue;
+    if(e.archived)continue;
     if(e.from&&k<e.from||e.until&&k>e.until)continue;
     if(e.holOff!==false&&HOL[k])continue;
-    out.push({ev:evAt(e,k),chg:!!(e.ovr&&e.ovr[k]),off:Array.isArray(e.skips)&&e.skips.includes(k)});
+    for(const x of slotsOf(e)){if(!x.time||!x.days.includes(w))continue;const key=occKey(k,x.id);
+      out.push({ev:evAt(e,k,x.id),chg:!!(e.ovr&&e.ovr[key]),off:Array.isArray(e.skips)&&e.skips.includes(key)});}
   }
   return out.sort((a,b)=>a.ev.time<b.ev.time?-1:a.ev.time>b.ev.time?1:KO.compare(a.ev.title||"",b.ev.title||""));
 }
@@ -389,7 +393,7 @@ function renderDay(){
     if(od.length)h+='<div class="carry"><span>밀린 할 일 <b>'+od.length+'개</b></span><button class="small" type="button" data-act="carry">오늘로 옮기기</button></div>';
   }
   const evs=S.mode==="loading"?[]:eventsOn(k);
-  if(evs.length)h+='<section class="evstrip" aria-label="고정 일정">'+evs.map(({ev,off,chg})=>'<button type="button" class="evrow'+(off?' off':'')+'" style="--cc:var(--'+(ev.color||"c5")+')" data-act="einfo" data-id="'+ev.id+'" data-k="'+k+'">'+
+  if(evs.length)h+='<section class="evstrip" aria-label="고정 일정">'+evs.map(({ev,off,chg})=>'<button type="button" class="evrow'+(off?' off':'')+'" style="--cc:var(--'+(ev.color||"c5")+')" data-act="einfo" data-id="'+ev.id+'" data-k="'+k+'" data-s="'+(ev.sid||"")+'">'+
     '<span class="et">'+fmtRange(ev.time,ev.end)+'</span><span class="en">'+esc(ev.title)+'</span>'+(ev.place?'<span class="ep">'+esc(ev.place)+'</span>':'')+(off?'<span class="eo">쉼</span>':chg?'<span class="eo">이 날만 변경</span>':'')+'</button>').join("")+'</section>';
   if(S.mode!=="loading"&&!vis.length)h+='<p class="hint">＋로 추가해요. ‘내일 3시’처럼 쓰면 날짜·시간도 들어가요</p>';
   const gh=S.mode==="loading"?[]:ghostsFor(k);
@@ -529,7 +533,7 @@ function renderWeek(){
     if(useE&&!ld)for(const x of eventsOn(p))if(!x.off&&night(x.ev.time,x.ev.end))o.push({t:x.ev,kind:"ev"});
     return o.map(x=>Object.assign(x,{p}));});
   const carryChip=(x,short)=>{const t=x.t,ev=x.kind==="ev",act=ev?'einfo':x.kind==="ghost"?'ginfo':'info';
-    return '<button type="button" class="uchip ucarry'+(t.done?' done':'')+(x.kind==="ghost"?' gh':'')+'" style="--cc:var(--'+xColor(x)+')" data-act="'+act+'" data-id="'+t.id+'" data-k="'+x.p+'" title="'+esc(ev?t.title:nameT(t))+' '+fmtRange(t.time,t.end)+'"><b>~'+h24(t.end)+'</b>'+(short?'':' '+(ev?esc(t.title):nameH(t)))+'</button>';};
+    return '<button type="button" class="uchip ucarry'+(t.done?' done':'')+(x.kind==="ghost"?' gh':'')+'" style="--cc:var(--'+xColor(x)+')" data-act="'+act+'" data-id="'+t.id+'" data-k="'+x.p+'"'+(ev?' data-s="'+(t.sid||"")+'"':'')+' title="'+esc(ev?t.title:nameT(t))+' '+fmtRange(t.time,t.end)+'"><b>~'+h24(t.end)+'</b>'+(short?'':' '+(ev?esc(t.title):nameH(t)))+'</button>';};
   if((untimed.some(l=>l.length)||carryOn.some(l=>l.length))&&colW<80){
     /* 좁을 때(폰 7일): 잘린 제목 대신 개수만. 누르면 그날 */
     h+='<div class="ttall"><span class="ttallL">종일</span>'+untimed.map((l,i)=>{const cc=carryOn[i].map(x=>carryChip(x,true)).join("");if(!l.length)return '<div class="ttallC">'+cc+'</div>';
@@ -588,7 +592,7 @@ function renderWeek(){
       const lab=' aria-label="'+(x.kind==="ev"?'고정 일정 ':x.kind==="ghost"?'반복 할 일 ':'할 일 ')+esc(x.kind==="ev"?t.title:nameT(t))+' '+fmtRange(t.time,t.end)+(x.off?' 쉼':x.chg?' 이 날만 변경':'')+'" title="'+esc(x.kind==="ev"?t.title:nameT(t))+'"';
       const st=' style="--cc:var(--'+xColor(x)+');'+pos+'"';
       if(x.kind==="ghost")h+='<button type="button" class="blk ghost'+(thin?' thin':'')+'"'+lab+st+' data-act="ginfo" data-id="'+t.id+'" data-k="'+k+'">'+inner+'</button>';
-      else if(x.kind==="ev")h+='<button type="button" class="blk ev'+(x.off?' off':'')+(thin?' thin':'')+'"'+lab+st+' data-act="einfo" data-id="'+t.id+'" data-k="'+k+'">'+inner+'</button>';
+      else if(x.kind==="ev")h+='<button type="button" class="blk ev'+(x.off?' off':'')+(thin?' thin':'')+'"'+lab+st+' data-act="einfo" data-id="'+t.id+'" data-k="'+k+'" data-s="'+(t.sid||"")+'">'+inner+'</button>';
       else h+='<button type="button" class="blk tblk'+(t.done?' done':'')+(thin?' thin':'')+'"'+lab+st+' data-act="info" data-id="'+t.id+'">'+inner+'</button>';
     }
     if(k===today&&nowM>=h0*60&&nowM<=h1*60)h+='<i class="nowline" style="top:'+px(nowM)+'px"></i>';
@@ -655,7 +659,7 @@ let sheetClosing=false;
 /* 편집 시트는 '저장'을 눌러야만 저장한다. 고친 채로 닫으면(바깥·뒤로·아래로 밀기·Esc) 버리고 '다시 열기'를 띄운다 */
 const EDIT_KINDS=["edit","tpl","ev","evday","cats"];
 const snapOf=kind=>kind==="cats"?JSON.stringify((S.catDraft||[]).map(c=>[c.id,c.name,c.color,!!c.archived,c.subs.map(x=>[x.id,x.name]),c.subNew||""])):
-  JSON.stringify(S.edit&&S.edit.ev&&S.edit.slots?Object.assign({},S.edit,{slots:foldSlots(S.edit),si:0,days:0,time:0,end:0}):S.edit,(k,v)=>/^(timeRaw|endRaw|timeBad|endBad)$/.test(k)?undefined:v);
+  JSON.stringify(S.edit,(k,v)=>/^(timeRaw|endRaw|timeBad|endBad)$/.test(k)?undefined:v);
 function openSheet(kind,draw){
   sheetClosing=false;const was=S.sheet;S.sheet=kind;draw();
   if(EDIT_KINDS.includes(kind)&&was!==kind)S.snap=snapOf(kind);
@@ -798,17 +802,17 @@ function parseImport(text){
     const c=clean(e);return {id:e.id,title:c.title,place:typeof e.place==="string"?e.place.slice(0,60):"",color:COLORS.includes(e.color)?e.color:"c5",
       days:sortDays((Array.isArray(e.days)?e.days:[]).filter(x=>Number.isInteger(x)&&x>=0&&x<=6)),time:c.time,end:c.end,slots:cleanSlots(e.slots),
       from:DATE_RE.test(e.from)?e.from:null,until:DATE_RE.test(e.until)?e.until:null,holOff:e.holOff!==false,remind:c.remind,note:c.note,
-      skips:(Array.isArray(e.skips)?e.skips:[]).filter(x=>DATE_RE.test(x)).slice(0,200),archived:!!e.archived,createdAt:c.createdAt,
-      ovr:Object.fromEntries(Object.entries(e.ovr&&typeof e.ovr==="object"?e.ovr:{}).filter(([k,o])=>DATE_RE.test(k)&&o&&TIME_RE.test(o.time)).slice(0,200)
+      skips:(Array.isArray(e.skips)?e.skips:[]).filter(x=>KEY_RE.test(x)).slice(0,200),archived:!!e.archived,createdAt:c.createdAt,
+      ovr:Object.fromEntries(Object.entries(e.ovr&&typeof e.ovr==="object"?e.ovr:{}).filter(([k,o])=>KEY_RE.test(k)&&o&&TIME_RE.test(o.time)).slice(0,200)
         .map(([k,o])=>[k,{time:o.time,end:okEnd(o.time,o.end)?o.end:null,place:typeof o.place==="string"?o.place.slice(0,60):""}]))};});
   return {tasks,cats,tpls,events};
 }
 function cleanSlots(v){
-  if(!Array.isArray(v))return null;const seen=new Set();
-  const out=v.slice(0,7).map(s=>{const time=s&&TIME_RE.test(s.time)?s.time:null;
-    const days=sortDays((Array.isArray(s&&s.days)?s.days:[]).filter(x=>Number.isInteger(x)&&x>=0&&x<=6&&!seen.has(x)));days.forEach(x=>seen.add(x));
-    return {days,time,end:time&&okEnd(time,s.end)?s.end:null};}).filter(s=>s.days.length&&s.time);
-  return out.length>1?out:null;
+  if(!Array.isArray(v))return null;const ids=new Set();
+  const out=v.slice(0,14).map(s=>{const time=s&&TIME_RE.test(s.time)?s.time:null;let id=s&&typeof s.id==="string"&&/^[a-z0-9]{1,8}$/.test(s.id)?s.id:"";
+    if(ids.has(id))id=Math.random().toString(36).slice(2,6);ids.add(id);
+    return {id,days:sortDays((Array.isArray(s&&s.days)?s.days:[]).filter(x=>Number.isInteger(x)&&x>=0&&x<=6)),time,end:time&&okEnd(time,s.end)?s.end:null};}).filter(s=>s.days.length&&s.time);
+  return out.length>1||(out.length&&out[0].id)?out:null;
 }
 function drawImport(){
   const d=S.importData;
@@ -838,8 +842,8 @@ function infoBody(t,k,ghost){
 function drawInfo(){
   if(S.infoEv){
     const e=S.events.get(S.infoEv),k=S.infoK;if(!e){closeDlg();return;}
-    const d=k?parse(k):null,r=k?relWord(k):"",off=!!(k&&Array.isArray(e.skips)&&e.skips.includes(k));
-    const o=k&&e.ovr&&e.ovr[k],b=evBase(e,k),x=evAt(e,k),multi=slotsOf(e).length>1;
+    const b=evBase(e,k,S.infoS),key=k&&occKey(k,b.sid),x=evAt(e,k,b.sid),multi=slotsOf(e).length>1;
+    const d=k?parse(k):null,r=k?relWord(k):"",off=!!(k&&Array.isArray(e.skips)&&e.skips.includes(key)),o=k&&e.ovr&&e.ovr[key];
     const tChg=o&&(x.time!==b.time||(x.end||null)!==(b.end||null)),pChg=o&&(x.place||"")!==(e.place||"");
     const rows=[];
     if(d)rows.push(['날짜',(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'+(r?' · '+r:'')+(off?' · <b class="offt">쉼</b>':'')]);
@@ -847,7 +851,7 @@ function drawInfo(){
     const wk=multi?fmtRange(b.time,b.end):weekly(b.days)+' · '+fmtRange(b.time,b.end);
     rows.push(['시간',tChg?'<b>'+fmtRange(x.time,x.end)+'</b> <small>이 날만</small>':wk+(durText(b.time,b.end)?' <small>'+durText(b.time,b.end)+'</small>':'')]);
     if(tChg)rows.push(['평소',wk]);
-    if(multi)rows.push(['매주',slotsOf(e).map(s=>'<span class="islot">'+daysLabel(s.days)+' '+fmtRange(s.time,s.end)+'</span>').join("")]);
+    if(multi)rows.push(['매주',slotsOf(e).map(s=>'<span class="islot">'+slotLine(s)+'</span>').join("")]);
     if(x.place||pChg)rows.push(['장소',pChg?'<b>'+esc(x.place||"없음")+'</b> <small>이 날만'+(e.place?' · 평소 '+esc(e.place):'')+'</small>':esc(x.place)]);
     if(e.from||e.until)rows.push(['기간',(e.from?md(e.from):'')+' ~ '+(e.until?md(e.until):'')]);
     rows.push(['공휴일',e.holOff!==false?'쉬어요':'쉬지 않아요']);
@@ -872,16 +876,16 @@ function drawInfo(){
 /* 시간표에서 묶인 일정 목록 */
 function drawGroup(){
   const k=S.groupK,d=parse(k);
-  const list=(S.groupList||[]).map(x=>({x,t:x.kind==="ghost"?S.tpls.get(x.id):x.kind==="ev"?(S.events.get(x.id)&&evAt(S.events.get(x.id),k)):S.tasks.get(x.id)})).filter(o=>o.t);
+  const list=(S.groupList||[]).map(x=>({x,t:x.kind==="ghost"?S.tpls.get(x.id):x.kind==="ev"?(S.events.get(x.id)&&evAt(S.events.get(x.id),k,x.sid)):S.tasks.get(x.id)})).filter(o=>o.t);
   if(!list.length){closeDlg();return;}
   drawSheet('<p class="eyebrow sheet-eb"><span>'+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')</span></p><h2>겹친 일정 '+list.length+'개</h2>'+
     '<div class="glist">'+list.map(({x,t})=>{const ev=x.kind==="ev",c=ev?null:catOf(t),col=ev?(t.color||"c5"):c.color;
       const what=ev?'고정 일정'+(t.place?' · '+esc(t.place):'')+(x.off?' · 이 날 쉼':''):esc(c.name)+(x.kind==="ghost"?' · 반복 할 일':'')+(t.done?' · 완료':'');
-      return '<button type="button" class="grow'+(t.done||x.off?' done':'')+(x.kind==="ghost"?' ghost':'')+(ev?' ev':'')+'" style="--cc:var(--'+col+')" data-act="'+(ev?'einfo':x.kind==="ghost"?'ginfo':'info')+'" data-id="'+t.id+'" data-k="'+k+'">'+
+      return '<button type="button" class="grow'+(t.done||x.off?' done':'')+(x.kind==="ghost"?' ghost':'')+(ev?' ev':'')+'" style="--cc:var(--'+col+')" data-act="'+(ev?'einfo':x.kind==="ghost"?'ginfo':'info')+'" data-id="'+t.id+'" data-k="'+k+'"'+(ev?' data-s="'+(t.sid||"")+'"':'')+'>'+
         '<span class="gt">'+fmtRange(t.time,t.end)+'</span><span class="gm"><span class="gtt">'+(ev?esc(t.title):nameH(t))+'</span><span class="gc"><i></i>'+what+'</span></span></button>';}).join("")+'</div>'+
     '<div class="actions"><span class="sp"></span><button class="btn sec" type="button" data-act="close">닫기</button></div>');
 }
-function openEvInfo(id,k){if(!S.events.get(id))return;S.infoEv=id;S.infoK=k||null;S.infoId=null;S.infoTpl=null;openSheet("info",drawInfo);}
+function openEvInfo(id,k,sid){if(!S.events.get(id))return;S.infoEv=id;S.infoK=k||null;S.infoS=sid==null?null:sid;S.infoId=null;S.infoTpl=null;openSheet("info",drawInfo);}
 function openInfo(id){if(!S.tasks.get(id))return;S.infoId=id;S.infoTpl=null;S.infoEv=null;openSheet("info",drawInfo);}
 function openGhostInfo(id,k){if(!S.tpls.get(id))return;S.infoTpl=id;S.infoK=k;S.infoId=null;S.infoEv=null;openSheet("info",drawInfo);}
 
@@ -892,7 +896,7 @@ function drawEvs(){
   const list=evList(),on=list.filter(e=>!evOff(e)),off=list.filter(evOff);
   const rowH=e=>{const st=e.archived?'보관함':e.until&&e.until<today?'끝남':e.until?'~'+md(e.until).replace(/ \(.\)/,""):'';
     return '<button type="button" class="tplrow'+(evOff(e)?' arc':'')+'" style="--cc:var(--'+(e.color||"c5")+')" data-act="eedit" data-id="'+e.id+'"><span class="dot sq"></span><span class="nm">'+esc(e.title)+'</span>'+
-      (slotsOf(e).length>1?'<span class="when ms">'+slotsOf(e).map(x=>'<span>'+daysLabel(x.days)+' '+fmtRange(x.time,x.end)+'</span>').join("")+(st?'<span>'+st+'</span>':'')+'</span>':
+      (slotsOf(e).length>1?'<span class="when ms">'+slotsOf(e).map(x=>'<span>'+slotLine(x)+'</span>').join("")+(st?'<span>'+st+'</span>':'')+'</span>':
       '<span class="when">'+daysLabel(e.days)+(e.time?' · '+fmtRange(e.time,e.end):' · 시간 없음')+(st?' · '+st:'')+'</span>')+'</button>';};
   let h='<h2>고정 일정</h2><p>수업처럼 매주 같은 시간에 있는 일정이에요. 체크하는 할 일과 달리 시간표와 캘린더에 보이기만 해요.</p>';
   if(on.length)h+='<div class="tpllist">'+on.map(rowH).join("")+'</div>';
@@ -901,43 +905,53 @@ function drawEvs(){
   h+='<div class="actions"><span class="sp"></span><button class="btn pri" type="button" data-act="evnew">+ 고정 일정</button></div>';
   drawSheet(h);
 }
-/* k: 그 날에서 편집을 열었으면 그 날의 요일·시간 묶음을 펼쳐 둔다 */
-function openEv(id,seed,k){
+/* 고정 일정 편집. 요일·시간은 줄(카드) 목록: 줄마다 요일 여러 개 + 시작~끝 + 길이. 같은 요일이 여러 줄에 있어도 된다 */
+const newSid=e=>{let id;do id=Math.random().toString(36).slice(2,6);while(e.slots.some(x=>x.id===id));return id;};
+function openEv(id,seed){
   const e=id?S.events.get(id):null;if(id&&!e)return;
   const src=e||seed||{};
   const used=new Set([...S.events.values()].map(x=>x.color));
   S.editing=id||null;S.editGone=false;
-  const slots=e?slotsOf(e).map(s=>({days:sortDays(s.days),time:s.time||"",end:s.end||""})):[{days:src.days||[parse(S.sel).getDay()],time:src.time||"",end:src.end||""}];
-  const w=k?parse(k).getDay():-1,si=Math.max(0,slots.findIndex(s=>s.days.includes(w)));
+  const slots=e?slotsOf(e).map(s=>({id:s.id,days:sortDays(s.days),time:s.time||"",end:s.end||""})):[{id:"",days:src.days||[parse(S.sel).getDay()],time:src.time||"",end:src.end||(src.time?plusHour(src.time):"")}];
   S.edit={ev:true,title:src.title||"",place:src.place||"",note:src.note||"",color:src.color||COLORS.slice(1).find(c=>!used.has(c))||"c5",
-    slots,si,days:slots[si].days,time:slots[si].time,end:slots[si].end,from:src.from||"",until:src.until||"",
+    slots,time:"",end:"",days:[],from:src.from||"",until:src.until||"",
     holOff:src.holOff!==false,remind:src.remind==null?null:src.remind,archived:!!src.archived,date:"",nodate:false,subtasks:[],subDraft:""};
-  if(!id&&S.edit.time&&!S.edit.end)S.edit.slots[0].end=S.edit.end=plusHour(S.edit.time);
   openSheet("ev",drawEv);
   if(!id){const ti=$("#e-title");if(ti)ti.focus();}
 }
+const EVDURS=[30,45,60,75,90,120,150,180];
+/* 두 줄이 같은 요일에 시간이 겹치나(자정 넘김은 그 날 안에서만 봄) */
+function slotClash(a,b){if(!a.time||!b.time||!a.days.some(d=>b.days.includes(d)))return false;
+  const r=x=>{const s0=mins(x.time);return [s0,okEnd(x.time,x.end)?endMins(x.time,x.end):s0+1];},[a0,a1]=r(a),[b0,b1]=r(b);return a0<b1&&b0<a1;}
+function slotCard(e,x,i){
+  const n=e.slots.length,d=durOf(x.time,x.end),endWrong=!!(x.time&&x.end&&!x.endBad&&x.end===x.time);
+  const clash=e.slots.some((y,j)=>j!==i&&slotClash(x,y));
+  const opts=(d==null?['<option value="">'+(x.time?'끝 없음':'—')+'</option>']:[]).concat(EVDURS.includes(d)||d==null?[]:['<option value="'+d+'" selected>'+durWords(d)+'</option>'],
+    EVDURS.map(m=>'<option value="'+m+'"'+(m===d?' selected':'')+'>'+durWords(m)+'</option>')).join("");
+  return '<div class="slot" data-i="'+i+'">'+
+    '<div class="catpick days" role="group" aria-label="요일 '+(i+1)+'">'+WEEK.map(w=>'<button type="button" class="pill dw d'+w+'" aria-pressed="'+x.days.includes(w)+'" data-act="sday" data-i="'+i+'" data-d="'+w+'">'+DOW[w]+'</button>').join("")+'</div>'+
+    '<span class="trange">'+oneTime("s-time-"+i,x.time,x.timeRaw,x.timeBad,false,"0930","시작 시간",{text:x.time?fmtTime(x.time):"24시간제"})+'<span class="tilde">~</span>'+
+      oneTime("s-end-"+i,x.end,x.endRaw,x.endBad,!x.time,"끝","끝나는 시간",{text:endWrong?"시작과 같아요":x.end?(x.time&&night(x.time,x.end)?"다음 날 ":"")+fmtTime(x.end):"선택",bad:endWrong})+'</span>'+
+    '<div class="sfoot"><label class="sdur">길이<select class="inp" id="s-dur-'+i+'"'+(x.time?'':' disabled')+' aria-label="길이">'+opts+'</select></label><span class="sp"></span>'+
+      (n>1?'<button class="linkish" type="button" data-act="slotdel" data-i="'+i+'">이 줄 빼기</button>':x.time?'<button class="linkish" type="button" data-act="notime">시간 지우기</button>':'')+'</div>'+
+    (!x.days.length?'<p class="snote">요일을 골라 주세요</p>':clash?'<p class="snote bad">'+daysLabel(x.days.filter(w=>e.slots.some((y,j)=>j!==i&&y.days.includes(w))))+'에 다른 줄과 시간이 겹쳐요</p>':
+      !fine&&x.time&&night(x.time,x.end)?'<p class="snote">다음 날 '+fmtTime(x.end)+'에 끝나요</p>':'')+
+    '</div>';
+}
 function drawEv(){
   const e=S.edit;
-  const endWrong=!!(e.time&&e.end&&!okEnd(e.time,e.end));
   let h='<p class="eyebrow sheet-eb"><span>'+(S.editing?'고정 일정':'새 고정 일정')+'</span></p>'+
     '<input class="inp big" id="e-title" type="text" value="'+esc(e.title)+'" placeholder="일정 이름 (예: 영어회화)" autocomplete="off" enterkeyhint="next" aria-label="일정 이름">'+
     '<input class="inp" id="e-place" type="text" value="'+esc(e.place)+'" placeholder="장소 (선택)" autocomplete="off" enterkeyhint="done" aria-label="장소">';
   h+='<div class="field"><span class="lbl">색</span><div class="sw" role="group" aria-label="색">'+COLORS.map(k=>'<button type="button" style="--cc:var(--'+k+')" aria-pressed="'+(k===e.color)+'" aria-label="색 '+k.slice(1)+'" data-act="evcolor" data-color="'+k+'"></button>').join("")+'</div></div>';
-  /* 요일·시간 묶음: 펼친 하나만 편집(입력칸은 늘 e-time·e-end 하나), 나머지는 한 줄 요약. 다른 묶음에 있는 요일은 흐리게 */
-  const sl=foldSlots(e),multi=sl.length>1,taken=new Set(sl.flatMap((s,i)=>i===e.si?[]:s.days));
-  const daysH='<div class="field"><span class="lbl">매주'+(e.days.length?' · '+daysLabel(e.days):' · 요일을 골라 주세요')+'</span><div class="catpick days" role="group" aria-label="요일">'+
-    WEEK.map(d=>'<button type="button" class="pill dw d'+d+(taken.has(d)?' taken':'')+'" aria-pressed="'+e.days.includes(d)+'" data-act="eday" data-d="'+d+'"'+(taken.has(d)?' aria-label="'+DOW[d]+' (다른 시간에 있어요)"':'')+'>'+DOW[d]+'</button>').join("")+'</div></div>'+
-    '<div class="field"><label for="e-time">시간'+(e.time?'':' · 시간을 넣어야 시간표에 보여요')+'</label><div class="row">'+timeInput(e,false)+'</div></div>';
-  if(!multi)h+=daysH+'<button class="linkish slotadd" type="button" data-act="evslotadd">+ 다른 요일·시간 추가</button>';
-  else h+='<div class="field"><span class="lbl">요일·시간 '+sl.length+'개</span><div class="slots">'+sl.map((s,i)=>i===e.si?
-      '<div class="slot on">'+daysH+'<button class="linkish" type="button" data-act="evslotdel">이 요일·시간 빼기</button></div>':
-      '<button type="button" class="slot" data-act="evslot" data-i="'+i+'"><b>'+(s.days.length?daysLabel(s.days):'요일 없음')+'</b><span>'+(s.time?fmtRange(s.time,s.end):'시간 없음')+'</span><small>편집</small></button>').join("")+
-    '</div><button class="linkish slotadd" type="button" data-act="evslotadd">+ 다른 요일·시간 추가</button></div>';
+  const timed=e.slots.some(x=>x.time);
+  h+='<div class="field"><span class="lbl">매주 · 요일과 시간'+(timed?'':' · 시간을 넣어야 시간표에 보여요')+'</span><div class="slots">'+e.slots.map((x,i)=>slotCard(e,x,i)).join("")+'</div>'+
+    '<button class="linkish slotadd" type="button" data-act="slotadd">+ 시간 추가</button></div>';
   h+='<div class="field"><span class="lbl">기간 · 비워 두면 계속</span><div class="row prow"><input class="inp" id="e-from" type="date" value="'+esc(e.from)+'" aria-label="시작하는 날"><span class="tilde">~</span><input class="inp" id="e-until" type="date" value="'+esc(e.until)+'" aria-label="끝나는 날"></div>'+
     (e.from||e.until?'<button class="linkish" type="button" data-act="evnoperiod" style="align-self:flex-start">기간 지우기</button>':'')+
     '<label class="opt"><input type="checkbox" id="e-hol"'+(e.holOff?' checked':'')+'>공휴일엔 쉬어요</label></div>';
   if(store.push){
-    const can=!!e.time&&!e.timeBad;
+    const can=timed;
     h+='<div class="field"><span class="lbl">알림'+(can?'':' · 시간을 정하면 켤 수 있어요')+'</span><div class="catpick remind">'+REMIND.map(r=>'<button type="button" class="pill" aria-pressed="'+(can&&e.remind===r[0]||(!can&&r[0]===null))+'" data-act="eremind" data-m="'+(r[0]==null?"":r[0])+'"'+(can?'':' disabled')+'>'+r[1]+'</button>').join("")+'</div></div>';
   }
   h+='<div class="field"><label for="e-note">메모</label><textarea class="inp" id="e-note" placeholder="교수님 연락처, 준비물 등">'+esc(e.note)+'</textarea></div>';
@@ -947,39 +961,36 @@ function drawEv(){
     '<span class="sp"></span><button class="btn pri" type="button" data-act="save">저장</button></div>';
   drawSheet(h);
 }
-const normSlots=e=>{const s=slotsOf(e);return s.length>1?s.map(x=>({days:sortDays(x.days),time:x.time||null,end:x.end||null})):null;};
+const normSlots=e=>Array.isArray(e.slots)&&e.slots.length?slotsOf(e).map(x=>({id:x.id,days:sortDays(x.days),time:x.time,end:x.end})):null;
 const normEv=e=>({title:e.title||"",place:e.place||"",color:e.color||"c5",days:sortDays(e.days),time:e.time||null,end:e.end||null,slots:normSlots(e),from:e.from||null,until:e.until||null,
   holOff:e.holOff!==false,remind:e.remind==null?null:e.remind,note:e.note||"",archived:!!e.archived});
-/* 편집 중인 묶음(펼친 것)을 목록에 되돌려 넣은 사본 */
-const foldSlots=e=>e.slots.map((s,i)=>i===e.si?{days:e.days,time:e.time,end:e.end}:s);
-function pickSlot(e,i){Object.assign(e,{slots:foldSlots(e)});e.si=i;const s=e.slots[i];Object.assign(e,{days:s.days,time:s.time||"",end:s.end||"",timeRaw:"",endRaw:"",timeBad:false,endBad:false});}
 function commitEv(){
   syncEdit();const e=S.edit,id=S.editing,old=id&&S.events.get(id);
   if(!e||S.editGone||(id&&!old))return;
   const title=e.title.trim()||(old?old.title:"");if(!title)return;
-  /* 묶음 정리: 요일·시간이 다 있는 것만, 요일 순서대로. 하나도 없으면 첫 묶음을 그대로(시간 없는 일정) */
-  const raw=foldSlots(e).map(s=>({days:sortDays(s.days),time:TIME_RE.test(s.time)?s.time:null,end:s.end}));
-  let sl=raw.filter(s=>s.days.length&&s.time).map(s=>Object.assign(s,{end:okEnd(s.time,s.end)?s.end:null}));
-  sl.sort((a,b)=>WEEK.indexOf(a.days[0])-WEEK.indexOf(b.days[0])||(a.time<b.time?-1:1));
-  if(!sl.length)sl=[{days:raw[0].days,time:raw[0].time,end:raw[0].time&&okEnd(raw[0].time,raw[0].end)?raw[0].end:null}];
-  const time=sl[0].time;
+  /* 줄 정리: 요일·시간이 다 있는 줄만, 요일·시간 순. 하나도 없으면 첫 줄 그대로(시간 없는 일정) */
+  const raw=e.slots.map(x=>({id:x.id||"",days:sortDays(x.days),time:TIME_RE.test(x.time)?x.time:null,end:x.end||null}));
+  let sl=raw.filter(x=>x.days.length&&x.time).map(x=>Object.assign(x,{end:okEnd(x.time,x.end)?x.end:null}));
+  sl.sort((a,b)=>WEEK.indexOf(a.days[0])-WEEK.indexOf(b.days[0])||(a.time<b.time?-1:a.time>b.time?1:0));
+  if(!sl.length)sl=[Object.assign(raw[0],{end:raw[0].time&&okEnd(raw[0].time,raw[0].end)?raw[0].end:null})];
+  const main=sl.find(x=>!x.id)||sl[0];
   let from=DATE_RE.test(e.from)?e.from:null,until=DATE_RE.test(e.until)?e.until:null;
   if(from&&until&&until<from){const x=from;from=until;until=x;}
-  const body={title,place:e.place.trim().slice(0,60),color:COLORS.includes(e.color)?e.color:"c5",days:sl[0].days,time,end:sl[0].end,slots:sl.length>1?sl:null,from,until,
-    holOff:!!e.holOff,remind:sl.some(s=>s.time)&&e.remind!=null?e.remind:null,note:e.note.trim(),archived:!!e.archived};
+  const body={title,place:e.place.trim().slice(0,60),color:COLORS.includes(e.color)?e.color:"c5",days:main.days,time:main.time,end:main.end,slots:sl.length>1||sl[0].id?sl:null,from,until,
+    holOff:!!e.holOff,remind:sl.some(x=>x.time)&&e.remind!=null?e.remind:null,note:e.note.trim(),archived:!!e.archived};
   if(old){if(JSON.stringify(normEv(old))!==JSON.stringify(body))patchTask(id,body);return;}
   setTask(uid8("e_"),Object.assign(body,{skips:[],createdAt:Date.now()}));
-  toast(body.slots?"매주 "+body.slots.map(s=>daysLabel(s.days)+" "+fmtTime(s.time)).join(" · ")+"에 보여요":body.time&&body.days.length?weekly(body.days)+" "+fmtTime(body.time)+"에 보여요":"고정 일정을 저장했어요");
+  toast(sl.some(x=>x.time&&x.days.length)?"매주 "+sl.map(x=>daysLabel(x.days)+" "+fmtTime(x.time)).join(" · ")+"에 보여요":"고정 일정을 저장했어요");
 }
 /* 고정 일정 하나의 이 날만 시간·장소 바꾸기. 닫으면 저장, 원래와 같으면 변경을 지운다 */
-function openEvDay(id,k){
-  const e0=S.events.get(id);if(!e0||!k)return;const o=e0.ovr&&e0.ovr[k],e=evBase(e0,k);
-  S.edit={evday:true,id,k,time:o&&o.time||e.time||"",end:o?(o.time?o.end||"":e.end||""):e.end||"",place:o&&o.place!=null?o.place:e.place||"",subtasks:[]};
+function openEvDay(id,k,sid){
+  const e0=S.events.get(id);if(!e0||!k)return;const e=evBase(e0,k,sid),o=e0.ovr&&e0.ovr[occKey(k,e.sid)];
+  S.edit={evday:true,id,k,sid:e.sid,time:o&&o.time||e.time||"",end:o?(o.time?o.end||"":e.end||""):e.end||"",place:o&&o.place!=null?o.place:e.place||"",subtasks:[]};
   S.editing=id;S.editGone=false;openSheet("evday",drawEvDay);
 }
 function drawEvDay(){
   const e=S.edit,ev0=S.events.get(e.id);if(!ev0){closeDlg();return;}
-  const ev=evBase(ev0,e.k),d=parse(e.k),o=ev0.ovr&&ev0.ovr[e.k];
+  const ev=evBase(ev0,e.k,e.sid),d=parse(e.k),o=ev0.ovr&&ev0.ovr[occKey(e.k,e.sid)];
   let h='<p class="eyebrow sheet-eb icat" style="--cc:var(--'+(ev.color||"c5")+')"><span><i></i>'+esc(ev.title)+'</span><span>'+(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')</span></p><h2>이 날만 바꾸기</h2>'+
     '<p>평소 '+fmtRange(ev.time,ev.end)+(ev.place?' · '+esc(ev.place):'')+'. 다른 날은 그대로예요</p>';
   h+='<div class="field"><label for="e-time">시간</label><div class="row">'+timeInput(e,false).replace(/<button class="linkish" type="button" data-act="notime">[^<]*<\/button>/,"")+'</div></div>';
@@ -988,12 +999,12 @@ function drawEvDay(){
   drawSheet(h);
 }
 function commitEvDay(){
-  syncEdit();const e=S.edit,ev0=e&&S.events.get(e.id);if(!e||!ev0||S.editGone)return;const ev=evBase(ev0,e.k);
-  const ovr=Object.assign({},ev.ovr||{}),prev=ovr[e.k];
+  syncEdit();const e=S.edit,ev0=e&&S.events.get(e.id);if(!e||!ev0||S.editGone)return;const ev=evBase(ev0,e.k,e.sid),key=occKey(e.k,ev.sid);
+  const ovr=Object.assign({},ev.ovr||{}),prev=ovr[key];
   const time=!e.timeBad&&TIME_RE.test(e.time)?e.time:ev.time,end=!e.endBad&&okEnd(time,e.end)?e.end:null,place=(e.place||"").trim().slice(0,60);
   const same=e.reset||(time===ev.time&&(end||null)===(okEnd(ev.time,ev.end)?ev.end:null)&&place===(ev.place||""));
-  if(same){if(!prev)return;delete ovr[e.k];}
-  else{const nv={time,end,place};if(prev&&JSON.stringify(prev)===JSON.stringify(nv))return;ovr[e.k]=nv;}
+  if(same){if(!prev)return;delete ovr[key];}
+  else{const nv={time,end,place};if(prev&&JSON.stringify(prev)===JSON.stringify(nv))return;ovr[key]=nv;}
   const lim=addDays(today,-60);for(const k of Object.keys(ovr))if(k<lim)delete ovr[k];
   patchTask(ev.id,{ovr});S.events.set(ev.id,Object.assign({},ev0,{ovr}));
   toast(same?"원래대로 돌렸어요":"이 날만 바꿨어요");
@@ -1048,19 +1059,23 @@ function openEdit(id){
     subtasks:(t.subtasks||[]).map(s=>({id:s.id,t:s.t,done:!!s.done}))};
   openSheet("edit",drawEdit);
 }
+/* 시작·끝 입력칸 → o.time·o.end. 시작만 옮기면 길이를 지켜 끝도 같이 옮긴다(끝을 직접 고쳤으면 그대로) */
+function readRange(o,ti,en,autoEnd){
+  const ot=o.time,oe=o.end,od=durOf(ot,oe);
+  if(ti){if(ti.type==="time")o.time=ti.value;else{const p=parseTime(ti.value);o.timeRaw=ti.value;o.timeBad=p===null;if(p!==null)o.time=p;}}
+  if(en){if(en.type==="time")o.end=en.value;else{const p=parseTime(en.value);o.endRaw=en.value;o.endBad=p===null;if(p!==null)o.end=p;}}
+  if(o.end===oe&&od&&o.time&&ot&&o.time!==ot&&!o.timeBad){o.end=addMin(o.time,od);o.endRaw="";o.endBad=false;}
+  if(autoEnd&&!ot&&o.time&&!o.timeBad&&!o.end){o.end=addMin(o.time,60);o.endRaw="";o.endBad=false;}
+}
 function syncEdit(){
   const e=S.edit;if(!e)return;
   const g=id=>document.getElementById(id);
   if(g("e-title"))e.title=g("e-title").value;
   if(g("e-note"))e.note=g("e-note").value;
   if(g("e-date"))e.date=g("e-date").value;
-  /* 시작만 옮기면 길이를 지켜 끝도 같이 옮긴다(끝을 직접 고쳤으면 그대로) */
-  const ot=e.time,oe=e.end,od=durOf(ot,oe);
-  if(g("e-time")){const ti=g("e-time");if(ti.type==="time")e.time=ti.value;else{const p=parseTime(ti.value);e.timeRaw=ti.value;e.timeBad=p===null;if(p!==null)e.time=p;}}
-  if(g("e-end")){const ti=g("e-end");if(ti.type==="time")e.end=ti.value;else{const p=parseTime(ti.value);e.endRaw=ti.value;e.endBad=p===null;if(p!==null)e.end=p;}}
-  if(e.end===oe&&od&&e.time&&ot&&e.time!==ot&&!e.timeBad){e.end=addMin(e.time,od);e.endRaw="";e.endBad=false;}
-  /* 고정 일정은 끝이 거의 늘 있으니, 처음 시작을 정하면 끝을 1시간 뒤로 채운다(할 일은 끝 없이도 많아서 그대로) */
-  if(e.ev&&!ot&&e.time&&!e.timeBad&&!e.end){e.end=addMin(e.time,60);e.endRaw="";e.endBad=false;}
+  readRange(e,g("e-time"),g("e-end"),false);
+  /* 고정 일정 줄마다. 끝이 거의 늘 있으니 처음 시작을 정하면 끝을 1시간 뒤로 채운다(할 일은 끝 없이도 많아서 그대로) */
+  if(e.ev&&Array.isArray(e.slots))e.slots.forEach((x,i)=>readRange(x,g("s-time-"+i),g("s-end-"+i),true));
   if(g("e-until"))e.until=g("e-until").value;
   if(g("e-from"))e.from=g("e-from").value;
   if(g("e-place"))e.place=g("e-place").value;
@@ -1318,22 +1333,23 @@ document.addEventListener("click",ev=>{
       patchTask(t.id,t.skipped?{done,doneAt:done?Date.now():null,skipped:false}:{done,doneAt:done?Date.now():null});if(S.sheet==="info")drawInfo();break;}
     case"edit":openEdit(b.dataset.id);break;
     case"info":openInfo(b.dataset.id);break;
-    case"einfo":openEvInfo(b.dataset.id,b.dataset.k);break;
+    case"einfo":openEvInfo(b.dataset.id,b.dataset.k,b.dataset.s);break;
     case"evs":openSheet("evs",drawEvs);break;
     case"evnew":openEv(null,null);break;
-    case"eedit":{const id=b.dataset.id||S.infoEv,k=b.dataset.id?null:S.infoK;S.infoEv=null;openEv(id,null,k);break;}
-    case"evslot":{syncEdit();pickSlot(S.edit,+b.dataset.i);drawEv();break;}
-    case"evslotadd":{syncEdit();const e=S.edit;e.slots=foldSlots(e);e.slots.push({days:[],time:e.time||"",end:e.end||""});pickSlot(e,e.slots.length-1);drawEv();break;}
-    case"evslotdel":{syncEdit();const e=S.edit;e.slots=foldSlots(e);if(e.slots.length<2)break;e.slots.splice(e.si,1);e.si=-1;pickSlot(e,0);drawEv();break;}
+    case"eedit":{const id=b.dataset.id||S.infoEv;S.infoEv=null;openEv(id);break;}
+    case"sday":{syncEdit();const x=S.edit.slots[+b.dataset.i],d=+b.dataset.d;if(!x)break;x.days=x.days.includes(d)?x.days.filter(y=>y!==d):sortDays(x.days.concat(d));drawEv();break;}
+    case"slotadd":{syncEdit();const e=S.edit,l=e.slots[e.slots.length-1]||{};e.slots.push({id:newSid(e),days:[],time:l.time||"",end:l.end||""});drawEv();
+      const c=document.querySelectorAll(".slot");if(c.length)c[c.length-1].scrollIntoView({block:"nearest",behavior:"smooth"});break;}
+    case"slotdel":{syncEdit();const e=S.edit;if(e.slots.length<2)break;e.slots.splice(+b.dataset.i,1);drawEv();break;}
     case"evcolor":syncEdit();S.edit.color=b.dataset.color;drawEv();break;
     case"evnoperiod":{syncEdit();S.edit.from="";S.edit.until="";drawEv();break;}
     case"evarc":syncEdit();S.edit.archived=true;saveDlg();toast("고정 일정을 보관했어요");break;
     case"evunarc":syncEdit();S.edit.archived=false;if(S.edit.until&&S.edit.until<today)S.edit.until="";saveDlg();toast("고정 일정을 복원했어요");break;
     case"evdel":{const id=S.editing,e=S.events.get(id);S.editGone=true;closeDlg();if(!e)break;const body=Object.assign({},e);delete body.id;delTask(id);
       toast("고정 일정을 삭제했어요",{label:"되돌리기",fn:()=>setTask(id,body)});break;}
-    case"evday":{const id=S.infoEv,k=S.infoK;S.infoEv=null;openEvDay(id,k);break;}
+    case"evday":{const id=S.infoEv,k=S.infoK,sid=S.infoS;S.infoEv=null;openEvDay(id,k,sid);break;}
     case"evdayreset":S.edit.reset=true;saveDlg();break;
-    case"eskipday":{const e=S.events.get(S.infoEv),k=S.infoK;if(!e||!k)break;const sk=Array.isArray(e.skips)?e.skips.slice():[];const i=sk.indexOf(k);
+    case"eskipday":{const e=S.events.get(S.infoEv),k0=S.infoK;if(!e||!k0)break;const k=occKey(k0,evBase(e,k0,S.infoS).sid);const sk=Array.isArray(e.skips)?e.skips.slice():[];const i=sk.indexOf(k);
       if(i<0)sk.push(k);else sk.splice(i,1);
       const keep=sk.filter(x=>x>=addDays(today,-60)).sort();patchTask(e.id,{skips:keep});S.events.set(e.id,Object.assign({},e,{skips:keep}));drawInfo();toast(i<0?"이 날은 쉬어요":"쉼을 취소했어요");break;}
     case"slot":{if(ev.target!==b)break;const r=b.getBoundingClientRect(),h0=+b.dataset.h0,H=+b.dataset.hh;
@@ -1342,7 +1358,7 @@ document.addEventListener("click",ev=>{
     case"slottask":{const {k,time}=S.slot;openNewTask(k,time);break;}
     case"slotev":{const {k,time}=S.slot;openEv(null,{days:[parse(k).getDay()],time});break;}
     case"tgroup":{const g=S.ttGroups&&S.ttGroups[b.dataset.k]&&S.ttGroups[b.dataset.k].get(+b.dataset.c);if(!g)break;
-      S.groupK=b.dataset.k;S.groupList=g.slice().sort((a,c)=>a.s-c.s||(a.kind==="ev"?-1:0)-(c.kind==="ev"?-1:0)).map(x=>({id:x.t.id,kind:x.kind,off:!!x.off}));openSheet("group",drawGroup);break;}
+      S.groupK=b.dataset.k;S.groupList=g.slice().sort((a,c)=>a.s-c.s||(a.kind==="ev"?-1:0)-(c.kind==="ev"?-1:0)).map(x=>({id:x.t.id,kind:x.kind,off:!!x.off,sid:x.t.sid}));openSheet("group",drawGroup);break;}
     case"ginfo":openGhostInfo(b.dataset.id,b.dataset.k);break;
     case"isub":{const t=S.tasks.get(S.infoId);if(!t)break;const subs=(t.subtasks||[]).map(x=>x.id===b.dataset.sid?Object.assign({},x,{done:!x.done}):x);patchTask(t.id,{subtasks:subs});
       S.tasks.set(t.id,Object.assign({},t,{subtasks:subs}));drawInfo();break;}
@@ -1386,7 +1402,6 @@ document.addEventListener("click",ev=>{
       openTpl(null,{title:e.title.trim()||t.title,note:e.note,time:e.timeBad?(t.time||""):e.time,remind:e.remind,cat:e.cat,sub:e.sub,
         subtasks:e.subtasks.filter(s=>s.t.trim()),date:(!e.nodate&&e.date)||S.sel,from:t.id});break;}
     case"eday":{syncEdit();const d=+b.dataset.d,ds=S.edit.days;
-      if(b.classList.contains("taken")){toast(DOW[d]+"요일은 다른 시간에 있어요. 그쪽에서 빼고 골라 주세요");break;}
       S.edit.days=ds.includes(d)?ds.filter(x=>x!==d):sortDays(ds.concat(d));redrawEdit();break;}
     case"tpldel":{const id=S.editing,r=S.tpls.get(id);S.editGone=true;closeDlg();if(!r)break;
       const body=Object.assign({},r);delete body.id;delTask(id);
@@ -1407,7 +1422,8 @@ document.addEventListener("click",ev=>{
     case"ecat":syncEdit();if(S.edit.cat!==b.dataset.cat){S.edit.cat=b.dataset.cat;S.edit.sub=null;}drawEdit();break;
     case"esub":syncEdit();S.edit.sub=b.dataset.sub||null;drawEdit();break;
     case"nodate":syncEdit();drawEdit();break;
-    case"notime":{syncEdit();Object.assign(S.edit,{time:"",timeBad:false,end:"",endBad:false});for(const id of ["#e-time","#e-end"]){const ti=$(id);if(ti)ti.value="";}redrawEdit();break;}
+    case"notime":{syncEdit();if(S.edit.ev){Object.assign(S.edit.slots[0],{time:"",end:"",timeBad:false,endBad:false,timeRaw:"",endRaw:""});drawEv();break;}
+      Object.assign(S.edit,{time:"",timeBad:false,end:"",endBad:false});for(const id of ["#e-time","#e-end"]){const ti=$(id);if(ti)ti.value="";}redrawEdit();break;}
     case"subdel":syncEdit();S.edit.subtasks=S.edit.subtasks.filter(s=>s.id!==b.dataset.sid);drawEdit();break;
     case"del":{const id=S.editing;S.editGone=true;closeDlg();removeWithUndo(id);break;}
     case"tomorrow":{syncEdit();const base=(!S.edit.nodate&&S.edit.date)||today;const nd=addDays(base,1);S.edit.nodate=false;S.edit.date=nd;
@@ -1429,7 +1445,14 @@ document.addEventListener("click",ev=>{
 /* 시간·날짜를 고르면 바로 반영 (시간 지우기 버튼 등) */
 const editing=()=>S.sheet==="edit"||S.sheet==="tpl"||S.sheet==="ev"||S.sheet==="evday";
 const redrawEdit=()=>S.sheet==="ev"?drawEv():S.sheet==="evday"?drawEvDay():drawEdit();
-document.addEventListener("change",ev=>{const id=ev.target.id;if(editing()&&(id==="e-time"||id==="e-end"||id==="e-date"||id==="e-until"||id==="e-from"||id==="e-dur")){syncEdit();
+const SLOT_ID=/^s-(time|end|dur)-(\d+)$/;
+document.addEventListener("change",ev=>{const id=ev.target.id,sm=SLOT_ID.exec(id);
+  if(sm&&editing()&&S.edit&&S.edit.ev){syncEdit();const x=S.edit.slots[+sm[2]];if(!x)return;
+    if(sm[1]==="dur"){const m=+ev.target.value;if(m&&x.time)Object.assign(x,{end:addMin(x.time,m),endRaw:"",endBad:false});}
+    drawEv();
+    if(sm[1]!=="dur"&&ev.target.type==="text"){const v=sm[1]==="time"?(!x.timeBad&&x.time):(!x.endBad&&x.end);if(v)ev.target.value=v;}
+    return;}
+  if(editing()&&(id==="e-time"||id==="e-end"||id==="e-date"||id==="e-until"||id==="e-from"||id==="e-dur")){syncEdit();
   if(id==="e-dur"){const m=parseDur(ev.target.value);if(m&&S.edit.time)Object.assign(S.edit,{end:addMin(S.edit.time,m),endRaw:"",endBad:false});else if(ev.target.value.trim())toast("길이를 알아보지 못했어요 (예: 45분, 1시간 반)");}
   redrawEdit();
   if(id==="e-time"&&ev.target.type==="text"&&!S.edit.timeBad)ev.target.value=S.edit.time;
@@ -1438,6 +1461,7 @@ document.addEventListener("input",ev=>{
   const el=ev.target;
   if(el.matches&&el.matches(".addrow input")){S.addDraft=el.value;updQuick();}
   else if(editing()&&(el.id==="e-time"||el.id==="e-end")){syncEdit();redrawEdit();}
+  else if(editing()&&S.edit&&S.edit.ev&&/^s-(time|end)-\d+$/.test(el.id)){syncEdit();drawEv();}
 });
 function navCal(d){
   if(S.calMode==="month"){const c=parse(S.cursor);S.cursor=keyOf(new Date(c.getFullYear(),c.getMonth()+d,1));}
@@ -1488,11 +1512,11 @@ function handleEnter(el){
   else if(el.id==="e-title"&&S.sheet==="ev"){const pl=$("#e-place");if(pl)pl.focus();}
   else if(el.id==="e-title"||el.id==="e-place"){saveDlg();}
   else if(el.id==="e-time"||el.id==="e-end"){syncEdit();if(S.edit.timeBad||S.edit.endBad){drawEdit();return;}if(el.id==="e-time")el.value=S.edit.time;else el.value=S.edit.end;saveDlg();}
-  else if(el.id==="e-dur"){el.blur();}
+  else if(el.id==="e-dur"||/^s-(time|end)-\d+$/.test(el.id)){el.blur();}
   else if(el.id==="s-new"){const v=el.value.trim();if(!v)return;syncEdit();S.edit.subtasks.push({id:uid8("s"),t:v,done:false});S.edit.subDraft="";el.value="";drawEdit();}
   else if(el.matches(".subnew")){const v=el.value.trim();if(!v)return;syncCats();const c=S.catDraft.find(x=>x.id===el.dataset.cat);c.subs.push({id:uid8("b"),name:v});c.subNew="";el.value="";drawCats();}
 }
-const enterTarget=el=>el.matches&&(el.matches(".addrow input,.subnew")||el.id==="e-title"||el.id==="e-place"||el.id==="s-new"||el.id==="e-dur"||((el.id==="e-time"||el.id==="e-end")&&el.type==="text"));
+const enterTarget=el=>el.matches&&(el.matches(".addrow input,.subnew")||el.id==="e-title"||el.id==="e-place"||el.id==="s-new"||el.id==="e-dur"||((el.id==="e-time"||el.id==="e-end"||/^s-(time|end)-\d+$/.test(el.id))&&el.type==="text"));
 document.addEventListener("keydown",ev=>{
   const el=ev.target;if(!enterTarget(el)){return;}
   if(ev.key==="Escape"&&el.matches(".addrow input")){ev.preventDefault();S.adding=null;render();return;}

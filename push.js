@@ -25,23 +25,27 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
     const key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     const start = new Date(now); start.setHours(0, 0, 0, 0);
     for (const e of events.values()) {
-      // 요일·시간 묶음(slots, 2.3.0). 없으면 예전처럼 days·time 하나
-      const slots = Array.isArray(e.slots) && e.slots.length ? e.slots : [{ days: e.days, time: e.time }];
-      if (e.archived || e.remind == null || !slots.some(s => s && s.time && Array.isArray(s.days) && s.days.length)) continue;
+      // 요일·시간 줄(slots, 2.3.0). 없으면 예전처럼 days·time 한 줄. 같은 요일이 여러 줄에 있을 수 있다.
+      // 이 날만 바꾸기·쉼의 키: id 없는 줄은 날짜, 나머지는 "날짜#id"(ui.js occKey와 같게)
+      const slots = (Array.isArray(e.slots) && e.slots.length ? e.slots : [{ id: "", days: e.days, time: e.time }]).filter(s => s && s.time && Array.isArray(s.days) && s.days.length);
+      if (e.archived || e.remind == null || !slots.length) continue;
       for (let i = 0; i <= 62; i++) {
         const d = new Date(start); d.setDate(start.getDate() + i);
         const k = key(d);
-        const sl = slots.find(s => s && s.time && Array.isArray(s.days) && s.days.includes(d.getDay()));
-        if (!sl || (e.from && k < e.from) || (e.until && k > e.until)) continue;
+        if ((e.from && k < e.from) || (e.until && k > e.until)) continue;
         if (e.holOff !== false && HOL[k]) continue;
-        if (Array.isArray(e.skips) && e.skips.includes(k)) continue;
-        // 이 날만 바꾼 시간·장소(ovr)
-        const o = e.ovr && e.ovr[k], tm = (o && o.time) || sl.time, pl = o && o.place != null ? o.place : e.place;
-        const [oh, om] = tm.split(":").map(Number);
-        const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), oh, om).getTime() - e.remind * 60000;
-        if (!(at > now && at <= max)) continue;
-        const lead = LABEL[e.remind] || (e.remind + "분 후");
-        out.push({ id: e.id + "@" + k, at, title: e.title, body: lead + " · " + fmt(tm) + (pl ? " · " + pl : ""), url: new URL("./#d=" + k, base).href });
+        for (const sl of slots) {
+          if (!sl.days.includes(d.getDay())) continue;
+          const ok = sl.id ? k + "#" + sl.id : k;
+          if (Array.isArray(e.skips) && e.skips.includes(ok)) continue;
+          // 이 날만 바꾼 시간·장소(ovr)
+          const o = e.ovr && e.ovr[ok], tm = (o && o.time) || sl.time, pl = o && o.place != null ? o.place : e.place;
+          const [oh, om] = tm.split(":").map(Number);
+          const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), oh, om).getTime() - e.remind * 60000;
+          if (!(at > now && at <= max)) continue;
+          const lead = LABEL[e.remind] || (e.remind + "분 후");
+          out.push({ id: e.id + "@" + ok, at, title: e.title, body: lead + " · " + fmt(tm) + (pl ? " · " + pl : ""), url: new URL("./#d=" + k, base).href });
+        }
       }
     }
   }

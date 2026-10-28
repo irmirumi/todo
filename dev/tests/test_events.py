@@ -42,7 +42,7 @@ def go(w,h,tag):
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.8); pg.wait_for_timeout(300)
     print(tag,"slot sheet:",pg.inner_text("#sheet").replace("\n"," | "))
     pg.click("[data-act=slotev]"); pg.wait_for_timeout(300)
-    print(tag,"ev form days:",[x.inner_text() for x in pg.locator(".days .pill[aria-pressed=true]").all()],"time:",pg.input_value("#e-time"),pg.input_value("#e-end"))
+    print(tag,"ev form days:",[x.inner_text() for x in pg.locator(".days .pill[aria-pressed=true]").all()],"time:",pg.input_value("#s-time-0"),pg.input_value("#s-end-0"))
     pg.keyboard.type("동아리"); pg.fill("#e-place","학생회관"); pg.click("[data-act=evcolor][data-color=c3]")
     pg.screenshot(path=OUT+tag+"4-evedit.png")
     pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400); print(tag,"toast:",pg.inner_text("#toastMsg"),"| ev blocks:",pg.locator(".blk.ev").count())

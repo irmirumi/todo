@@ -26,4 +26,8 @@ assert.equal(r3[0].title, "과제 3 · 자료구조");
 const r4 = remindersFrom(new Map(), [], "https://x/todo/", now, new Map([["e_3", { id: "e_3", title: "자료구조", days: [1], time: "09:00", remind: 0,
   slots: [{ days: [1], time: "09:00", end: "10:00" }, { days: [3], time: "14:00", end: "15:30" }], until: "2026-10-08" }]]));
 assert.deepEqual(r4.map(x => x.id.split("@")[1] + " " + new Date(x.at).toTimeString().slice(0, 5)), ["2026-10-05 09:00", "2026-10-07 14:00"]);
+// 같은 요일 두 줄(2.3.1): 수 9:00, 수 14:00(id b) — 14:00 줄만 쉼
+const r5 = remindersFrom(new Map(), [], "https://x/todo/", now, new Map([["e_4", { id: "e_4", title: "실험", days: [3], time: "09:00", remind: 0,
+  slots: [{ id: "", days: [3], time: "09:00", end: "12:00" }, { id: "b", days: [3], time: "14:00", end: "17:00" }], skips: ["2026-10-07#b"], until: "2026-10-14" }]]));
+assert.deepEqual(r5.map(x => x.id), ["e_4@2026-10-07", "e_4@2026-10-14", "e_4@2026-10-14#b"]);
 console.log("PASS");

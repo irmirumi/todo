@@ -109,7 +109,7 @@ dev/
 |---|---|---|
 | `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
 | `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, subtasks[{id,t}], createdAt` |
-| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0)**: 요일·시간 묶음 여러 개(일주일에 여러 번, 요일마다 시간이 다른 수업). 둘 이상일 때만 저장하고 하나면 `null`. `days·time·end`는 늘 첫 묶음과 같게 저장(예전 버전·알림 호환). **한 요일은 묶음 하나에만** — 그래서 `ovr`·`skips`는 날짜 키 그대로 쓴다. 읽을 땐 반드시 `slotsOf(e)`/`evBase(e,k)`(그 날 묶음)/`evAt(e,k)`(+ovr)를 거칠 것. `e.time`을 바로 쓰면 첫 묶음 시간만 나온다 |
+| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{id,days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0, 2.3.1에 다시 짬)**: `[{id,days,time,end}]` 요일·시간 줄 여러 개. **같은 요일이 여러 줄에 있어도 된다**(중간에 쉬는 수업). `ovr`·`skips` 키는 `occKey(날짜,id)`: id `""`인 줄은 날짜 그대로(예전 데이터와 호환), 나머지는 `날짜#id`(`KEY_RE`). `days·time·end`는 id `""`인 줄(없으면 첫 줄)과 같게 저장(예전 버전용). 줄이 하나이고 id가 `""`면 `slots:null`. 읽을 땐 반드시 `slotsOf`/`evBase(e,k,sid)`/`evAt(e,k,sid)`를 거치고, 화면 요소엔 `data-s`(줄 id)를 단다. `e.time`을 바로 쓰면 한 줄만 나온다 |
 | `a_YYYY-MM` | 묶인 옛 기록(1.4.0) | `tasks: {t_id: 할 일 본문}` — 60일 지난 완료·안 함. `archive.js`가 하루 한 번(기기별 localStorage `ttobak.arch.<uid>`) 묶고, 화면에는 보통 할 일로 펼쳐 준다. 고치거나 지우면 `writeOps`가 원래 문서로 되살리며 묶음에서 뺀다(한 쓰기 묶음으로). 같은 id가 따로도 있으면 따로 있는 쪽이 이기고, 옛 사본은 다음 묶기 때 지운다 |
 | `meta` | 카테고리 | `cats: [{id, name, color, subs:[{id,name}], archived?}]` (배열 순서 = 화면 순서) |
 
@@ -174,7 +174,7 @@ dev/
 - **`test_archive.py` + `fake_firebase.js`**: 실제 `app.js`를 띄우고 gstatic Firebase만 가짜로 바꿔 끼운 통합 테스트(묶기·펼치기·풀기·되돌리기·하루 한 번). 가짜는 merge 깊은 병합, `deleteField`, 배치 원자성, undefined 거부를 흉내 낸다. Firestore 에뮬레이터는 내려받기가 막혀 못 썼다. 서비스 워커는 막고 돈다.
 - **`archive.test.mjs`**: 묶기 한도(배치 500, 문서당 1500개, 60일 경계).
 - **`test_quick.py`**: 한 줄 입력 해석 표(22개, 기준일 고정)와 입력 흐름, 폰 종일 줄 개수, 23:40 칸 안 잘림, `#add`·`#week` 바로가기.
-- **`test_slots.py`**: 고정 일정 요일·시간 여러 개(시간표 표시·정보·이 날만 바꾸기·편집 펼치기·겹치는 요일 막기·추가/빼기·저장 모양·예전 방식 일정).
+- **`test_slots.py`**: 고정 일정 요일·시간 줄(같은 요일 두 번·줄별 쉼/이 날만 바꾸기 키·편집·길이·겹침 안내·추가/빼기·첫 줄 뺀 뒤 id 유지·예전 방식 일정).
 - **`test_dur.py`**: 길이 해석 표, 길이 ↔ 끝 시간 맞춤(폰 시계식·PC 숫자 입력 둘 다), 시작 옮기면 끝도, 자정 넘김, 고정 일정.
 - **`test_v21.py`**: 자정 넘김(목록·편집·시간표 이어서·한 줄 입력), 소분류 이름, 안 함 → 다른 날에(닫기·되돌리기·끝내기·두 번째).
 - **`test_ux.py`**: 2.0.0 사용성(오프라인 알림 줄, 불러오는 중 알림, 캘린더 반복 할 일 → 정보 시트).
@@ -230,6 +230,7 @@ dev/
 - **1.2.0**: 탭 이름 '캘린더·시간표·전체', 지난 할 일 접기와 '안 함', 시간표 정보 시트·종일 줄, 폰 여백 복원
 - **1.2.1**: 시간표 겹침 묶음
 - **1.3.0**: 고정 일정(수업), 시간표 빈칸으로 추가, '반복 일정' 이름을 '반복 할 일'로 변경
+- **2.3.1**: 고정 일정 편집을 줄 카드 목록으로 다시 짬(`slotCard`: 줄마다 요일 + 시작~끝 + 길이 select(`EVDURS`, 1시간 15분 포함) + 빼기, 입력칸 id `s-time-i`·`s-end-i`·`s-dur-i`, `readRange`로 읽음). 2.3.0의 '펼친 묶음 하나만 편집'·'한 요일은 한 묶음' 제한은 없앰(사용자: 같은 요일 두 번이 안 되고 고치기 불편). 같은 요일에 시간이 겹치면 줄 안에 안내. 문구 다듬기용 목록 뽑기 `dev/tools/strings_export.py`(Gemini 인계용, 수정안은 줄 번호를 보고 손으로 반영)
 - **2.3.0**: 고정 일정 요일·시간 여러 개(`slots`, 위 표). 편집 시트는 펼친 묶음 하나만 입력칸(`e-time` 등 그대로 재사용, `S.edit.slots`+`si`, `foldSlots`/`pickSlot`), 나머지는 한 줄 요약 버튼. 다른 묶음의 요일은 `.taken`(누르면 안내 토스트). 정보 시트는 '시간'=그 날 것, '매주'=전부. 정보에서 편집 열면 그 날 묶음이 펼쳐짐. 저장 때 요일·시간 없는 묶음은 버리고 요일 순 정렬
 - **2.2.0**: 길이 줄(`durRow`, `parseDur`, `addMin`; `syncEdit`에서 시작만 바뀌면 길이 유지, 새 고정 일정은 시작 정하면 끝 +1시간), 저장 버튼으로만 저장(위 시트 설명), 소분류는 이름 뒤 태그(`nameH`=`.nt`+`.ntag`, 칩·목록은 flex로 이름만 말줄임. 시간표 칸은 이름과 태그가 한 줄에 안 들어가면 태그를 아랫줄로, 줄 배분은 이름 첫 줄 → 태그 → 이름 나머지 → 시간 → 장소). **사용자 의도: 소분류는 '이름처럼 보이게'가 아니라 '늘 함께 보여서 같은 이름을 구별'하는 것**
 - **2.1.1**: 소분류 순서 이름 → 소분류(사용자: 이름이 주인공), `.sbp`는 .88em·500·옅게, 정보 시트 제목은 .62em(baseline 맞춤). 알림·aria는 "이름 · 소분류"
