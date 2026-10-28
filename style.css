@@ -676,3 +676,18 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 /* 칸 안 태그는 이름보다 한 단계 작게(기준을 칸 글자 크기로 고정) */
 .blk .ntag,.blk .btl .ntag{font-size:.62rem;line-height:13px}
 .tt3 .blk .ntag,.tt3 .blk .btl .ntag{font-size:.66rem;line-height:15px}
+/* 2.3.0 고정 일정 요일·시간 여러 개 */
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 12px;font-size:.92rem;color:var(--ink)}
+button.slot:hover{background:var(--sunk)}
+.slot b{font-weight:700;min-width:0}
+.slot span{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.slot small{margin-left:auto;color:var(--muted);font-size:.78rem}
+.slot.on{flex-direction:column;align-items:stretch;gap:12px;padding:12px}
+.slot.on .field{margin:0}
+.slot.on>.linkish{align-self:flex-start;margin:-4px 0 -4px -10px}
+.slotadd{align-self:flex-start;margin-left:-10px}
+.catpick.days .pill.taken{opacity:.35}
+.tplrow .when.ms{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+.info .islot{display:block}
+.info .islot+.islot{margin-top:3px}

@@ -25,15 +25,18 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
     const key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     const start = new Date(now); start.setHours(0, 0, 0, 0);
     for (const e of events.values()) {
-      if (e.archived || e.remind == null || !e.time || !Array.isArray(e.days) || !e.days.length) continue;
+      // 요일·시간 묶음(slots, 2.3.0). 없으면 예전처럼 days·time 하나
+      const slots = Array.isArray(e.slots) && e.slots.length ? e.slots : [{ days: e.days, time: e.time }];
+      if (e.archived || e.remind == null || !slots.some(s => s && s.time && Array.isArray(s.days) && s.days.length)) continue;
       for (let i = 0; i <= 62; i++) {
         const d = new Date(start); d.setDate(start.getDate() + i);
         const k = key(d);
-        if (!e.days.includes(d.getDay()) || (e.from && k < e.from) || (e.until && k > e.until)) continue;
+        const sl = slots.find(s => s && s.time && Array.isArray(s.days) && s.days.includes(d.getDay()));
+        if (!sl || (e.from && k < e.from) || (e.until && k > e.until)) continue;
         if (e.holOff !== false && HOL[k]) continue;
         if (Array.isArray(e.skips) && e.skips.includes(k)) continue;
         // 이 날만 바꾼 시간·장소(ovr)
-        const o = e.ovr && e.ovr[k], tm = (o && o.time) || e.time, pl = o && o.place != null ? o.place : e.place;
+        const o = e.ovr && e.ovr[k], tm = (o && o.time) || sl.time, pl = o && o.place != null ? o.place : e.place;
         const [oh, om] = tm.split(":").map(Number);
         const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), oh, om).getTime() - e.remind * 60000;
         if (!(at > now && at <= max)) continue;

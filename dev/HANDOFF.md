@@ -109,7 +109,7 @@ dev/
 |---|---|---|
 | `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
 | `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, subtasks[{id,t}], createdAt` |
-| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다 |
+| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0)**: 요일·시간 묶음 여러 개(일주일에 여러 번, 요일마다 시간이 다른 수업). 둘 이상일 때만 저장하고 하나면 `null`. `days·time·end`는 늘 첫 묶음과 같게 저장(예전 버전·알림 호환). **한 요일은 묶음 하나에만** — 그래서 `ovr`·`skips`는 날짜 키 그대로 쓴다. 읽을 땐 반드시 `slotsOf(e)`/`evBase(e,k)`(그 날 묶음)/`evAt(e,k)`(+ovr)를 거칠 것. `e.time`을 바로 쓰면 첫 묶음 시간만 나온다 |
 | `a_YYYY-MM` | 묶인 옛 기록(1.4.0) | `tasks: {t_id: 할 일 본문}` — 60일 지난 완료·안 함. `archive.js`가 하루 한 번(기기별 localStorage `ttobak.arch.<uid>`) 묶고, 화면에는 보통 할 일로 펼쳐 준다. 고치거나 지우면 `writeOps`가 원래 문서로 되살리며 묶음에서 뺀다(한 쓰기 묶음으로). 같은 id가 따로도 있으면 따로 있는 쪽이 이기고, 옛 사본은 다음 묶기 때 지운다 |
 | `meta` | 카테고리 | `cats: [{id, name, color, subs:[{id,name}], archived?}]` (배열 순서 = 화면 순서) |
 
@@ -170,10 +170,11 @@ dev/
   - Python Playwright: 헤드리스 Chromium. 이전 환경에서는 `/opt/pw-browsers`에 미리 깔려 있었다.
   - `dev/tests`에서 `npm install`(`http_ece`)
 - **`worker.test.mjs`**: Worker 단위 테스트 23개. `node:sqlite`로 D1을 흉내 내고, 푸시 암호문을 실제로 복호화해서 검증한다.
-- **`push_events.test.mjs`**: 고정 일정 알림 계산(공휴일·쉼·기간·보관).
+- **`push_events.test.mjs`**: 고정 일정 알림 계산(공휴일·쉼·기간·보관·요일별 시간).
 - **`test_archive.py` + `fake_firebase.js`**: 실제 `app.js`를 띄우고 gstatic Firebase만 가짜로 바꿔 끼운 통합 테스트(묶기·펼치기·풀기·되돌리기·하루 한 번). 가짜는 merge 깊은 병합, `deleteField`, 배치 원자성, undefined 거부를 흉내 낸다. Firestore 에뮬레이터는 내려받기가 막혀 못 썼다. 서비스 워커는 막고 돈다.
 - **`archive.test.mjs`**: 묶기 한도(배치 500, 문서당 1500개, 60일 경계).
 - **`test_quick.py`**: 한 줄 입력 해석 표(22개, 기준일 고정)와 입력 흐름, 폰 종일 줄 개수, 23:40 칸 안 잘림, `#add`·`#week` 바로가기.
+- **`test_slots.py`**: 고정 일정 요일·시간 여러 개(시간표 표시·정보·이 날만 바꾸기·편집 펼치기·겹치는 요일 막기·추가/빼기·저장 모양·예전 방식 일정).
 - **`test_dur.py`**: 길이 해석 표, 길이 ↔ 끝 시간 맞춤(폰 시계식·PC 숫자 입력 둘 다), 시작 옮기면 끝도, 자정 넘김, 고정 일정.
 - **`test_v21.py`**: 자정 넘김(목록·편집·시간표 이어서·한 줄 입력), 소분류 이름, 안 함 → 다른 날에(닫기·되돌리기·끝내기·두 번째).
 - **`test_ux.py`**: 2.0.0 사용성(오프라인 알림 줄, 불러오는 중 알림, 캘린더 반복 할 일 → 정보 시트).
@@ -229,6 +230,7 @@ dev/
 - **1.2.0**: 탭 이름 '캘린더·시간표·전체', 지난 할 일 접기와 '안 함', 시간표 정보 시트·종일 줄, 폰 여백 복원
 - **1.2.1**: 시간표 겹침 묶음
 - **1.3.0**: 고정 일정(수업), 시간표 빈칸으로 추가, '반복 일정' 이름을 '반복 할 일'로 변경
+- **2.3.0**: 고정 일정 요일·시간 여러 개(`slots`, 위 표). 편집 시트는 펼친 묶음 하나만 입력칸(`e-time` 등 그대로 재사용, `S.edit.slots`+`si`, `foldSlots`/`pickSlot`), 나머지는 한 줄 요약 버튼. 다른 묶음의 요일은 `.taken`(누르면 안내 토스트). 정보 시트는 '시간'=그 날 것, '매주'=전부. 정보에서 편집 열면 그 날 묶음이 펼쳐짐. 저장 때 요일·시간 없는 묶음은 버리고 요일 순 정렬
 - **2.2.0**: 길이 줄(`durRow`, `parseDur`, `addMin`; `syncEdit`에서 시작만 바뀌면 길이 유지, 새 고정 일정은 시작 정하면 끝 +1시간), 저장 버튼으로만 저장(위 시트 설명), 소분류는 이름 뒤 태그(`nameH`=`.nt`+`.ntag`, 칩·목록은 flex로 이름만 말줄임. 시간표 칸은 이름과 태그가 한 줄에 안 들어가면 태그를 아랫줄로, 줄 배분은 이름 첫 줄 → 태그 → 이름 나머지 → 시간 → 장소). **사용자 의도: 소분류는 '이름처럼 보이게'가 아니라 '늘 함께 보여서 같은 이름을 구별'하는 것**
 - **2.1.1**: 소분류 순서 이름 → 소분류(사용자: 이름이 주인공), `.sbp`는 .88em·500·옅게, 정보 시트 제목은 .62em(baseline 맞춤). 알림·aria는 "이름 · 소분류"
 - **2.1.0**: '안 함' 시트(`openLater`/`drawLater`/`doLater`): 고른 날에 복사본(`from`,`fromDate`,`again`)을 만들고 원래 것은 `skipped`+`later`,`laterDate`. 닫으면 아무 변화 없음, 되돌리기는 둘 다 원래대로. 편집 시트에서 안 함인 할 일은 '내일로' 대신 '다른 날에'. **끝 시간 규칙 변경**: `okEnd`는 시작과 같지만 않으면 OK, `night(t,e)`=끝<시작 → 다음 날 끝, 길이는 `endMins`. 시간표는 시작한 날 칸을 자정까지, 다음 날 종일 줄에 `.ucarry` "~끝 이름"(고정 일정·반복 할 일 포함). 한 줄 입력 범위 끝은 `qEnd`(24시간제는 그대로, "n시"는 시작에서 가까운 쪽). **소분류 = 이름의 일부**: `nameH`/`nameT`로 시간표 칸·종일 칩·겹침 목록·정보 시트 제목·반복 할 일 목록·알림 제목에 이름과 함께(2.1.1부터 이름 → 소분류). 목록(캘린더·전체)은 기존처럼 태그. `weekly()`로 "매주 매일" → "매일"
