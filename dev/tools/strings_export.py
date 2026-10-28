@@ -69,7 +69,7 @@ def scan(path,rel):
 rows=scan(os.path.join(ROOT,"src","ui.js"),"ui")+scan(os.path.join(ROOT,"src","markup.html"),"markup")+scan(os.path.join(ROOT,"src","pwa","push.js"),"push")+scan(os.path.join(ROOT,"src","pwa","app.js"),"app")
 order=collections.OrderedDict()
 for scr,id_,t in rows:order.setdefault(scr,[]).append((id_,t))
-out=["# 또박 앱 문구 목록","","- 번호는 바꿀 때 쓰는 이름표예요(파일:줄). 그대로 돌려주세요.","- `{…}` 자리는 앱이 값(개수·날짜·이름·시간)을 넣는 곳이에요. 개수와 순서를 바꾸지 마세요.","- ` ｜ ` 는 조건에 따라 둘 중 하나가 나오거나, 따로 쓰이는 조각을 나눈 표시예요.","- 같은 줄에 여러 문구가 섞여 있을 수 있어요. 바꿀 조각만 골라서 알려 주면 돼요.",""]
+out=["# 또박 앱 문구 목록","","코드에서 자동으로 뽑은 목록이에요. 화면별로 묶었고, 앞의 번호(파일:줄)로 원문을 찾아요.","`{…}` = 앱이 값을 넣는 자리, ` ｜ ` = 따로 쓰이는 조각의 경계, [입력칸 안내]·[화면 읽기용] = 입력칸 흐린 글·낭독기용 글.",""]
 for scr,items in order.items():
     out.append("## "+scr);out.append("")
     for id_,t in items:out.append("- **%s** %s"%(id_,t))
