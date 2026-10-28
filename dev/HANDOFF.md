@@ -143,6 +143,16 @@ dev/
    - `/sync`는 쿼리 2개(`json_each`)로 처리한다. D1 무료 한도가 실행당 50쿼리라서다.
 5. iOS는 16.4 이상, 홈 화면에 추가한 앱에서만 알림을 받는다.
 
+### 5.5 다른 AI와 함께 일하기(2.4.0~)
+- 사용자는 ChatGPT(Codex)에게도 검토·수정을 맡긴다. Codex 규칙은 루트 `AGENTS.md`다.
+- Codex는 새 브랜치에서 `dev/` 아래만 고쳐 PR을 낸다. 루트 배포본·`VERSION`·`CACHE`·README는 건드리지 않는다.
+- 사용자가 "PR 올라왔어"라고 하면 Claude가 한다:
+  1. PR 브랜치를 받아(`git fetch origin pull/<번호>/head:pr-<번호>`) 바뀐 것을 읽는다. 루트 `firebase-config.js`를 건드렸으면 그 부분은 버린다.
+  2. HANDOFF 규칙(문구, 디자인, 데이터 호환, 비용 0원)에 어긋나는 게 있으면 고치거나 사용자에게 이견으로 알린다.
+  3. `main`에 합친 뒤 평소 배포 절차를 밟는다: 빌드 → 테스트 → 루트 복사 → 버전 올리기 → README → push → Pages 확인.
+  4. PR은 GitHub에서 닫히게 둔다(합친 커밋이 main에 들어가면 자동으로 merged 표시가 안 될 수 있으니, 필요하면 `gh api`로 PR을 닫고 한 줄 남긴다).
+- 둘이 동시에 같은 파일을 고치면 충돌한다. 사용자에게 한 번에 한쪽만 맡기도록 안내한다.
+
 ## 6. 디자인 규칙
 
 - **글꼴**: Wanted Sans Variable(분할 woff2를 직접 호스팅). 없으면 Pretendard, 그다음 시스템 글꼴.
