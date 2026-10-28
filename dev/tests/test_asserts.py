@@ -57,7 +57,7 @@ with sync_playwright() as p:
     check(pg.inner_text(".sheet .btn.pri") == "저장", "편집 시트 주 버튼은 '저장'")
     pg.fill("#e-time", "18:30"); pg.mouse.click(5, 5); pg.wait_for_timeout(300)
     check("오후 6:30" not in pg.inner_text("#g-k1"), "바깥 눌러 닫으면 저장 안 함")
-    check(pg.inner_text("#toastMsg") == "저장 안 하고 닫았어요" and pg.inner_text("#toastAct") == "다시 열기", "'다시 열기' 알림")
+    check(pg.inner_text("#toastMsg") == "변경 사항을 저장하지 않았어요" and pg.inner_text("#toastAct") == "다시 열기", "'다시 열기' 알림")
     pg.click("#toastAct"); pg.wait_for_timeout(250)
     check(pg.input_value("#e-time") == "18:30", "다시 열면 고치던 그대로")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
@@ -65,7 +65,7 @@ with sync_playwright() as p:
     pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)
     check("오후 6:30" in pg.inner_text("#g-k1"), "저장 버튼으로 저장")
     pg.click("#g-k1 .ttl:has-text('장보기')"); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    check(not pg.is_visible("#toast") or pg.inner_text("#toastMsg") != "저장 안 하고 닫았어요", "안 고치고 닫으면 알림 없음")
+    check(not pg.is_visible("#toast") or pg.inner_text("#toastMsg") != "변경 사항을 저장하지 않았어요", "안 고치고 닫으면 알림 없음")
 
     # 삭제 → 되돌리기
     pg.click("#g-k1 .ttl:has-text('빨래')"); pg.click(".sheet [data-act=del]"); pg.wait_for_timeout(250)
@@ -104,7 +104,7 @@ with sync_playwright() as p:
     # 정보 시트의 '완료'는 할 일 완료 체크
     pg.set_viewport_size({"width": 1280, "height": 900}); pg.wait_for_timeout(400)
     pg.click(".blk.tblk:has-text('겹침 가')")
-    check(pg.inner_text(".sheet .btn.pri") == "완료", "정보 시트 주 버튼은 '완료'")
+    check(pg.inner_text(".sheet .btn.pri") == "완료하기", "정보 시트 주 버튼은 '완료하기'")
     pg.click(".sheet .btn.pri"); pg.wait_for_timeout(200)
     check(pg.locator(".blk.tblk.done").count() == 1, "정보 시트 '완료'로 완료 처리")
     ctx.close(); b.close()

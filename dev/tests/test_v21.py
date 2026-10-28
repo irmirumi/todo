@@ -62,7 +62,7 @@ with sync_playwright() as p:
     # --- 안 함 → 다른 날에
     pg.click("[data-act=view][data-v=all]"); pg.click("[data-act=showpast]"); pg.wait_for_timeout(150)
     pg.click(".pastbox [data-act=skip]")
-    check(pg.inner_text(".sheet h2") == "언제 할까요?" and pg.locator(".laterpick [data-k]").count() == 3, "'안 함' 누르면 언제 할지 물음")
+    check(pg.inner_text(".sheet h2") == "이 할 일을 어떻게 할까요?" and pg.locator(".laterpick [data-k]").count() == 3, "'안 함' 누르면 언제 할지 물음")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(not tasks()["t_old"].get("skipped"), "그냥 닫으면 아무것도 안 바뀜")
     pg.click(".pastbox [data-act=skip]"); pg.click(f".laterpick [data-k='{K(1)}']"); pg.wait_for_timeout(250)
@@ -70,7 +70,7 @@ with sync_playwright() as p:
     check(o["skipped"] and o["laterDate"] == K(1) and len(cp) == 1, "원래 날은 안 함, 내일에 새로")
     c = cp[0]
     check(c["date"] == K(1) and c["fromDate"] == K(-2) and c["again"] == 1 and c["subtasks"][0]["done"] and not c["done"], "새 할 일: 내용·세부 진행 그대로, 어디서 왔는지 기록")
-    check("내일에 다시 넣었어요" in pg.inner_text("#toastMsg"), "알려 줌")
+    check("내일 · 새 할 일로 추가했어요" in pg.inner_text("#toastMsg"), "알려 줌")
     pg.click("#toastAct"); pg.wait_for_timeout(250)
     ts = tasks()
     check(not ts["t_old"].get("skipped") and not ts["t_old"].get("later") and not any(v.get("from") == "t_old" for v in ts.values()), "되돌리기: 둘 다 원래대로")
@@ -84,11 +84,11 @@ with sync_playwright() as p:
     check(c1["date"] == K(5) and tasks()["t_old"]["laterDate"] == K(5), "날짜 골라 다시 넣기")
     # 새 할 일을 또 미루면 2번째
     pg.click(f"#ds-{K(5)} .ttl:has-text('지난 리포트')")
-    check("못 한 것" in pg.inner_text(f"#ds-{K(5)}"), "새 할 일에 '…에 못 한 것'")
+    check("다시 추가" in pg.inner_text(f"#ds-{K(5)}"), "새 할 일에 '다시 추가'")
     pg.click("[data-act=eskip]"); pg.click(f".laterpick [data-k='{K(1)}']"); pg.wait_for_timeout(250)
     c2 = [v for v in tasks().values() if v.get("from") == c1["id"]][0]
-    check(c2["again"] == 2 and "2번째 다시" in pg.inner_text(f"#ds-{K(1)}"), "두 번째 미루면 '2번째 다시'")
-    check("다시" in pg.inner_text(".donebox") if pg.locator(".donebox").count() else True, "원래 것엔 '…에 다시'")
+    check(c2["again"] == 2 and "다시 추가" in pg.inner_text(f"#ds-{K(1)}"), "두 번째도 목록엔 '다시 추가'만")
+    check("다시 추가:" in pg.inner_text(".donebox") if pg.locator(".donebox").count() else True, "원래 것엔 '다시 추가: 날짜'")
     pg.click("[data-act=view][data-v=day]"); pg.wait_for_timeout(200)
     pg.screenshot(path=os.path.join(HERE, "out", "v21-day.png"), full_page=True)
     ctx.close(); b.close()

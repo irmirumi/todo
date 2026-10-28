@@ -46,7 +46,7 @@ with sync_playwright() as p:
     # 이 날만 바꾸기
     pg.click(f".ttcol[data-k='{tk}'] .blk.ev")
     pg.click("[data-act=evday]")
-    check(pg.inner_text(".sheet h2") == "이 날만 바꾸기" and pg.input_value("#e-time") == "15:00" and pg.input_value("#e-place") == "공학관", "이 날만 바꾸기: 원래 값으로 시작")
+    check(pg.inner_text(".sheet h2") == "이날만 바꾸기" and pg.input_value("#e-time") == "15:00" and pg.input_value("#e-place") == "공학관", "이 날만 바꾸기: 원래 값으로 시작")
     pg.fill("#e-time", "1100"); pg.fill("#e-end", "1230"); pg.fill("#e-place", "인문관 101"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(250)
     o = ev()["ovr"]
     check(o == {tk: {"time": "11:00", "end": "12:30", "place": "인문관 101"}}, "이 날만 저장: " + str(o))
@@ -57,7 +57,7 @@ with sync_playwright() as p:
     check("15:00–16:30" in other, "다른 날은 그대로")
     b2.click()
     info = pg.inner_text(".sheet")
-    check("이 날만" in info and "평소" in info and "인문관 101" in info, "정보 시트에 이 날만·평소 표시")
+    check("이날만" in info and "평소" in info and "인문관 101" in info, "정보 시트에 이 날만·평소 표시")
     check(pg.locator("[data-act=evdayreset]").count() == 0, "정보 시트엔 원래대로 버튼이 없음(바꾸기 시트 안에만)")
     pg.click("[data-act=evday]"); pg.click("[data-act=evdayreset]"); pg.wait_for_timeout(250)
     check(not ev().get("ovr"), "원래대로 → 변경 지움")
@@ -69,7 +69,7 @@ with sync_playwright() as p:
     pg.click(f".ttcol[data-k='{tk}'] .blk.ev"); pg.click("[data-act=evday]"); pg.fill("#e-place", "온라인"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(200)
     pg.click(f".tth[data-k='{tk}']"); pg.wait_for_timeout(200)
     row = pg.locator(".evrow").inner_text()
-    check("온라인" in row and "이 날만 변경" in row and "오후 3:00" in row, "캘린더 고정 일정 줄에 이 날만 변경 표시: " + row.replace("\n", " "))
+    check("온라인" in row and "이날만 변경" in row and "오후 3:00" in row, "캘린더 고정 일정 줄에 이 날만 변경 표시: " + row.replace("\n", " "))
     # 내보내기 → 가져오기 하면 ovr 유지
     pg.click("[data-act=menu]"); pg.click("[data-act=export]"); txt = pg.input_value("#x-out"); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     pg.click("[data-act=menu]"); pg.click("[data-act=import]"); pg.fill("#i-in", txt); pg.click("[data-act=importcheck]"); pg.click("[data-act=importgo]"); pg.wait_for_timeout(300)
