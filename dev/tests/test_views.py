@@ -24,6 +24,8 @@ def go(w,h,tag):
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=w<600,device_scale_factor=2 if w<600 else 1); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
+    # '지금 선'은 시간표 범위(대략 9~18시) 안일 때만 그린다: 테스트를 도는 실제 시각에 따라 달라지지 않게 오늘 정오부터 흐르게 한다
+    pg.clock.install(time=datetime.datetime.combine(T,datetime.time(12,0)))
     pg.goto("http://localhost:8780/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(400)
     pg.screenshot(path=OUT+tag+"-day.png",full_page=True)
     pg.click("[data-act=view][data-v=all]"); pg.wait_for_timeout(300)
