@@ -165,7 +165,7 @@ dev/
 
 `dev/tests/run_all.sh`가 빌드한 뒤 전부 돌린다. **2.5.0부터 모든 화면 테스트가 `check(조건, "설명")`으로 확인한다**(예전엔 절반이 출력만 했다). 공용 도우미는 `ttb.py`(`check`·`serve`·`done`, 서버는 테스트가 죽어도 `atexit`으로 꺼진다 — 예전엔 죽은 테스트의 서버가 남아 다음 테스트가 옛 파일을 받았다).
 
-- **준비물**: Python `playwright` + Chromium, Pillow, Node, `dev/tests`에서 `npm install`(`http_ece`). CI는 워크플로가 설치한다.
+- **준비물**: Python `playwright` + Chromium, Pillow, Node 22 이상(`node:sqlite`), `dev/tests`에서 `npm install`(`http_ece`). CI는 워크플로가 설치한다.
 - **Node**: `worker.test.mjs`(Worker, D1 흉내·푸시 복호화), `push_events.test.mjs`(고정 일정 알림, model.js를 먼저 불러옴), `archive.test.mjs`(묶기 한도)
 - **실제 app.js + 가짜 Firebase(`fake_firebase.js`)**: `test_archive.py`(묶기·풀기·휴지통), `test_write_fail.py`(서버가 거절하면 화면 되돌림·알림, 쉼 arrayUnion)
 - **`test_offline.py`**: 껍데기 한 묶음 캐시, 서버 없이 열기, 새 버전 → '새 버전이 있어요' → 새로고침으로 바뀌고 옛 묶음 지움. 사본 폴더에서 버전을 바꿔 가며 돈다

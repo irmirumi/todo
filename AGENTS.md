@@ -23,7 +23,7 @@
 python3 dev/build.py              # dev/src → dev/dist/app
 bash dev/tests/run_all.sh         # 빌드 + node 테스트 + Playwright 화면 테스트
 ```
-- 준비물: Python `playwright`와 Chromium(`pip install playwright && python -m playwright install --with-deps chromium`), Node, `cd dev/tests && npm install`
+- 준비물: Python `playwright`와 Chromium(`pip install playwright && python -m playwright install --with-deps chromium`), Node 22 이상, `cd dev/tests && npm install`
 - 환경 때문에 테스트를 못 돌렸으면, PR 설명에 그렇다고 적는다. 리뷰할 때 Claude가 돌린다.
 - 동작을 바꿨으면 `dev/tests/`에 확인하는 테스트를 더한다. `from ttb import check, serve, done` 후 `check(조건, "설명")` 모양(`test_v25.py` 참고). 출력만 하는 테스트는 만들지 않는다.
 
