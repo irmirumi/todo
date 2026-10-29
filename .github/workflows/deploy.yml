@@ -1,0 +1,48 @@
+# 또박 배포: main에 올라온 dev/를 빌드하고 테스트한 뒤 GitHub Pages에 올린다.
+# 저장소 설정 > Pages > Build and deployment > Source 를 "GitHub Actions"로 바꿔야 동작한다.
+# 공개 저장소라 Actions는 무료다.
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: 도구 설치
+        run: |
+          pip install pillow playwright
+          python -m playwright install --with-deps chromium
+          cd dev/tests && npm install --no-audit --no-fund
+      - name: 빌드
+        run: python3 dev/build.py
+      - name: 테스트
+        run: bash dev/tests/run_all.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dev/dist/app
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4

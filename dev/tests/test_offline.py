@@ -1,6 +1,6 @@
 import os as _os, re as _re
 HERE=_os.path.dirname(_os.path.abspath(__file__))
-CACHE=_re.search(r'const CACHE = "([^"]+)"',open(_os.path.join(HERE,"..","src","pwa","sw.js")).read()).group(1)
+CACHE=_re.search(r'const CACHE = "([^"]+)"',open(_os.path.join(HERE,"..","dist","app","sw.js")).read()).group(1)
 APP=_os.path.join(HERE,"..","dist","app")
 import subprocess, time, sys
 from playwright.sync_api import sync_playwright

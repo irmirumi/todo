@@ -1,6 +1,7 @@
 """src/ 에서 웹앱(PWA) 폴더 dist/app 을 만든다.
-저장소에서는 dev/ 안에 있고, 글꼴·morphdom·공휴일 원본이 없으면 저장소 최상위(배포본)에 있는 것을 그대로 쓴다.
-쓰는 법: python3 build.py → dist/app 을 저장소 최상위에 덮어쓰기(firebase-config.js 는 빼고)."""
+글꼴·morphdom·공휴일은 dev/assets/ 에 있는 것을 쓴다(원본 패키지가 있으면 그걸로 새로 만든다).
+버전은 dev/VERSION 한 곳에만 쓰고, 빌드가 ui.js(VERSION)·sw.js(CACHE)·README 첫 줄에 넣는다.
+배포는 GitHub Actions(.github/workflows/deploy.yml)가 main에 올라온 dev/를 빌드·테스트해서 Pages에 올린다."""
 import os, shutil, glob, re
 from PIL import Image, ImageDraw
 
@@ -9,7 +10,9 @@ SRC = os.path.join(ROOT, "src")
 DIST = os.path.join(ROOT, "dist")
 APP = os.path.join(DIST, "app")
 VENDOR = "/tmp/claude-0/-home-claude/62be5dd6-b52f-515d-a539-b187e27b180a/scratchpad/ws"
-DEPLOYED = os.path.dirname(ROOT)  # 저장소 dev/ 에서 돌릴 때: 저장소 최상위 = 지금 배포본
+DEPLOYED = os.path.join(ROOT, "assets")  # 글꼴·morphdom·공휴일 저장본
+VERSION = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+assert re.fullmatch(r"\d+\.\d+\.\d+", VERSION), "dev/VERSION 은 1.2.3 꼴"
 rd = lambda p: open(os.path.join(SRC, p), encoding="utf-8").read()
 
 PINK = (217, 70, 124, 255)       # --accent (light)
@@ -24,7 +27,8 @@ style, markup, ui = rd("style.css"), rd("markup.html"), rd("ui.js")
 RESET = (":root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}\n"
          "body{margin:0}img{max-width:100%}[hidden]{display:none!important}\n")
 open(os.path.join(APP, "style.css"), "w", encoding="utf-8").write(RESET + style)
-open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui)
+assert '"__VERSION__"' in ui, "ui.js 의 VERSION 자리표시자가 없다"
+open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui.replace('"__VERSION__"', '"' + VERSION + '"'))
 open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
     '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
@@ -42,8 +46,14 @@ open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<link rel="stylesheet" href="style.css">\n</head>\n<body>\n' + markup +
     '<script src="vendor/morphdom.min.js"></script>\n<script src="holidays.js"></script>\n<script src="ui.js"></script>\n'
     '<script type="module" src="app.js"></script>\n</body>\n</html>\n')
-for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "sw.js", "manifest.webmanifest", "firestore.rules", "README.md"]:
+for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "manifest.webmanifest", "firestore.rules"]:
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))
+# 버전이 들어가는 파일
+sw = rd("pwa/sw.js"); assert '"ttobak-__VERSION__"' in sw
+open(os.path.join(APP, "sw.js"), "w", encoding="utf-8").write(sw.replace("__VERSION__", VERSION))
+readme = rd("pwa/README.md"); readme = re.sub(r"^# 또박 .*$", "# 또박 " + VERSION, readme, count=1, flags=re.M)
+open(os.path.join(APP, "README.md"), "w", encoding="utf-8").write(readme)
+print("version", VERSION)
 open(os.path.join(APP, ".nojekyll"), "w").close()
 os.makedirs(os.path.join(APP, "server"), exist_ok=True)
 shutil.copy(os.path.join(SRC, "worker", "worker.js"), os.path.join(APP, "server", "worker.js"))
