@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22"
       - name: 도구 설치
         run: |
           pip install pillow playwright
