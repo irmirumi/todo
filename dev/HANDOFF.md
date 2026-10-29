@@ -8,7 +8,7 @@
 ## 1. 한눈에
 
 - **무엇**: 한 사람(사용자 본인)이 폰과 PC에서 같이 쓰는 할 일·시간표 PWA.
-- **주소**: https://irmirumi.github.io/todo/ (GitHub Pages, 저장소 `irmirumi/todo`의 `main` 브랜치 루트)
+- **주소**: https://irmirumi.github.io/todo/ (GitHub Pages. `main`에 푸시하면 GitHub Actions가 `dev/`를 빌드해서 올린다)
 - **저장**: Firebase. 로그인은 이메일·비밀번호, 데이터는 Firestore(프로젝트 `my-todo-e4949`). 무료 요금제다.
 - **알림**: Cloudflare Workers 무료 플랜 + D1.
   - Worker 주소: `https://ttobak-reminder.irmirumi.workers.dev`
@@ -40,8 +40,9 @@
 ## 3. 저장소 구조
 
 ```
-/ (예전 배포본 — 2.5.0부터 Pages가 GitHub Actions로 dev/를 빌드해서 올린다. 아래 4장 '전환' 참고)
-  index.html style.css ui.js app.js ... firebase-config.js
+/ (배포본 없음 — 2.5.0부터 Pages는 GitHub Actions가 dev/를 빌드한 결과를 올린다)
+  README.md   저장소 안내(짧게)
+  CLAUDE.md   Claude용 작업 규칙
 .github/workflows/deploy.yml   main에 푸시하면 dev/ 빌드 → 테스트 → Pages 배포
 AGENTS.md   ChatGPT(Codex)용 작업 규칙
 dev/
@@ -76,7 +77,7 @@ dev/
    - `deploy`가 `completed success`인지 본다. 실패 이유는 작업 로그를 못 받으니(프록시) 주석으로 본다: `gh api repos/irmirumi/todo/actions/runs/<run id>/jobs` → 작업 id → `gh api repos/irmirumi/todo/check-runs/<작업 id>/annotations`. `run_all.sh`가 GitHub Actions에서는 실패한 테스트를 `::error`로 남긴다.
 6. 사용자 폰: 앱을 열면 뒤에서 새 버전을 받고 **"새 버전이 있어요 [새로고침]"**이 뜬다. 누르면 바뀐다(앱을 완전히 닫았다 열어도 바뀐다).
 
-**전환(2.5.0)**: Pages 설정이 아직 'main 브랜치 루트'면 Actions의 배포 단계만 실패하고, 루트 파일이 그대로 서빙된다. 사용자가 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 바꾸면 그다음 푸시부터 Actions가 배포한다. 바꾸기 전까지는 예전처럼 `dev/dist/app/`을 루트에 복사해서 함께 푸시한다(설정 파일이 같아져서 덮어써도 된다). 바꾼 게 확인되면 루트의 옛 배포본 파일은 지운다.
+**전환(2.5.0, 완료)**: 2026-10-29 사용자가 Pages Source를 **GitHub Actions**로 바꿨고, 루트의 옛 배포본 파일은 지웠다. 이제 루트에 복사하지 않는다. 혹시 누가 Source를 다시 'Deploy from a branch'로 돌리면 사이트가 빈 루트를 서빙하게 되니, 사이트가 안 열리면 이 설정부터 본다.
 
 **알림 서버(`worker.js`)를 바꿨을 때만**: 사용자가 Cloudflare 대시보드의 Worker → **Edit code**에 파일 전체를 붙여넣고 **Deploy**해야 한다. 자동 배포는 없다.
 
@@ -240,4 +241,4 @@ dev/
 
 ## 11. 독립 검토 (2026-10-29, Codex PR)
 
-제품·코드·신규 사용자 관점의 발견, 근거, 미검증 범위와 후속 로드맵은 `dev/CRITIQUE.md`(Codex)와 `dev/CRITIQUE-claude.md`(Claude, 같은 날 따로 검토)에 있다. 이번 변경은 백업 텍스트 변경 후 재확인과 목록 한도 초과 시 부분 복원 차단에 한정한다. 백업 스키마/한도는 그대로이고, 자동 묶기 동시성과 문서 크기, 여러 배치 복원의 부분 실패는 별도 검증이 필요하다. 루트 배포본·실제 설정·버전·캐시는 그대로 두고 Claude가 리뷰 후 배포한다.
+제품·코드·신규 사용자 관점의 발견, 근거, 미검증 범위와 후속 로드맵은 `dev/CRITIQUE.md`(Codex)와 `dev/CRITIQUE-claude.md`(Claude, 같은 날 따로 검토)에 있다. 이번 변경은 백업 텍스트 변경 후 재확인과 목록 한도 초과 시 부분 복원 차단에 한정한다. 백업 스키마/한도는 그대로이고, 자동 묶기 동시성과 문서 크기, 여러 배치 복원의 부분 실패는 별도 검증이 필요하다. 실제 설정·버전·캐시는 그대로 두고 Claude가 리뷰 후 배포한다.

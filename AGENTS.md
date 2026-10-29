@@ -1,6 +1,6 @@
 # 또박 — AI 에이전트 작업 메모 (Codex 등)
 
-이 저장소는 개인 할 일 PWA "또박"의 배포본이다. `dev/`를 빌드한 결과가 GitHub Pages(https://irmirumi.github.io/todo/)로 나간다.
+이 저장소는 개인 할 일 PWA "또박"이다. `main`에 들어온 `dev/`를 GitHub Actions가 빌드해서 GitHub Pages(https://irmirumi.github.io/todo/)에 올린다.
 원본은 `dev/`에 있다. **작업 전에 `dev/HANDOFF.md`를 끝까지 읽는다.** 구조, 데이터 모양, 지금까지의 결정과 이유, 실수하기 쉬운 것이 모두 거기 있다.
 (같은 저장소를 Claude도 고친다. Claude용 메모는 `CLAUDE.md`다.)
 
@@ -11,7 +11,7 @@
   - 테스트: `dev/tests/`(공용 도우미 `ttb.py`)
   - 문서: `dev/HANDOFF.md`
 - **`dev/VERSION`과 README 버전 기록은 건드리지 않는다.** 합칠 때 Claude가 올린다. `ui.js`·`sw.js`의 `__VERSION__`은 빌드가 채우는 자리표시자다.
-- 저장소 맨 위의 `index.html`, `ui.js` 같은 파일은 예전 배포본이다. 고치지 않는다.
+- 저장소 맨 위에는 앱 파일을 두지 않는다. 배포본은 빌드가 만든다.
 - **비용 0원이 조건이다.** 유료 플랜이나 카드 등록이 필요한 서비스, 라이브러리, 방식은 쓰지 않는다.
 - 앱 안 문구는 해요체로 짧게 쓴다. 용어는 HANDOFF 6장 '용어 통일'을 따른다.
 - 디자인 규칙은 HANDOFF 6장에 있다. 둥근 상자의 한쪽에만 테두리를 넣지 않는다, 어설픈 페이드를 쓰지 않는다, 분홍 강조색은 '오늘'과 주요 버튼에만 쓴다.
