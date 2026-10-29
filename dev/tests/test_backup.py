@@ -48,8 +48,8 @@ try:
                 {'tasks': [{'id': 't_a', 'subtasks': [{'t': str(i)} for i in range(101)]}]},
                 {'tasks': [], 'events': [{'id': 'e_a', 'slots': [{}]*15}]},
                 {'tasks': [], 'cats': [{'id': 'k1', 'subs': [{'id': 's'+str(i)} for i in range(61)]}]},
-                {'tasks': [], 'events': [{'id': 'e_a', 'skips': ['2026-01-01']*401}]},
-                {'tasks': [], 'events': [{'id': 'e_a', 'ovr': {str(i): {'place': 'x'} for i in range(401)}}]},
+                {'tasks': [], 'events': [{'id': 'e_a', 'skips': ['2026-01-01']*5001}]},
+                {'tasks': [], 'events': [{'id': 'e_a', 'ovr': {str(i): {'place': 'x'} for i in range(5001)}}]},
             ]
             for data in cases:
                 pg.fill('#i-in', json.dumps(data)); pg.click('[data-act=importcheck]')

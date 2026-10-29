@@ -81,7 +81,7 @@ with sync_playwright() as p:
     pg.click("[data-act=elater]"); pg.fill("#l-date", K(5)); pg.click("[data-act=later][data-k=pick]"); pg.wait_for_timeout(250)
     o = tasks()["t_old"]
     check(o["date"] == K(5) and not o.get("skipped") and o.get("postponed") == 1, "다른 날에 하기: 안 함 풀고 옮김")
-    check("1번 미룸" in pg.inner_text(f"#ds-{K(5)}"), "목록에 '1번 미룸'")
+    check("미룸" not in pg.inner_text(f"#ds-{K(5)}"), "목록에는 미룬 횟수를 안 보임(2.6.0)")
     pg.click(f"#ds-{K(5)} .ttl:has-text('지난 리포트')")
     pg.click("[data-act=eskip]"); pg.click(f".laterpick [data-k='{K(1)}']"); pg.wait_for_timeout(250)
     o = tasks()["t_old"]

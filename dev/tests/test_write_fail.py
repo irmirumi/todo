@@ -32,7 +32,7 @@ with sync_playwright() as p:
     check(pg.inner_text("#toastMsg") == "저장 권한이 없어요. 다시 로그인해 주세요", "권한 오류 알림")
     pg.evaluate("window.__fs.failNext='unavailable-x'")
     pg.click(".task:has-text('보고서') .chk"); pg.wait_for_timeout(400)
-    check(pg.inner_text("#toastMsg") == "방금 바꾼 게 저장되지 않았어요. 다시 해 주세요", "그 밖의 오류 알림")
+    check(pg.inner_text("#toastMsg") == "방금 바꾼 내용을 저장하지 못했어요. 다시 해 주세요", "그 밖의 오류 알림")
     pg.click(".task:has-text('보고서') .chk"); pg.wait_for_timeout(400)
     check(doc("t_1")["done"] is True, "다시 하면 저장")
     # 쉼: arrayUnion으로 하나만

@@ -3,6 +3,7 @@
 // 새 버전은 뒤에서 통째로 받아 두고(install), 화면이 "새로고침"을 누르거나 앱을 완전히 닫았다 열 때 바뀐다.
 const CACHE = "ttobak-__VERSION__";
 const LIB = "ttobak-lib-1"; // 글꼴 조각·Firebase 라이브러리: 버전과 상관없이 오래 쓴다
+const FB = "12.19.0"; // app.js의 Firebase 버전과 같아야 한다(빌드가 확인). 다른 버전 사본은 LIB에서 지운다
 const SHELL = ["./", "./index.html", "./style.css", "./model.js", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png"];
@@ -13,7 +14,10 @@ self.addEventListener("install", e => {
 });
 self.addEventListener("message", e => { if (e.data && e.data.type === "skip") self.skipWaiting(); });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== LIB).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  // 또박이 만든 캐시(ttobak-)만 정리한다: 지난 버전 묶음, 그리고 LIB 안의 옛 Firebase 버전
+  const pruneLib = () => caches.open(LIB).then(c => c.keys().then(rs => Promise.all(rs.filter(r => /\/firebasejs\//.test(r.url) && !r.url.includes("/firebasejs/" + FB + "/")).map(r => c.delete(r)))));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith("ttobak-") && k !== CACHE && k !== LIB).map(k => caches.delete(k))))
+    .then(pruneLib).then(() => self.clients.claim()));
 });
 const put = (name, req, res) => { if (res.ok || res.type === "opaque") { const cp = res.clone(); caches.open(name).then(c => c.put(req, cp)); } return res; };
 const fromShell = req => caches.open(CACHE).then(c => c.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? c.match("./index.html") : undefined)));

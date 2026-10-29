@@ -24,7 +24,7 @@ with sync_playwright() as p:
     pg.mouse.move(box["x"]+10,box["y"]+10); pg.mouse.down(); pg.mouse.move(20,20,steps=5); pg.mouse.up()
     check(pg.is_visible("#dlg"), "안에서 눌러 밖에서 떼도 안 닫힘")
     pg.mouse.click(20,20); pg.wait_for_timeout(300)
-    check(not pg.is_visible("#dlg") and pg.inner_text("#toastMsg")=="변경 사항을 저장하지 않았어요", "바깥을 누르면 닫히고 저장 안 함")
+    check(not pg.is_visible("#dlg") and pg.inner_text("#toastMsg")=="변경 내용을 저장하지 않았어요", "바깥을 누르면 닫히고 저장 안 함")
     pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)  # 2.2.0~: 다시 열기 → 저장
     # 할 일들: 수업 카테고리
     pg.click("[data-act=add][data-cat=k2]")

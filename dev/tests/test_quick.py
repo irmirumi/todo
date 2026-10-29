@@ -56,11 +56,11 @@ with sync_playwright() as p:
     # --- 캘린더에서 입력: 미리보기 → 엔터 → 내일 15:00, 토스트 '보기'
     pg.click("[data-act=add][data-cat=k1]")
     pg.keyboard.type("내일 3시 과제 제출")
-    check("날짜·시간: 내일 · 오후 3:00" in pg.inner_text(".qhint"), "입력하면서 미리보기")
+    check("내일 · 오후 3:00" in pg.inner_text(".qhint"), "입력하면서 미리보기")
     pg.keyboard.press("Enter"); pg.wait_for_timeout(200)
     t = [x for x in tasks() if x["title"] == "과제 제출"]
     check(len(t) == 1 and t[0]["date"] == tm and t[0]["time"] == "15:00", "내일 15:00으로 추가")
-    check("내일 오후 3:00 · 할 일을 추가했어요" in pg.inner_text("#toastMsg") and pg.inner_text("#toastAct") == "오전으로", "다른 날로 들어가면 알려 줌(오전·오후를 짐작했으면 바꾸기 버튼)")
+    check("내일 오후 3:00 · 할 일을 추가했어요" in pg.inner_text("#toastMsg") and pg.inner_text("#toastAct") == "오전으로 바꾸기", "다른 날로 들어가면 알려 줌(오전·오후를 짐작했으면 바꾸기 버튼)")
     check(pg.evaluate("document.activeElement.id") == "add-k1" and pg.inner_text(".qhint") == "", "입력칸 비우고 포커스 유지")
     # 그대로 쓰기
     pg.keyboard.type("내일 할 일 정리")

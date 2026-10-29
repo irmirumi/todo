@@ -20,14 +20,16 @@ const ro=w=>{const c=String(w||"").trim().slice(-1).charCodeAt(0)-0xAC00;return 
 const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const parse=k=>{const a=k.split("-").map(Number);return new Date(a[0],a[1]-1,a[2]);};
 const addDays=(k,n)=>{const d=parse(k);d.setDate(d.getDate()+n);return keyOf(d);};
-const DATE_RE=/^\d{4}-\d{2}-\d{2}$/,TIME_RE=/^\d{2}:\d{2}$/;
+/* 모양만이 아니라 실제로 있는 날짜·시각인지(2026-02-31, 25:00은 아님). .test()로 쓴다 */
+const DATE_RE={test:v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&keyOf(parse(v))===v},
+  TIME_RE={test:v=>typeof v==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v)};
 /* 고정 일정의 요일·시간(2.3.0, 2.3.1에 다시 짬). slots: [{id,days,time,end}] — 같은 요일이 여러 줄에 있어도 된다(중간에 쉬는 수업 등).
    slots가 없으면 예전처럼 days·time·end 한 줄(id ""). 이 날만 바꾸기(ovr)·쉼(skips)의 키는 occKey: id ""인 줄은 날짜 그대로(예전과 같게), 나머지는 "날짜#id".
    days·time·end는 id ""인 줄(없으면 첫 줄)과 같게 저장해 둔다(예전 버전이 그 줄은 알아보게) */
 const slotsOf=e=>Array.isArray(e.slots)&&e.slots.length?e.slots.map(x=>({id:x.id||"",days:Array.isArray(x.days)?x.days:[],time:x.time||null,end:x.end||null})):
   [{id:"",days:Array.isArray(e.days)?e.days:[],time:e.time||null,end:e.end||null}];
 const occKey=(k,sid)=>sid?k+"#"+sid:k;
-const KEY_RE=/^\d{4}-\d{2}-\d{2}(#[a-z0-9]{1,8})?$/;
+const KEY_RE={test:v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}(#[a-z0-9]{1,8})?$/.test(v)&&DATE_RE.test(v.slice(0,10))};
 /* 그 날 그 줄의 평소 모습 → evBase(sid 없으면 그 요일 첫 줄), 이 날만 바꾼 것까지 → evAt. 결과에 sid가 붙는다 */
 function evBase(e,k,sid){const sl=slotsOf(e),w=k?parse(k).getDay():-1;
   const f=(sid!=null&&(sl.find(x=>x.id===sid&&x.days.includes(w))||sl.find(x=>x.id===sid)))||sl.find(x=>x.days.includes(w))||sl[0];
@@ -92,12 +94,14 @@ function parseQuick(text,base){
     if(/^(이번\s?주|다음\s?주|담주|다다음\s?주)$/.test(t)){week=/다다음/.test(t)?14:/다음|담/.test(t)?7:0;used[i]=true;continue;}
     if((m=t.match(/^([일월화수목금토])(?:요일|욜)$/))&&!date){const w=WDK[m[1]];
       date=week==null?addDays(base,(w-bd+7)%7):addDays(monStart(base),week+(w+6)%7);used[i]=true;continue;}
-    if((m=t.match(/^(\d{1,2})[\/.](\d{1,2})$/))&&!date&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]);used[i]=true;continue;}
+    if((m=t.match(/^(\d{1,2})[\/.](\d{1,2})$/))&&!date&&DATE_RE.test(base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]))){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]);used[i]=true;continue;}
     if((m=t.match(/^(\d{1,2})월$/))&&!date&&toks[i+1]&&/^(\d{1,2})일$/.test(toks[i+1])){const d=+toks[i+1].slice(0,-1);
-      if(+m[1]>=1&&+m[1]<=12&&d>=1&&d<=31){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(d);used[i]=used[i+1]=true;i++;continue;}}
-    if((m=t.match(/^(\d{1,2})월(\d{1,2})일$/))&&!date&&+m[1]>=1&&+m[1]<=12){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]);used[i]=true;continue;}
+      if(DATE_RE.test(base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(d))){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(d);used[i]=used[i+1]=true;i++;continue;}}
+    if((m=t.match(/^(\d{1,2})월(\d{1,2})일$/))&&!date&&DATE_RE.test(base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]))){date=base.slice(0,4)+"-"+pad(+m[1])+"-"+pad(+m[2]);used[i]=true;continue;}
     if((m=t.match(/^(\d{1,2})일$/))&&!date&&+m[1]>=1&&+m[1]<=31){let k=base.slice(0,8)+pad(+m[1]);
-      if(k<base){const d=parse(base);k=keyOf(new Date(d.getFullYear(),d.getMonth()+1,+m[1]));}date=k;used[i]=true;continue;}
+      /* 이번 달에 지났거나 없는 날(30일이 없는 2월 등)이면 그다음으로 그날이 있는 달 */
+      if(k<base||!DATE_RE.test(k)){const d=parse(base);for(let j=1;j<=12;j++){const x=new Date(d.getFullYear(),d.getMonth()+j,1);const c=keyOf(x).slice(0,8)+pad(+m[1]);if(DATE_RE.test(c)){k=c;break;}}}
+      if(DATE_RE.test(k)){date=k;used[i]=true;continue;}}
     if(AP[t]&&toks[i+1]&&(qTime(toks[i+1],AP[t])||/^\d{1,2}(시|:\d{2})(반|\d{1,2}분)?[-~]/.test(toks[i+1]))){ap=AP[t];used[i]=true;continue;}
     if(!time){
       const r=t.match(/^(.+?)[-~](.+)$/);

@@ -24,3 +24,5 @@ Python 화면 스크립트에는 Playwright와 Chromium이 필요하다. 이 검
 Node 재현과 initial_auto의 assertion은 **현재 문제 행동이 나타나는지** 확인한다. 향후 수정되면 assertion이 실패할 수 있다. 그대로 제품 회귀 검사로 편입하지 말고, 기대하는 정상 결과로 바꾸고 상태 계약을 갖춘 테스트로 옮긴다. 함수 추출은 현재 소스의 함수/주석 경계에 의존하므로 큰 구조 변경 뒤에는 갱신해야 한다.
 
 2026-10-29 실행 결과: 두 Node 재현, initial_auto, capture(76회/중복 제외 68장), contrast 모두 완료. 기존 `bash dev/tests/run_all.sh`도 Node 3개 + Python 23개 전부 PASS(exit 0). 전체 테스트의 성공은 동시 기기 안전성·실제 Firebase 12.19.0·실 푸시·iOS PWA까지 보장하지 않는다.
+
+**2.6.0 이후**: 위 문제들은 고쳤다. 이 폴더의 스크립트는 '문제가 나타나는지'를 확인하므로 이제는 실패하는 게 정상이다. 정상 기대값으로 바꾼 회귀 검사는 `dev/tests/test_v26_sync.py`, `test_v26_ui.py`, `v26.test.mjs`에 있다.

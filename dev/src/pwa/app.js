@@ -113,6 +113,25 @@ const store = {
   set(id, b) { return apply(writeOps("set", id, b, cur.arch, cur.tasks, cur.dups)); },
   update(id, p) { return apply(writeOps("update", id, p, cur.arch, cur.tasks, cur.dups)); },
   remove(id) { return apply(writeOps("remove", id, null, cur.arch, cur.tasks, cur.dups)); },
+  // 조건부 쓰기(2.6.0): 서버에서 지금 값을 확인하고 쓴다(트랜잭션). 자동 추가·휴지통 비우기처럼 두 기기가 같은 일을 할 수 있는 곳에서만 쓴다.
+  // 오프라인이면 트랜잭션이 실패한다 — 화면에 알리지 않고, 다음에 서버 데이터를 받을 때 다시 한다
+  create(id, b) {
+    if (!col) return Promise.reject({ code: "not_ready" });
+    if (cur.arch.has(id)) return Promise.resolve(false);
+    const ref = fb.doc(col, id);
+    return fb.runTransaction(db, async tx => { const d = await tx.get(ref); if (d.exists()) return false; tx.set(ref, b); return true; });
+  },
+  raise(id, f, v) {
+    if (!col) return Promise.reject({ code: "not_ready" });
+    const ref = fb.doc(col, id);
+    return fb.runTransaction(db, async tx => { const d = await tx.get(ref); if (!d.exists() || (d.data()[f] || "") >= v) return false; tx.update(ref, { [f]: v }); return true; });
+  },
+  removeIf(id, f, v) {
+    if (!col) return Promise.reject({ code: "not_ready" });
+    if (cur.arch.has(id) || cur.dups.has(id)) return store.remove(id); // 묶음에 든 것은 드묾: 보통 지우기
+    const ref = fb.doc(col, id);
+    return fb.runTransaction(db, async tx => { const d = await tx.get(ref); if (!d.exists() || d.data()[f] !== v) return false; tx.delete(ref); return true; });
+  },
   // 필드 하나만 고치는 쓰기(배열에 넣고 빼기, 맵의 한 칸 지우기): 두 기기의 변경이 서로를 덮지 않게
   fx: { union: v => fb.arrayUnion(v), remove: v => fb.arrayRemove(v), del: () => fb.deleteField() },
   saveCats(cats) { return col ? fb.setDoc(fb.doc(col, "meta"), { cats }).catch(failWrite) : notReady(); },

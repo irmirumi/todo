@@ -15,6 +15,7 @@ const FIREBASE_PROJECT_ID = "my-todo-e4949";
 const APP_URL = "https://irmirumi.github.io/todo/";
 const ALLOWED_ORIGINS = ["https://irmirumi.github.io"];
 const MAX_PUSHES_PER_RUN = 4;     // 무료 플랜 CPU 한도(실행당 10ms) 안에서 넉넉히. 넘치면 다음 분에
+const RETRY_MS = 10 * 60 * 1000;
 const DROP_IF_LATE_MS = 60 * 60 * 1000; // 1시간 넘게 밀린 알림은 보내지 않고 버림
 // 브라우저 푸시 서비스 주소만 받는다(크롬·안드로이드, 아이폰·맥, 파이어폭스, 엣지)
 const PUSH_HOSTS = /^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|[a-z0-9.-]+\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//;
@@ -200,7 +201,7 @@ async function handle(req, env) {
     const { results } = await env.DB.prepare("SELECT * FROM subs WHERE uid = ? LIMIT 5").bind(uid).all();
     let sent = 0;
     for (const s of results) {
-      const r = await sendPush(env, s, { title: "또박", body: "알림이 잘 와요", tag: "test", url: APP_URL });
+      const r = await sendPush(env, s, { title: "또박", body: "또박 테스트 알림이에요", tag: "test", url: APP_URL });
       if (r === "gone") await env.DB.prepare("DELETE FROM subs WHERE endpoint = ?").bind(s.endpoint).run();
       if (r === "ok") sent++;
     }
@@ -219,11 +220,16 @@ async function tick(env) {
   for (const r of due) {
     const { results: subs } = await env.DB.prepare("SELECT * FROM subs WHERE uid = ? LIMIT 5").bind(r.uid).all();
     if (pushes > 0 && pushes + subs.length > MAX_PUSHES_PER_RUN) break; // 나머지는 다음 분에
+    let ok = 0, failed = 0;
     for (const s of subs) {
       const res = await sendPush(env, s, { title: r.title, body: r.body, tag: r.id, url: r.url });
       pushes++;
       if (res === "gone") await env.DB.prepare("DELETE FROM subs WHERE endpoint = ?").bind(s.endpoint).run();
+      else if (res === "ok") ok++; else failed++;
     }
+    // 2.6.0: 한 기기에도 못 보냈으면(푸시 서버 일시 오류 등) 지우지 않고 다음 분에 다시. 10분이 지나면 포기한다.
+    // 한 기기라도 받았으면 지운다(다시 보내면 받은 기기에 두 번 울림)
+    if (failed && !ok && r.at > now - RETRY_MS) continue;
     await env.DB.prepare("DELETE FROM rem WHERE uid = ? AND id = ? AND at = ?").bind(r.uid, r.id, r.at).run();
   }
 }

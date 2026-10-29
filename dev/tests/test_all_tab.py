@@ -39,7 +39,7 @@ def go(w,h,tag):
     check(abs(pg.evaluate("(()=>{const h=document.querySelector('.dsec .dlink h3'),d=document.querySelector('.dsec .dlink .rel')||document.querySelector('.dsec .dlink .dw');const a=h.getBoundingClientRect(),c=d.getBoundingClientRect();return Math.round(a.bottom-c.bottom)})()"))<=3, "날짜 머리 글자 아랫줄 맞춤")
     pg.click("[data-act=view][data-v=day]"); pg.wait_for_timeout(200)
     pg.click("[data-act=pick][data-k='%s']"%D(-1)); pg.wait_for_timeout(250)
-    check(pg.inner_text(".prog")=="할 일 없음" and pg.locator(".task.skipped").count()==1, "안 함인 날: 흐리게 남고 숫자엔 안 셈")
+    check(pg.inner_text(".prog").endswith("할 일이 없어요") and pg.locator(".task.skipped").count()==1, "안 함인 날: 흐리게 남고 숫자엔 안 셈")
     pg.screenshot(path=OUT+tag+"2-skipday.png",full_page=True)
     pg.click(".task.skipped .chk"); pg.wait_for_timeout(250); check(pg.locator(".task.skipped").count()==0, "왼쪽 동그라미로 안 함 취소")
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
@@ -53,7 +53,7 @@ def go(w,h,tag):
     pg.screenshot(path=OUT+tag+"2-edit.png")
     pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     if pg.locator(".blk.ghost").count():
-        pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); check("추가 전" in pg.inner_text("#sheet") or "자동" in pg.inner_text("#sheet"), "빗금 칸 → 반복 할 일 정보")
+        pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); check("추가" in pg.inner_text("#sheet"), "빗금 칸 → 반복 할 일 정보")
         pg.screenshot(path=OUT+tag+"2-ginfo.png")
         pg.click("[data-act=iadd]"); pg.wait_for_timeout(400); check("할 일을 추가했어요" in pg.inner_text("#toastMsg"), "이날 할 일에 추가")
     if pg.locator(".ucount").count():  # 폰(1.6.0~): 개수 칩 → 그날 캘린더

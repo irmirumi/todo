@@ -34,9 +34,13 @@ function setPath(o, segs, v) {
   else cur[last] = clone(v);
   return c;
 }
+fs.emit = () => emit(); // 테스트에서 스냅샷을 다시 보내고 싶을 때
 function emit() {
   for (const l of fs.listeners) setTimeout(() => {
-    const list = [...fs.docs].filter(([p]) => p.startsWith(l.path + "/")).map(([p, d]) => ({ id: p.slice(l.path.length + 1), data: () => clone(d) }));
+    // fs.view[경로] = 값: 이 기기가 아직 못 받은 서버 변경을 흉내(스냅샷에는 이 값이, 서버에는 fs.docs가). null이면 안 보임
+    const v = fs.view || {}, paths = new Set([...fs.docs.keys(), ...Object.keys(v)]);
+    const list = [...paths].filter(p => p.startsWith(l.path + "/")).map(p => [p, p in v ? v[p] : fs.docs.get(p)]).filter(([, d]) => d != null)
+      .map(([p, d]) => ({ id: p.slice(l.path.length + 1), data: () => clone(d) }));
     l.next({ forEach: f => list.forEach(f), size: list.length, metadata: { fromCache: false, hasPendingWrites: false } });
   }, 0);
 }
@@ -87,6 +91,20 @@ export function writeBatch() {
       try { const fns = []; for (const o of ops) fns.push(prep(...o)); return run(fns); } catch (e) { return Promise.reject(e); } }
   };
   return b;
+}
+// 트랜잭션: 서버(fs.docs)의 지금 값을 읽고 쓴다. window.__fs.offline = true 이면 실제처럼 실패(unavailable)
+// 다른 기기가 막 쓴 것(아직 이 기기에 스냅샷이 안 온 것)은 fs.docs.set으로 직접 넣고 emit하지 않으면 흉내 낼 수 있다
+export function runTransaction(db, fn) {
+  if (fs.offline) return Promise.reject({ code: "unavailable", message: "offline" });
+  const ops = [];
+  const tx = {
+    get(ref) { const p = ref.col.path + "/" + ref.id; const has = fs.docs.has(p), d = has ? clone(fs.docs.get(p)) : undefined; return Promise.resolve({ exists: () => has, data: () => d }); },
+    set(ref, d, o) { ops.push(["set", ref, d, o, []]); return tx; },
+    update(ref, a, v, ...r) { ops.push(["update", ref, a, v, r]); return tx; },
+    delete(ref) { ops.push(["delete", ref, null, null, []]); return tx; }
+  };
+  fs.tx = (fs.tx || 0) + 1;
+  return Promise.resolve(fn(tx)).then(res => { if (!ops.length) return res; const fns = ops.map(o => prep(...o)); return run(fns).then(() => res); });
 }
 export function onSnapshot(col, opts, next, err) {
   const l = { path: col.path, next, err }; fs.listeners.add(l); emit();

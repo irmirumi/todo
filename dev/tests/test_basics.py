@@ -41,7 +41,7 @@ def seed(pg):
     check("오후 6:30" in pg.locator("#main .chip.time").all_inner_texts() and "세부 0/2" in pg.inner_text("#g-k1"), "저장: 시간·세부 할 일 2개(입력 중이던 것도)")
     pg.click("text=과제 3 제출"); pg.fill("#e-time", "09:00")
     pg.go_back(); pg.wait_for_timeout(300)  # 뒤로가기는 저장 안 하고 닫음 → 다시 열기 → 저장
-    check(pg.inner_text("#toastMsg") == "변경 사항을 저장하지 않았어요", "뒤로가기는 저장 안 함 + 알림"); pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)
+    check(pg.inner_text("#toastMsg") == "변경 내용을 저장하지 않았어요", "뒤로가기는 저장 안 함 + 알림"); pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)
     check(not pg.is_visible("#dlg") and "오전 9:00" in pg.locator("#main .chip.time").all_inner_texts(), "다시 열어 저장하면 반영")
     pg.click(".task:has-text('단어') .chk"); pg.wait_for_timeout(500)
     # 삭제 + 되돌리기

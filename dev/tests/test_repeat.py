@@ -47,8 +47,8 @@ def run(w,h,touch,tag):
     # use internal openDate via SW message path not available; click calendar
     if pg.locator(f"[data-k='{k}']").count()==0: pg.click("[data-act=nav][data-d='1']"); pg.wait_for_timeout(300)
     pg.click(f"[data-k='{k}']"); pg.wait_for_timeout(300)
-    check(pg.locator(".task.ghost").count()==1 and pg.inner_text(".prog")=="할 일 없음" and pg.inner_text("#g-k2 .cnt")=="", "다른 날: 흐린 줄 하나, 숫자엔 안 셈")
-    check("추가 전" in pg.inner_text(".task.ghost .meta"), "흐린 줄에 '추가 전'")
+    check(pg.locator(".task.ghost").count()==1 and pg.inner_text(".prog").endswith("할 일이 없어요") and pg.inner_text("#g-k2 .cnt")=="", "다른 날: 흐린 줄 하나, 숫자엔 안 셈")
+    check("눌러서 추가" in pg.inner_text(".task.ghost .meta"), "흐린 줄에 '추가 전'")
     pg.screenshot(path=OUT+tag+"-ghost.png")
     pg.click(".task.ghost .gadd"); pg.wait_for_timeout(400)
     check(pg.locator(".task.ghost").count()==0 and pg.locator(".task:not(.ghost)").count()==1 and "0/1" in pg.inner_text(".prog"), "＋ → 진짜 할 일, 숫자에 셈")
@@ -78,7 +78,9 @@ def run(w,h,touch,tag):
     pg.keyboard.type("취소될 것"); pg.click("[data-act=tplcancel]"); pg.wait_for_timeout(300)
     check(pg.evaluate("__d.tpls.size")==2, "취소하면 안 생김")
     # delete + undo via ghost title
-    pg.click(".task.ghost .ttl >> nth=0"); pg.wait_for_timeout(200); pg.click("[data-act=itpl]"); pg.wait_for_timeout(200); pg.click("[data-act=tpldel]"); pg.wait_for_timeout(300)
+    pg.click(".task.ghost .ttl >> nth=0"); pg.wait_for_timeout(200); pg.click("[data-act=itpl]"); pg.wait_for_timeout(200); pg.click("[data-act=tpldel]"); pg.wait_for_timeout(200)
+    check(pg.evaluate("__d.tpls.size")==2 and pg.inner_text(".sheet [data-act=tpldel]")=="정말 삭제" and "휴지통에 남지 않아요" in pg.inner_text("#toastMsg"), "반복 할 일 삭제는 한 번 더 확인(휴지통에 안 남음)")
+    pg.click("[data-act=tpldel]"); pg.wait_for_timeout(300)
     check(pg.evaluate("__d.tpls.size")==1, "반복 할 일 삭제"); pg.click("#toastAct"); pg.wait_for_timeout(300); check(pg.evaluate("__d.tpls.size")==2, "삭제 되돌리기")
     # export/import roundtrip
     exp=pg.evaluate("(()=>{document.querySelector('[data-act=menu]').click();return 1})()"); pg.wait_for_timeout(200); pg.click("[data-act=export]"); pg.wait_for_timeout(200)

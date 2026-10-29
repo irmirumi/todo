@@ -62,7 +62,7 @@ with sync_playwright() as p:
     check(pg.locator(".slot").count() == 2 and pg.input_value("#s-time-0") == "10:30" and pg.input_value("#s-time-1") == "14:00", "줄 둘 다 바로 고칠 수 있음")
     check(pg.input_value("#s-dur-0") == "75", "길이 1시간 15분")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    check(not pg.is_visible("#toast") or pg.inner_text("#toastMsg") != "변경 사항을 저장하지 않았어요", "안 고치고 닫으면 알림 없음")
+    check(not pg.is_visible("#toast") or pg.inner_text("#toastMsg") != "변경 내용을 저장하지 않았어요", "안 고치고 닫으면 알림 없음")
 
     pg.click("[data-act=menu]"); pg.click(".sheet [data-act=evs]"); pg.click(".tplrow:has-text('자료구조')"); pg.wait_for_timeout(150)
     pg.fill("#s-time-0", "11:00"); pg.dispatch_event("#s-time-0", "change"); pg.wait_for_timeout(100)

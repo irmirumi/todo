@@ -51,6 +51,9 @@ for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))
 # 버전이 들어가는 파일
 sw = rd("pwa/sw.js"); assert '"ttobak-__VERSION__"' in sw
+import re as _re
+_fa = _re.search(r'const V = "([\d.]+)"', rd("pwa/app.js")); _fs = _re.search(r'const FB = "([\d.]+)"', sw)
+assert _fa and _fs and _fa.group(1) == _fs.group(1), "app.js V와 sw.js FB(Firebase 버전)가 달라요"
 open(os.path.join(APP, "sw.js"), "w", encoding="utf-8").write(sw.replace("__VERSION__", VERSION))
 readme = rd("pwa/README.md"); readme = re.sub(r"^# 또박 .*$", "# 또박 " + VERSION, readme, count=1, flags=re.M)
 open(os.path.join(APP, "README.md"), "w", encoding="utf-8").write(readme)
