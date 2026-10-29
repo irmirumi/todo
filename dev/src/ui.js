@@ -189,7 +189,7 @@ function renderLogin(){
     (store&&store.resetPassword?'<button class="linkish" type="button" data-act="pwreset">비밀번호를 잊었어요</button>':'')+'</form></div>';
 }
 function renderConfig(){
-  $("#main").innerHTML='<div class="auth">'+markSvg+'<h1>설정이 필요해요</h1><p><code>firebase-config.js</code>에 Firebase 설정값을 넣어 주세요. 설치 가이드 2단계를 참고하세요.</p></div>';
+  $("#main").innerHTML='<div class="auth">'+markSvg+'<h1>설정이 필요해요</h1><p><code>firebase-config.js</code>에 Firebase 설정값을 넣어 주세요. 설치 가이드 2단계를 참고해 주세요.</p></div>';
 }
 
 function ring(s){
@@ -718,9 +718,9 @@ function drawMenu(){
     (store.push?'<button type="button" data-act="notify">알림<small id="m-notify">'+NSTATE[S.pushState||"..."]+'</small></button>':'')+
     '<button type="button" data-act="trash">휴지통<small>'+(S.trash.size?S.trash.size+'개 · ':'')+'지운 할 일은 30일 동안 남아요</small></button>'+
     '<button type="button" data-act="export">백업 만들기<small>파일로 저장하거나 텍스트로 복사</small></button>'+
-    '<button type="button" data-act="import">백업 복원<small>복사해 둔 백업 불러오기</small></button>';
+    '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
-  h+='</div>'+(holEnd()?'<p class="tnote">공휴일 자료가 '+holEnd()+'년까지만 있어요. 그 뒤로는 공휴일 쉼이 적용되지 않아요. 갱신해 달라고 요청해 주세요</p>':'')+'<p class="ver">또박 '+VERSION+'</p>';
+  h+='</div>'+(holEnd()?'<p class="tnote">공휴일 자료가 '+holEnd()+'년까지만 있어요. 그 뒤로는 공휴일 쉼이 적용되지 않아요. 갱신을 요청해 주세요</p>':'')+'<p class="ver">또박 '+VERSION+'</p>';
   drawSheet(h);
 }
 const NSTATE={"on":"이 기기에서 켜짐","off":"이 기기에서 꺼짐","denied":"차단됨","ios-install":"홈 화면 앱에서만 가능","unsupported":"이 브라우저는 지원 안 함","...":"확인 중…"};
@@ -974,9 +974,9 @@ function drawEv(){
   h+='<div class="field"><label for="e-note">메모</label><textarea class="inp" id="e-note" placeholder="교수님 연락처, 준비물 등">'+esc(e.note)+'</textarea></div>';
   const ended=!!(e.until&&e.until<today);
   const re=S.editing&&(e.archived||ended);
-  if(re)h+='<p class="tnote">'+(e.archived?'숨긴 일정이에요. 과거 일정도 달력과 시간표에 표시되지 않아요':'기간이 끝난 일정이에요')+'. '+reuseNote(e.archived,ended)+'</p>';
+  if(re)h+='<p class="tnote">'+(e.archived?'숨긴 일정이에요. 지난 일정도 달력과 시간표에 안 보여요':'기간이 끝난 일정이에요')+'. '+reuseNote(e.archived,ended)+'</p>';
   else if(S.editing)h+='<p class="tnote">숨기면 지난 일정도 안 보여요. 지난 기록을 남기고 끝내려면 종료일을 정해 주세요</p>';
-  h+='<div class="actions">'+(S.editing?'<button class="btn dng" type="button" data-act="evdel">'+(S.delArm?'정말 삭제':'삭제')+'</button><button class="btn sec" type="button" data-act="'+(re?'evunarc':'evarc')+'">'+(re?'다시 사용':'숨기기')+'</button>':'<button class="btn ghost" type="button" data-act="tplcancel">취소</button>')+
+  h+='<div class="actions">'+(S.editing?'<button class="btn dng'+(S.delArm?' armed':'')+'" type="button" data-act="evdel">'+(S.delArm?'정말 삭제':'삭제')+'</button><button class="btn sec" type="button" data-act="'+(re?'evunarc':'evarc')+'">'+(re?'다시 사용':'숨기기')+'</button>':'<button class="btn ghost" type="button" data-act="tplcancel">취소</button>')+
     '<span class="sp"></span><button class="btn pri" type="button" data-act="save">저장</button></div>';
   drawSheet(h);
 }
@@ -1047,7 +1047,7 @@ function drawLater(){
   let h='<p class="eyebrow sheet-eb icat" style="--cc:var(--'+catOf(t).color+')"><span><i></i>'+nameH(t)+'</span>'+(d?'<span>'+(relWord(t.date)||md(t.date))+'</span>':'')+'</p>'+
     '<h2>언제로 옮길까요?</h2>'+(S.laterMode==="again"?'<p>‘안 함’을 취소하고 고른 날로 옮겨요</p>':'');
   h+='<div class="laterpick">'+laterOpts(t).map(o=>'<button type="button" data-act="later" data-k="'+o[0]+'"><b>'+o[1]+'</b><small>'+md(o[0])+'</small></button>').join("")+'</div>';
-  h+='<div class="field"><label for="l-date">다른 날</label><div class="row"><input class="inp" id="l-date" type="date" min="'+today+'" value="'+addDays(t.date&&t.date>today?t.date:today,7)+'" style="max-width:170px"><button class="btn sec" type="button" data-act="later" data-k="pick">이 날로 옮기기</button></div></div>';
+  h+='<div class="field"><label for="l-date">다른 날</label><div class="row"><input class="inp" id="l-date" type="date" min="'+today+'" value="'+addDays(t.date&&t.date>today?t.date:today,7)+'" style="max-width:170px"><button class="btn sec" type="button" data-act="later" data-k="pick">이날로 옮기기</button></div></div>';
   h+='<div class="actions">'+(S.laterMode==="skip"?'<button class="btn ghost" type="button" data-act="laterskip">안 함으로 남기기</button>':'')+'<span class="sp"></span><button class="btn ghost" type="button" data-act="close">취소</button></div>';
   drawSheet(h);
 }
@@ -1195,7 +1195,7 @@ function drawEdit(){
     const re=S.editing&&(e.archived||ended);
     h+='<p class="tnote">'+(e.archived?'숨긴 반복 할 일이에요. 이미 추가한 할 일은 그대로 남아요':ended?'반복 기간이 끝났어요':S.editing?'이미 추가한 할 일은 바뀌지 않아요. 숨기면 앞으로 추가하지 않아요':'이미 추가한 할 일은 바뀌지 않아요')+'</p>'+
       (re?'<p class="tnote">'+reuseNote(e.archived,ended)+'</p>':'')+'<div class="actions">'+
-      (S.editing?'<button class="btn dng" type="button" data-act="tpldel">'+(S.delArm?'정말 삭제':'삭제')+'</button><button class="btn sec" type="button" data-act="'+(re?'tplunarc':'tplarc')+'">'+(re?'다시 사용':'숨기기')+'</button>':'<button class="btn ghost" type="button" data-act="tplcancel">취소</button>')+
+      (S.editing?'<button class="btn dng'+(S.delArm?' armed':'')+'" type="button" data-act="tpldel">'+(S.delArm?'정말 삭제':'삭제')+'</button><button class="btn sec" type="button" data-act="'+(re?'tplunarc':'tplarc')+'">'+(re?'다시 사용':'숨기기')+'</button>':'<button class="btn ghost" type="button" data-act="tplcancel">취소</button>')+
       '<span class="sp"></span><button class="btn pri" type="button" data-act="save">저장</button></div>';
   }
   else if(!S.editing)h+='<div class="actions"><button class="btn ghost" type="button" data-act="tplcancel">취소</button><span class="sp"></span><button class="btn pri" type="button" data-act="save">추가</button></div>';
@@ -1204,7 +1204,7 @@ function drawEdit(){
     if(sk)h+='<p class="tnote">‘안 함’으로 남긴 할 일이에요</p>';
     /* 넘기기는 완료하지 않은 할 일만(완료이면서 안 함인 상태가 생기지 않게) */
     h+='<div class="actions"><button class="btn dng" type="button" data-act="del">휴지통으로</button>'+
-      (sk?'<button class="btn sec" type="button" data-act="elater">다른 날에 하기</button><button class="btn sec" type="button" data-act="eunskip">안 함 취소</button>':t&&t.done?'':'<button class="btn sec" type="button" data-act="eskip">날짜 옮기기</button>')+
+      (sk?'<button class="btn sec" type="button" data-act="elater">날짜 옮기기</button><button class="btn sec" type="button" data-act="eunskip">안 함 취소</button>':t&&t.done?'':'<button class="btn sec" type="button" data-act="eskip">날짜 옮기기</button>')+
       '<span class="sp"></span><button class="btn pri" type="button" data-act="save">저장</button></div>';
   }
   drawSheet(h);
@@ -1275,9 +1275,9 @@ function drawCats(){
   const counts={};for(const t of S.tasks.values()){const k=t.cat;counts[k]=(counts[k]||0)+1;}
   const act=S.catDraft.filter(c=>!c.archived),arc=S.catDraft.filter(c=>c.archived);
   const firstName=act[0]?act[0].name||"첫 카테고리":"";
-  const delBtn=c=>'<button class="btn dng sm'+(S.catDelArm===c.id?' armed':'')+'" type="button" data-act="catdel" data-cat="'+c.id+'">'+(S.catDelArm===c.id?'삭제 확인':'삭제')+'</button>';
+  const delBtn=c=>'<button class="btn dng sm'+(S.catDelArm===c.id?' armed':'')+'" type="button" data-act="catdel" data-cat="'+c.id+'">'+(S.catDelArm===c.id?'정말 삭제':'삭제')+'</button>';
   const delNote=c=>S.catDelArm===c.id&&counts[c.id]?'<p class="note">할 일 '+counts[c.id]+'개는 ‘'+esc(ro(firstName)).replace(/(으?로)$/,"’$1")+' 옮겨져요</p>':'';
-  let h='<h2>카테고리 관리</h2><p>카테고리 안에서 소분류로 나눌 수 있어요. 숨긴 카테고리의 할 일은 모든 목록에서 숨겨지고, 데이터는 지워지지 않아요.</p><div class="catlist">';
+  let h='<h2>카테고리 관리</h2><p>카테고리 안에서 소분류로 나눌 수 있어요. 숨긴 카테고리의 할 일은 모든 목록에서 안 보이지만 지워지지는 않아요.</p><div class="catlist">';
   h+=act.map((c,i)=>'<div class="catrow'+(S.catMoved===c.id?' moved':'')+'" id="cr-'+c.id+'" style="--cc:var(--'+c.color+')">'+
     '<div class="row"><input class="inp" id="cn-'+c.id+'" type="text" value="'+esc(c.name)+'" placeholder="카테고리 이름" aria-label="카테고리 이름" maxlength="24">'+
       '<button class="x mv" type="button" data-act="catup" data-cat="'+c.id+'" aria-label="위로"'+(i===0?' disabled':'')+'>'+upSvg+'</button>'+
@@ -1459,7 +1459,7 @@ document.addEventListener("click",ev=>{
       if(!r.tasks.length&&!r.cats&&!r.tpls.length&&!r.events.length){$("#i-err").textContent="복원할 항목이 없어요";break;}
       S.importData=r;S.importText=txt;drawImport();break;}
     case"importgo":{const d=S.importData;if(!d)break;b.disabled=true;$("#i-in").disabled=true;b.textContent="복원 중…";
-      store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{onError(e);b.disabled=false;const input=$("#i-in");if(input)input.disabled=false;b.textContent="백업 복원하기";});break;}
+      store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{if(e&&e.code==="partial"){const er=$("#i-err");if(er)er.textContent="일부만 복원됐어요. 같은 백업으로 한 번 더 복원해 주세요(이미 들어간 것은 겹치지 않아요)";}else onError(e);b.disabled=false;const input=$("#i-in");if(input)input.disabled=false;b.textContent="백업 복원하기";});break;}
     case"logout":S.sheet=null;closeDlg();store.signOut();break;
     case"close":closeDlg();break;
     case"pwreset":{const em=($("#l-email")||{}).value,er=$("#l-err");if(!em||!em.trim()){er.textContent="이메일을 먼저 입력해 주세요";$("#l-email").focus();break;}
@@ -1557,7 +1557,7 @@ document.addEventListener("submit",ev=>{
   store.signIn(email,pw).catch(e=>{
     const c=e&&e.code||"";
     err.textContent=c.includes("invalid-credential")||c.includes("wrong-password")||c.includes("user-not-found")||c.includes("invalid-email")?"이메일 또는 비밀번호가 틀렸어요"
-      :c.includes("too-many-requests")?"잠시 후 다시 시도해 주세요"
+      :c.includes("too-many-requests")?"잠시 뒤 다시 해 주세요"
       :c.includes("network")?"인터넷 연결을 확인해 주세요":"로그인하지 못했어요. 잠시 뒤 다시 해 주세요";
     btn.disabled=false;btn.textContent="로그인";
   });

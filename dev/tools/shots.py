@@ -1,9 +1,11 @@
-"""Synthetic review fixture; no account/network writes. Run after dev/build.py."""
+"""화면 검토용 스크린샷: 합성 일주일·빈 화면을 폰(390)·PC(1280) × 밝음·어두움으로 찍는다(계정·네트워크 안 씀).
+쓰는 법: python3 dev/build.py && python3 dev/tools/shots.py  →  dev/tests/out/shots/ (git에 안 올라감)
+처음 만든 건 Codex(2.5.0 검토), 2.6.0부터 Claude가 UI 점검에 쓴다."""
 import json, threading, functools, datetime
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[3]; OUT=ROOT/'dev/ux-shots'; OUT.mkdir(exist_ok=True)
+ROOT=Path(__file__).resolve().parents[2]; OUT=ROOT/'dev/tests/out/shots'; OUT.mkdir(parents=True,exist_ok=True)
 class Quiet(SimpleHTTPRequestHandler):
  def log_message(self,*a): pass
 srv=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Quiet,directory=str(ROOT/'dev/dist/app')))
@@ -28,7 +30,7 @@ try:
    for theme in ['light','dark']:
     for empty in [False,True]:
      ctx=b.new_context(viewport=dict(width=width,height=height),color_scheme=theme,locale='ko-KR',timezone_id='Asia/Seoul',has_touch=width==390,service_workers='block',reduced_motion='reduce')
-     pg=ctx.new_page(); pg.clock.install(time=datetime.datetime(2026,10,29,3,tzinfo=datetime.timezone.utc))
+     pg=ctx.new_page();pg.on('pageerror',lambda e:print('ERR',e)); pg.clock.install(time=datetime.datetime(2026,10,29,3,tzinfo=datetime.timezone.utc))
      pg.route('**/app.js',lambda r:r.fulfill(body=mock(empty),content_type='text/javascript'))
      prefix=f'{width}-{theme}-'+('empty' if empty else 'week')
      def shot(name):
@@ -52,5 +54,5 @@ try:
      ctx.close()
   b.close()
 finally: srv.shutdown()
-(OUT/'manifest.json').write_text(json.dumps(sorted(set(manifest)),ensure_ascii=False,indent=2))
+
 print('captured',len(manifest),'screens')

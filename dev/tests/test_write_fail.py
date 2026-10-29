@@ -1,5 +1,5 @@
 # 실제 app.js + 가짜 Firebase: 서버가 쓰기를 거절하면 화면이 원래대로 돌아오고 알림이 뜬다, 쉼은 배열에 하나만 넣기(arrayUnion)
-import os
+import os, json
 from playwright.sync_api import sync_playwright
 from ttb import check, serve, done, HERE
 FAKE = open(os.path.join(HERE, "fake_firebase.js"), encoding="utf-8").read()
@@ -41,6 +41,16 @@ with sync_playwright() as p:
     check(doc("e_1")["skips"] == ["2020-01-01", tk], "쉼: 있던 것은 두고 하나만 더함(배열 덮어쓰기 아님)")
     pg.click(".sheet [data-act=eskipday]"); pg.wait_for_timeout(400)
     check(doc("e_1")["skips"] == ["2020-01-01"], "쉼 취소: 그 하나만 뺌")
+    # 여러 묶음 복원: 두 번째 묶음이 실패하면 '일부만 복원됐어요', 다시 하면 전부
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+    big = json.dumps({"tasks": [{"id": "t_imp%d" % i, "title": "복원 %d" % i, "date": tk} for i in range(450)]})
+    pg.click("[data-act=menu]"); pg.click("[data-act=import]"); pg.fill("#i-in", big); pg.click("[data-act=importcheck]"); pg.wait_for_timeout(150)
+    pg.evaluate("window.__fs.failAfter=1"); pg.click("[data-act=importgo]"); pg.wait_for_timeout(600)
+    n = pg.evaluate("[...__fs.docs.keys()].filter(k=>k.includes('/t_imp')).length")
+    check(n == 400 and "일부만 복원됐어요" in pg.inner_text("#i-err"), "두 번째 묶음 실패: 일부만 복원됐다고 알림 (" + str(n) + "개)")
+    pg.click("[data-act=importgo]"); pg.wait_for_timeout(800)
+    n = pg.evaluate("[...__fs.docs.keys()].filter(k=>k.includes('/t_imp')).length")
+    check(n == 450 and not pg.is_visible("#dlg"), "한 번 더 복원하면 전부")
     ctx.close(); b.close()
 srv.terminate()
 done(errs)

@@ -19,4 +19,16 @@ assert.equal(archiveOps(edge, new Map(), new Map([["a_" + key(now - 61 * day).sl
 const ex = expand([{ id: "a_2026-01", data: { tasks: { t_z: { title: "z", done: true, note: "n" } } } }]);
 assert.deepEqual(writeOps("update", "t_z", { done: false }, ex.arch, ex.tasks, ex.dups), [{ op: "set", id: "t_z", data: { title: "z", done: false, note: "n" } }, { op: "unarch", id: "a_2026-01", key: "t_z" }]);
 assert.deepEqual(writeOps("remove", "t_z", null, ex.arch, ex.tasks, ex.dups), [{ op: "unarch", id: "a_2026-01", key: "t_z" }]);
+// 크기 예산(2.7.0): 긴 메모가 많아도 한 달 묶음이 1MiB를 넘지 않게
+{
+  const big = new Map(), d0 = now - 90 * day;
+  for (let i = 0; i < 400; i++) big.set("t_n" + i, { id: "t_n" + i, title: "x", note: "가".repeat(5000), date: key(d0), done: true, doneAt: d0 });
+  const o = archiveOps(big, new Map(), new Map(), now, new Map());
+  const m = o.filter(x => x.op === "merge");
+  const sz = m.map(x => new TextEncoder().encode(JSON.stringify(x.data)).length);
+  assert.ok(sz.every(n => n <= 720000), "merge bytes " + sz);
+  assert.equal(o.filter(x => x.op === "delete").length, Object.keys(m[0].data.tasks).length, "넘치는 것은 안 묶고 남김");
+  const ex2 = expand([{ id: "a_" + key(d0).slice(0, 7), data: m[0].data }]);
+  assert.equal(archiveOps(new Map([["t_q", { id: "t_q", title: "q", note: "가".repeat(5000), date: key(d0), done: true, doneAt: d0 }]]), ex2.arch, ex2.sizes, now, ex2.dups, ex2.bytes).length, 0, "가득 찬 달 묶음엔 더 안 넣음");
+}
 console.log("PASS");

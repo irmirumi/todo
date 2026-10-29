@@ -42,7 +42,9 @@ async function init(env) {
     env.DB.prepare("CREATE TABLE IF NOT EXISTS subs (endpoint TEXT PRIMARY KEY, uid TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created INTEGER NOT NULL)"),
     env.DB.prepare("CREATE INDEX IF NOT EXISTS subs_uid ON subs(uid)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS rem (uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY (uid, id))"),
-    env.DB.prepare("CREATE INDEX IF NOT EXISTS rem_at ON rem(at)")
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS rem_at ON rem(at)"),
+    // 보낸 알림 기록(2.7.0): 20초 일찍 보낸 뒤 그 사이 /sync가 같은 알림을 다시 넣어 두 번 울리지 않게. 1시간 뒤 지운다
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS sent (uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, id, at))")
   ]);
   ready = true;
 }
@@ -182,8 +184,9 @@ async function handle(req, env) {
     // 무료 플랜의 실행당 쿼리 수 한도와 상관없게, 목록 전체를 쿼리 두 개로 교체한다
     await env.DB.batch([
       env.DB.prepare("DELETE FROM rem WHERE uid = ?").bind(uid),
-      env.DB.prepare("INSERT OR REPLACE INTO rem (uid, id, at, title, body, url) SELECT ?, json_extract(value, '$.id'), json_extract(value, '$.at'), json_extract(value, '$.title'), json_extract(value, '$.body'), json_extract(value, '$.url') FROM json_each(?)")
-        .bind(uid, JSON.stringify(rows))
+      env.DB.prepare("INSERT OR REPLACE INTO rem (uid, id, at, title, body, url) SELECT ?, json_extract(value, '$.id'), json_extract(value, '$.at'), json_extract(value, '$.title'), json_extract(value, '$.body'), json_extract(value, '$.url') FROM json_each(?) " +
+        "WHERE NOT EXISTS (SELECT 1 FROM sent WHERE sent.uid = ? AND sent.id = json_extract(value, '$.id') AND sent.at = json_extract(value, '$.at'))")
+        .bind(uid, JSON.stringify(rows), uid)
     ]);
     return json(req, { ok: true, count: rows.length });
   }
@@ -214,7 +217,10 @@ async function handle(req, env) {
 async function tick(env) {
   await init(env);
   const now = Date.now();
-  await env.DB.prepare("DELETE FROM rem WHERE at < ?").bind(now - DROP_IF_LATE_MS).run();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM rem WHERE at < ?").bind(now - DROP_IF_LATE_MS),
+    env.DB.prepare("DELETE FROM sent WHERE at < ?").bind(now - DROP_IF_LATE_MS)
+  ]);
   const { results: due } = await env.DB.prepare("SELECT * FROM rem WHERE at <= ? ORDER BY at LIMIT 10").bind(now + 20000).all();
   let pushes = 0;
   for (const r of due) {
@@ -230,7 +236,9 @@ async function tick(env) {
     // 2.6.0: 한 기기에도 못 보냈으면(푸시 서버 일시 오류 등) 지우지 않고 다음 분에 다시. 10분이 지나면 포기한다.
     // 한 기기라도 받았으면 지운다(다시 보내면 받은 기기에 두 번 울림)
     if (failed && !ok && r.at > now - RETRY_MS) continue;
-    await env.DB.prepare("DELETE FROM rem WHERE uid = ? AND id = ? AND at = ?").bind(r.uid, r.id, r.at).run();
+    const del = env.DB.prepare("DELETE FROM rem WHERE uid = ? AND id = ? AND at = ?").bind(r.uid, r.id, r.at);
+    if (ok) await env.DB.batch([del, env.DB.prepare("INSERT OR IGNORE INTO sent (uid, id, at) VALUES (?, ?, ?)").bind(r.uid, r.id, r.at)]);
+    else await del.run();
   }
 }
 

@@ -40,12 +40,12 @@ ok(Object.keys(pt).length === 1 && pt["ovr.2029-01-01"] && !pt.ovr, "401번째 �
 // 알림 서버: 한 기기에도 못 보냈으면 지우지 않고 다음 분에 다시, 10분 지나면 포기
 const runTick = async (res, at) => {
   const log = [];
-  const env = { DB: { prepare(sql) { return { bind(...a) { return { async run() { log.push({ sql, a }); }, async all() {
+  const env = { DB: { batch: async list => { for (const x of list) log.push(x); }, prepare(sql) { return { bind(...a) { return { sql, a, async run() { log.push({ sql, a }); }, async all() {
     return { results: sql.includes("FROM rem") ? [{ uid: "u1", id: "r1", at, title: "약속", body: "", url: "x" }] : [{ endpoint: "e1" }] }; } }; } }; } } };
   const w = vm.createContext({ Date, env, init: async () => {}, sendPush: async () => res, DROP_IF_LATE_MS: 3600000, MAX_PUSHES_PER_RUN: 4, RETRY_MS: 600000 });
   vm.runInContext(between(worker, "async function tick(env)", "export default"), w);
   await vm.runInContext("tick(env)", w);
-  return log.some(x => x.sql.includes("id = ?") && x.a[1] === "r1");
+  return log.some(x => x.sql.startsWith("DELETE FROM rem WHERE uid") && x.a[1] === "r1");
 };
 ok(!(await runTick("fail", Date.now())), "알림 서버: 일시 실패면 예약을 남겨 다음 분에 다시");
 ok(await runTick("fail", Date.now() - 11 * 60000), "알림 서버: 10분 넘게 실패하면 지움");

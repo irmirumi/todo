@@ -1,20 +1,20 @@
 # 앱 문구 목록 뽑기: dev/src/ui.js 등에서 한글이 든 문자열을 줄 단위로 모아 사람이 읽을 수 있는 목록(마크다운)으로.
-# 쓰는 곳: 다른 AI(Gemini 등)에게 문구 다듬기를 맡길 때. 번호 = "파일:줄". 돌려받은 수정안은 Claude가 그 줄을 보고 손으로 반영한다(자동 치환 안 함).
+# 쓰는 곳: 앱 전체 문구를 한눈에 점검할 때(용어가 섞였는지, 해요체인지). 번호 = "파일:줄". 고칠 때는 그 줄을 보고 손으로 바꾼다(자동 치환 안 함).
 # 표기: {…} = 앱이 넣는 값(개수·날짜·이름 등), ｜ = 조건에 따라 둘 중 하나 / 따로 쓰이는 조각
 import re, sys, os, html, collections
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 SCREEN = {  # 함수 이름 → 화면
- "renderLogin":"로그인 화면","renderConfig":"설정 안 된 상태 화면","renderCal":"캘린더 탭 · 달력","renderDay":"캘린더 탭 · 그날 목록","renderAll":"전체 탭","addAllRow":"전체 탭 · 추가 줄",
+ "renderLogin":"로그인 화면","renderConfig":"설정 안 된 상태 화면","renderCal":"달력 탭 · 달력","renderDay":"달력 탭 · 그날 목록","renderAll":"전체 탭","addAllRow":"전체 탭 · 추가 줄",
  "renderWeek":"시간표 탭","ttTitle":"시간표 탭 · 제목","placeTT3":"시간표 탭(폰 3일 보기)","drawSlot":"시간표 빈칸을 눌렀을 때","drawGroup":"시간표 · 겹친 일정 목록",
- "drawEdit":"할 일 · 반복 할 일 편집 창","timeInput":"편집 창 · 시간 입력","oneTime":"편집 창 · 시간 입력","durRow":"편집 창 · 길이","dateChip":"할 일 줄 · 날짜 표시",
+ "drawEdit":"할 일 · 반복 할 일 편집 창","timeInput":"편집 창 · 시간 입력","oneTime":"편집 창 · 시간 입력","durRow":"편집 창 · 소요 시간","dateChip":"할 일 줄 · 날짜 표시",
  "infoBody":"정보 창(시간표에서 누를 때)","drawInfo":"정보 창(시간표에서 누를 때)","drawEv":"고정 일정 편집 창","slotCard":"고정 일정 편집 창 · 요일·시간 줄","commitEv":"고정 일정 저장 알림",
- "drawEvs":"설정 › 고정 일정 목록","drawEvDay":"고정 일정 · 이 날만 바꾸기","commitEvDay":"고정 일정 · 이 날만 바꾸기 알림","drawTpls":"설정 › 반복 할 일 목록","commitTpl":"반복 할 일 저장 알림",
- "drawMenu":"설정 메뉴(⋯)","drawCats":"설정 › 카테고리 관리","drawNotify":"설정 › 알림","drawExport":"설정 › 내보내기","drawImport":"설정 › 가져오기","parseImport":"가져오기 오류",
- "drawLater":"'안 함' · 언제 할까요 창","doLater":"'안 함' 알림","onError":"오류 알림","removeWithUndo":"삭제 알림","reopenDraft":"편집 창 닫힘 알림","closeDlg":"편집 창 닫힘 알림",
- "quickHint":"한 줄 입력 힌트","parseQuick":"한 줄 입력","dsecHead":"캘린더 탭 · 카테고리 머리","ghostRow":"반복 할 일(흐린 줄)","navCal":"캘린더 이동",
- "chk":"할 일 줄 · 체크","row":"할 일 줄","group":"캘린더 탭 · 카테고리 묶음","render":"화면 공통","commitCats":"카테고리 저장 알림","handleEnter":"입력칸에서 엔터",
+ "drawEvs":"설정 › 고정 일정 목록","drawEvDay":"고정 일정 · 이날만 바꾸기","commitEvDay":"고정 일정 · 이날만 바꾸기 알림","drawTpls":"설정 › 반복 할 일 목록","commitTpl":"반복 할 일 저장 알림",
+ "drawMenu":"설정 메뉴(⋯)","drawCats":"설정 › 카테고리 관리","drawNotify":"설정 › 알림","drawExport":"설정 › 백업 만들기","drawImport":"설정 › 백업 복원","parseImport":"백업 복원 오류",
+ "drawLater":"날짜 옮기기 창","doLater":"날짜 옮기기 알림","onError":"오류 알림","removeWithUndo":"삭제 알림","reopenDraft":"편집 창 닫힘 알림","closeDlg":"편집 창 닫힘 알림",
+ "quickHint":"한 줄 입력 힌트","parseQuick":"한 줄 입력","dsecHead":"달력 탭 · 카테고리 머리","ghostRow":"반복 할 일(흐린 줄)","navCal":"달력 이동",
+ "chk":"할 일 줄 · 체크","row":"할 일 줄","group":"달력 탭 · 카테고리 묶음","render":"화면 공통","commitCats":"카테고리 저장 알림","handleEnter":"입력칸에서 엔터",
  "(이벤트)":"화면 공통 동작","(맨 위)":"공통 단어(요일·기본 카테고리·알림 시점)",
- "daysLabel":"요일 표기","relWord":"날짜 말(오늘·내일)","holName":"공휴일 이름","fmtTime":"시간 표기","fmtRange":"시간 표기","durText":"길이 표기","parseDur":"길이 입력","parseTime":"시간 입력",
+ "daysLabel":"요일 표기","relWord":"날짜 말(오늘·내일)","holName":"공휴일 이름","fmtTime":"시간 표기","fmtRange":"시간 표기","durText":"소요 시간 표기","parseDur":"소요 시간 입력","parseTime":"시간 입력",
 }
 def strip_comments(s):
     # 이 코드는 주석이 줄 맨 앞 /* */ 또는 // 꼴이라 정규식으로 충분하다(줄 수는 지킨다)
@@ -74,7 +74,7 @@ for scr,items in order.items():
     out.append("## "+scr);out.append("")
     for id_,t in items:out.append("- **%s** %s"%(id_,t))
     out.append("")
-dst=sys.argv[1] if len(sys.argv)>1 else os.path.join(ROOT,"..","handoff","문구목록.md")
+dst=sys.argv[1] if len(sys.argv)>1 else os.path.join(ROOT,"tests","out","문구목록.md")
 os.makedirs(os.path.dirname(dst),exist_ok=True)
 open(dst,"w",encoding="utf-8").write("\n".join(out))
 print(len(rows),"줄 →",dst)

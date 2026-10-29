@@ -9,7 +9,9 @@
 //   {op:"unarch", id, key}          묶음 문서(id)에서 할 일 하나(key) 빼기
 
 export const KEEP_DAYS = 60;          // 이보다 오래 지난 기록만 묶는다
-const MAX_PER_DOC = 1500;             // 문서 하나 1MB 한도에 한참 못 미치게
+const MAX_PER_DOC = 1500;             // 문서 하나에 넣는 할 일 수
+const MAX_BYTES = 700000;             // 문서 하나의 크기 예산(Firestore 한도 1MiB). 긴 메모가 많으면 개수보다 먼저 닿는다(2.7.0)
+const bytesOf = v => new TextEncoder().encode(JSON.stringify(v)).length; // 한글은 3바이트
 const MAX_PER_RUN = 400;              // 한 번에 묶는 수(쓰기 묶음 하나 = 작업 500개 한도)
 const pad = n => String(n).padStart(2, "0");
 const keyOf = ms => { const d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
@@ -17,7 +19,7 @@ const bodyOf = t => { const b = Object.assign({}, t); delete b.id; return b; };
 
 /* 스냅샷 문서들 → 화면에 줄 데이터 + 묶음 색인. docs: [{id, data}] */
 export function expand(docs) {
-  const tasks = new Map(), tpls = new Map(), events = new Map(), arch = new Map(), sizes = new Map(), dups = new Map(); let cats = null;
+  const tasks = new Map(), tpls = new Map(), events = new Map(), arch = new Map(), sizes = new Map(), dups = new Map(), bytes = new Map(); let cats = null;
   const loose = [];
   for (const { id, data: v } of docs) {
     if (id === "meta") cats = v.cats;
@@ -36,15 +38,15 @@ export function expand(docs) {
       tasks.set(tid, Object.assign({}, body, { id: tid }));
       arch.set(tid, aid);
     }
-    sizes.set(aid, n);
+    sizes.set(aid, n); bytes.set(aid, bytesOf(map));
   }
-  return { tasks, tpls, events, cats, arch, sizes, dups };
+  return { tasks, tpls, events, cats, arch, sizes, dups, bytes };
 }
 
 /* 묶을 할 일 고르기 → 작업 목록. now: ms */
-export function archiveOps(tasks, arch, sizes, now, dups) {
+export function archiveOps(tasks, arch, sizes, now, dups, bytes) {
   const cut = now - KEEP_DAYS * 864e5, cutKey = keyOf(cut);
-  const groups = new Map(), counts = new Map(sizes || []);
+  const groups = new Map(), counts = new Map(sizes || []), used = new Map(bytes || []);
   let picked = 0;
   const list = [...tasks.values()].filter(t => !arch.has(t.id) && !t.deletedAt && (t.done || t.skipped))
     .sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
@@ -54,8 +56,9 @@ export function archiveOps(tasks, arch, sizes, now, dups) {
     const old = t.date ? t.date < cutKey && (typeof ended !== "number" || ended < cut) : typeof ended === "number" && ended < cut;
     if (!old) continue;
     const month = (t.date || keyOf(ended)).slice(0, 7), aid = "a_" + month;
-    if ((counts.get(aid) || 0) >= MAX_PER_DOC) continue;
-    counts.set(aid, (counts.get(aid) || 0) + 1);
+    const b = bytesOf({ [t.id]: bodyOf(t) }) + 8;
+    if ((counts.get(aid) || 0) >= MAX_PER_DOC || (used.get(aid) || 0) + b > MAX_BYTES) continue; // 가득 찬 달은 남겨 둔다(따로 있는 문서로)
+    counts.set(aid, (counts.get(aid) || 0) + 1); used.set(aid, (used.get(aid) || 0) + b);
     if (!groups.has(aid)) groups.set(aid, {});
     groups.get(aid)[t.id] = bodyOf(t);
     picked++;

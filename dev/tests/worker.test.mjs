@@ -94,6 +94,15 @@ const claims = JSON.parse(Buffer.from(c, "base64url"));
 ok(claims.aud === "https://fcm.googleapis.com" && claims.exp > now / 1000, "VAPID claims");
 const left = sql.prepare("SELECT id FROM rem ORDER BY id").all().map(r => r.id);
 ok(JSON.stringify(left) === '["t_b"]', "sent reminder removed, future kept: " + JSON.stringify(left));
+// 보낸 직후(20초 일찍 보냄) 같은 알림이 /sync로 다시 와도 두 번 울리지 않음(2.7.0)
+{
+  const sentRow = sql.prepare("SELECT id, at FROM sent").all();
+  ok(sentRow.length >= 1, "sent reminder recorded: " + JSON.stringify(sentRow));
+  const again = sentRow.map(r => ({ id: r.id, at: r.at, title: "again", body: "" }));
+  if (again[0].at > Date.now()) { await call("/sync", { reminders: again.concat([{ id: "t_b", at: Date.now() + 3600e3, title: "b", body: "" }]) }, tok);
+    ok(!sql.prepare("SELECT id FROM rem").all().some(r => r.id === again[0].id), "already sent reminder is not re-added by /sync"); }
+  else ok(true, "(sent reminder already in the past — skip re-add check)");
+}
 ok(sql.prepare("SELECT count(*) n FROM subs").get().n === 1, "gone subscription removed");
 pushes.length = 0;
 const t = JSON.parse((await call("/test", {}, tok)).data);

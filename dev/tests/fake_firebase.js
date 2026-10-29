@@ -56,7 +56,10 @@ function prep(kind, ref, a, b, rest) {
 }
 const run = fns => { fns.forEach(f => f()); fs.commits++; save(); emit(); return Promise.resolve(); };
 // window.__fs.failNext = "permission-denied" 이면 다음 쓰기 하나를 서버가 거절한 것처럼
-const refuse = () => { const c = fs.failNext; if (!c) return null; fs.failNext = null; return Promise.reject({ code: c, message: "refused" }); };
+// window.__fs.failAfter = n 이면 쓰기 n개는 통과시키고 그다음 하나를 거절(여러 묶음 복원의 중간 실패)
+const refuse = () => {
+  if (fs.failAfter != null) { if (fs.failAfter-- > 0) return null; fs.failAfter = null; return Promise.reject({ code: "unavailable", message: "refused" }); }
+  const c = fs.failNext; if (!c) return null; fs.failNext = null; return Promise.reject({ code: c, message: "refused" }); };
 const one = (...args) => { const r = refuse(); if (r) return r; try { return run([prep(...args)]); } catch (e) { return Promise.reject(e); } };
 
 // firebase-app
