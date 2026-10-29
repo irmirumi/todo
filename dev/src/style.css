@@ -697,3 +697,5 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 .sheet .lsub{margin:6px 0 -4px;font-size:.82rem;font-weight:700;color:var(--ink-2)}
 .ttallL{word-break:keep-all;line-height:1.2}
 .field>.snote{margin:0}
+/* 2.5.0 새 버전 안내 */
+.banner.upd{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-color:var(--edge);color:var(--ink);padding:8px 8px 8px 14px}

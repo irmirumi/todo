@@ -1471,6 +1471,7 @@ document.addEventListener("click",ev=>{
       store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{onError(e);b.disabled=false;const input=$("#i-in");if(input)input.disabled=false;b.textContent="백업 복원하기";});break;}
     case"logout":S.sheet=null;closeDlg();store.signOut();break;
     case"close":closeDlg();break;
+    case"reload":{const u=$("#upd");if(u)u.hidden=true;if(updApply)updApply();else location.reload();break;}
     case"save":saveChecked();break;
     case"ecat":syncEdit();if(S.edit.cat!==b.dataset.cat){S.edit.cat=b.dataset.cat;S.edit.sub=null;}drawEdit();break;
     case"esub":syncEdit();S.edit.sub=b.dataset.sub||null;drawEdit();break;
@@ -1648,7 +1649,11 @@ function memoryStore(){
     importAll(d){if(d.cats)cats=d.cats;d.tasks.concat(d.tpls||[],d.events||[]).forEach(t=>{const b=Object.assign({},t);delete b.id;tasks.set(t.id,Object.assign({id:t.id},b));});emit();return Promise.resolve(d.tasks.length);}};
 }
 
+/* 새 버전 안내: 서비스 워커가 새 묶음을 다 받으면 app.js가 부른다. 누르면 새 워커로 바꾸고 다시 연다 */
+let updApply=null;
+function updateReady(apply){updApply=apply;const u=$("#upd");if(u)u.hidden=false;}
 window.TodoApp={
+  updateReady,
   memoryStore,parseQuick,parseDur,
   boot(s){
     store=s;

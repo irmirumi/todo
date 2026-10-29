@@ -132,6 +132,20 @@ store.push = createPush({ url: REMINDER_URL, getToken: () => auth.currentUser.ge
 
 window.TodoApp.boot(store);
 
+// 서비스 워커: 새 버전을 뒤에서 받아 두면 화면에 "새 버전이 있어요 [새로고침]"을 띄운다
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+  // 처음 설치될 때도 controllerchange가 오므로, '새로고침'을 눌렀을 때만 다시 연다
+  let asked = false;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      const ready = w => { if (w && navigator.serviceWorker.controller) window.TodoApp.updateReady(() => { asked = true; w.postMessage({ type: "skip" }); }); };
+      const track = w => { if (w) w.addEventListener("statechange", () => { if (w.state === "installed") ready(w); }); };
+      if (reg.waiting) ready(reg.waiting); else track(reg.installing);
+      reg.addEventListener("updatefound", () => track(reg.installing));
+      reg.update().catch(() => {}); // 열 때마다 새 버전이 있는지 확인(sw.js만 받아 비교한다)
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (asked && !reloaded) { reloaded = true; location.reload(); } });
+  });
 }
