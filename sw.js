@@ -1,40 +1,33 @@
-// 앱 껍데기를 저장해 두어 빠르게, 인터넷 없이도 열리게 한다.
-// 내 코드 파일은 최신을 먼저 받아 오고(실패하면 저장본), 글꼴·Firebase 라이브러리는 저장본을 먼저 쓴다.
-const CACHE = "ttobak-2.4.1";
-const SHELL = ["./", "./index.html", "./style.css", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
+// 앱 껍데기를 한 버전 묶음으로 저장해 두고, 늘 그 묶음에서만 연다(2.5.0).
+// 예전에는 파일마다 따로 최신을 받아서, 느린 연결에서 새 ui.js와 옛 app.js가 섞여 열릴 수 있었다.
+// 새 버전은 뒤에서 통째로 받아 두고(install), 화면이 "새로고침"을 누르거나 앱을 완전히 닫았다 열 때 바뀐다.
+const CACHE = "ttobak-2.5.0";
+const LIB = "ttobak-lib-1"; // 글꼴 조각·Firebase 라이브러리: 버전과 상관없이 오래 쓴다
+const SHELL = ["./", "./index.html", "./style.css", "./model.js", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
-  "./icons/icon-192.png", "./icons/icon-512.png"];
+  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" — 브라우저가 들고 있는 옛 사본(GitHub Pages 10분 캐시) 말고 서버에서 새로
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))));
 });
+self.addEventListener("message", e => { if (e.data && e.data.type === "skip") self.skipWaiting(); });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== LIB).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-const put = (req, res) => { if (res.ok || res.type === "opaque") { const cp = res.clone(); caches.open(CACHE).then(c => c.put(req, cp)); } return res; };
-// 최신 파일을 먼저 받되, 3초 안에 안 오면(지하철 등 느린 연결) 저장본으로 바로 연다. 받아 온 최신본은 다음에 쓴다.
-const cached = req => caches.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? caches.match("./index.html") : undefined));
-const netFirst = req => new Promise(resolve => {
-  let done = false;
-  const finish = r => { if (!done && r) { done = true; resolve(r); } };
-  const timer = setTimeout(() => cached(req).then(finish), 3000);
-  // no-cache: 브라우저가 들고 있는 사본을 그냥 쓰지 말고 서버에 "바뀌었나"만 묻는다(안 바뀌었으면 304라 가볍다).
-  // 이게 없으면 GitHub Pages의 10분 캐시 때문에 새 버전이 한 번 더 열어야 들어온다
-  const fresh = req.mode === "navigate" ? new Request(req.url, { cache: "no-cache", credentials: "same-origin" }) : new Request(req, { cache: "no-cache" });
-  fetch(fresh).then(res => put(req, res))
-    .then(r => { clearTimeout(timer); finish(r); })
-    .catch(() => { clearTimeout(timer); cached(req).then(r => finish(r || Response.error())); });
-});
-const cacheFirst = req => caches.match(req).then(r => r || fetch(req).then(res => put(req, res)));
+const put = (name, req, res) => { if (res.ok || res.type === "opaque") { const cp = res.clone(); caches.open(name).then(c => c.put(req, cp)); } return res; };
+const fromShell = req => caches.open(CACHE).then(c => c.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? c.match("./index.html") : undefined)));
+const libFirst = req => caches.open(LIB).then(c => c.match(req)).then(r => r || fetch(req).then(res => put(LIB, req, res)));
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const u = new URL(req.url);
   if (u.origin === self.location.origin) {
-    if (u.pathname.includes("/fonts/") || u.pathname.includes("/vendor/")) { e.respondWith(cacheFirst(req)); return; }
-    e.respondWith(netFirst(req));
+    if (u.pathname.includes("/fonts/woff2/")) { e.respondWith(libFirst(req)); return; }
+    // 껍데기에 있으면 그 묶음에서, 없으면(서버 파일 등) 네트워크로
+    e.respondWith(fromShell(req).then(r => r || fetch(req)));
   } else if (u.hostname === "www.gstatic.com") {
-    e.respondWith(cacheFirst(req));
+    e.respondWith(libFirst(req));
   }
 });
 

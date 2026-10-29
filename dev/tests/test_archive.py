@@ -84,9 +84,12 @@ with sync_playwright() as p:
     open_day(old2day)
     pg.click(".ttl:has-text('오래된 안함')"); pg.click(".sheet [data-act=del]"); pg.wait_for_timeout(400)
     d = docs()
-    check("users/u1/items/t_old2" not in d and not any("t_old2" in v.get("tasks", {}) for k, v in d.items() if "/a_" in k), "묶인 할 일 삭제")
+    t2 = d.get("users/u1/items/t_old2") or {}
+    check(t2.get("deletedAt") and not any("t_old2" in v.get("tasks", {}) for k, v in d.items() if "/a_" in k), "묶인 할 일 삭제 → 묶음에서 풀려 휴지통으로")
+    check(pg.locator(".task:has-text('오래된 안함')").count() == 0, "화면에서 사라짐")
     pg.click("#toastAct"); pg.wait_for_timeout(400)
-    check(docs().get("users/u1/items/t_old2", {}).get("title") == "오래된 안함", "삭제 되돌리기는 원래 문서로")
+    t2 = docs().get("users/u1/items/t_old2", {})
+    check(t2.get("title") == "오래된 안함" and not t2.get("deletedAt"), "삭제 되돌리기는 원래 문서로")
 
     # 같은 날 다시 열어도 또 묶지 않음(하루 한 번). 다음 날 열면 다시 돌아서 되살린 것도 다시 묶음
     before = json.dumps(docs(), sort_keys=True)

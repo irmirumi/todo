@@ -7,7 +7,7 @@ srv = subprocess.Popen([sys.executable, "-m", "http.server", "8787"], cwd=APP, s
 time.sleep(1)
 # 'live'(로그인됨)처럼 보이게, 처음 1.5초는 'loading'
 MOCK = """const m=TodoApp.memoryStore();
-m.importAll({cats:null,events:[],tasks:[],tpls:[{id:'r_1',title:'분리수거',days:[0,1,2,3,4,5,6],cat:'k1',subtasks:[]}]});
+m.importAll({cats:null,events:[],tasks:[],tpls:[{id:'r_1',title:'분리수거',days:[0,1,2,3,4,5,6],cat:'k1',subtasks:[],auto:false}]});
 TodoApp.boot({kind:'pwa',start(c){c.onStatus('loading');setTimeout(()=>m.start({onData:c.onData,onStatus:x=>c.onStatus(x==='local'?'live':x),onError:c.onError}),1500);},set:m.set,update:m.update,remove:m.remove,saveCats:m.saveCats,importAll:m.importAll});"""
 n = 0
 def check(cond, msg):

@@ -4,10 +4,13 @@ import { REMINDER_URL } from "./reminder-config.js";
 import { createPush } from "./push.js";
 import { expand, archiveOps, writeOps } from "./archive.js";
 
-const V = "10.12.2";
+const V = "12.19.0";
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/여기/.test(firebaseConfig.apiKey));
 let cb = null, fb = null, auth = null, db = null, col = null, unsub = null;
 const fail = e => { if (cb) cb.onError(e); };
+// 서버가 거절한 쓰기: 화면이 미리 바꿔 둔 것(낙관적 표시)을 마지막으로 받은 데이터로 되돌린다
+let last = null;
+const failWrite = e => { fail(e); if (cb && last) cb.onData(last); };
 const notReady = () => { fail({ code: "not_ready" }); return Promise.resolve(); };
 const bodyOf = t => { const b = Object.assign({}, t); delete b.id; return b; };
 // 묶음(archive.js) 상태: 지금 화면의 할 일과, 어떤 할 일이 어느 묶음 문서에 들어 있는지
@@ -22,7 +25,7 @@ function apply(ops) {
     const p = o.op === "set" ? fb.setDoc(ref(o.id), o.data) : o.op === "merge" ? fb.setDoc(ref(o.id), o.data, { merge: true })
       : o.op === "update" ? fb.updateDoc(ref(o.id), o.data) : o.op === "delete" ? fb.deleteDoc(ref(o.id))
       : fb.updateDoc(ref(o.id), new fb.FieldPath("tasks", o.key), fb.deleteField());
-    return p.catch(fail);
+    return p.catch(failWrite);
   }
   const b = fb.writeBatch(db);
   for (const o of ops) {
@@ -32,7 +35,7 @@ function apply(ops) {
     else if (o.op === "delete") b.delete(ref(o.id));
     else b.update(ref(o.id), new fb.FieldPath("tasks", o.key), fb.deleteField());
   }
-  return b.commit().catch(fail);
+  return b.commit().catch(failWrite);
 }
 /* 하루 한 번, 서버에서 받은 데이터로 오래된 기록을 묶는다 */
 function maybeArchive(uid) {
@@ -60,7 +63,9 @@ function listen(uid) {
     const docs = []; snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
     const { tasks, tpls, events, cats, arch, sizes, dups } = expand(docs);
     cur = { tasks, arch, sizes, dups };
-    cb.onData({ tasks, cats, tpls, events });
+    last = { tasks, cats, tpls, events };
+    // server: 기기 저장본이 아니라 서버에서 받은 최신이고 올리는 중인 것도 없을 때(자동 추가는 이때만 — 옛 사본으로 덮어쓰지 않게)
+    cb.onData(last, { server: !snap.metadata.fromCache && !snap.metadata.hasPendingWrites });
     // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
     if (!snap.metadata.fromCache) {
       retries = 0;
@@ -108,7 +113,9 @@ const store = {
   set(id, b) { return apply(writeOps("set", id, b, cur.arch, cur.tasks, cur.dups)); },
   update(id, p) { return apply(writeOps("update", id, p, cur.arch, cur.tasks, cur.dups)); },
   remove(id) { return apply(writeOps("remove", id, null, cur.arch, cur.tasks, cur.dups)); },
-  saveCats(cats) { return col ? fb.setDoc(fb.doc(col, "meta"), { cats }).catch(fail) : notReady(); },
+  // 필드 하나만 고치는 쓰기(배열에 넣고 빼기, 맵의 한 칸 지우기): 두 기기의 변경이 서로를 덮지 않게
+  fx: { union: v => fb.arrayUnion(v), remove: v => fb.arrayRemove(v), del: () => fb.deleteField() },
+  saveCats(cats) { return col ? fb.setDoc(fb.doc(col, "meta"), { cats }).catch(failWrite) : notReady(); },
   async importAll(d) {
     if (!col) throw { code: "not_ready" };
     const ops = [];
@@ -125,13 +132,28 @@ const store = {
     return d.tasks.length;
   },
   signIn(email, pw) { return fb.signInWithEmailAndPassword(auth, email, pw); },
-  signOut() { return fb.signOut(auth); }
+  signOut() { return fb.signOut(auth); },
+  resetPassword(email) { return fb.sendPasswordResetEmail(auth, email); }
 };
 
 store.push = createPush({ url: REMINDER_URL, getToken: () => auth.currentUser.getIdToken(), uidKey: () => (auth && auth.currentUser ? auth.currentUser.uid : "") });
 
 window.TodoApp.boot(store);
 
+// 서비스 워커: 새 버전을 뒤에서 받아 두면 화면에 "새 버전이 있어요 [새로고침]"을 띄운다
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+  // 처음 설치될 때도 controllerchange가 오므로, '새로고침'을 눌렀을 때만 다시 연다
+  let asked = false;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      const ready = w => { if (w && navigator.serviceWorker.controller) window.TodoApp.updateReady(() => { asked = true; w.postMessage({ type: "skip" }); }); };
+      const track = w => { if (w) w.addEventListener("statechange", () => { if (w.state === "installed") ready(w); }); };
+      if (reg.waiting) ready(reg.waiting); else track(reg.installing);
+      reg.addEventListener("updatefound", () => track(reg.installing));
+      reg.update().catch(() => {}); // 열 때마다 새 버전이 있는지 확인(sw.js만 받아 비교한다)
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (asked && !reloaded) { reloaded = true; location.reload(); } });
+  });
 }

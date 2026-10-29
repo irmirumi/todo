@@ -46,7 +46,7 @@ export function archiveOps(tasks, arch, sizes, now, dups) {
   const cut = now - KEEP_DAYS * 864e5, cutKey = keyOf(cut);
   const groups = new Map(), counts = new Map(sizes || []);
   let picked = 0;
-  const list = [...tasks.values()].filter(t => !arch.has(t.id) && (t.done || t.skipped))
+  const list = [...tasks.values()].filter(t => !arch.has(t.id) && !t.deletedAt && (t.done || t.skipped))
     .sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
   for (const t of list) {
     if (picked >= MAX_PER_RUN) break;

@@ -40,59 +40,47 @@
 ## 3. 저장소 구조
 
 ```
-/ (배포본, GitHub Pages가 그대로 서빙)
-  index.html style.css ui.js app.js push.js sw.js holidays.js
-  firebase-config.js   ← 사용자 실제 값. 절대 덮어쓰지 말 것
-  reminder-config.js   ← 알림 서버 주소
-  manifest.webmanifest icons/ fonts/ vendor/ server/worker.js README.md
+/ (예전 배포본 — 2.5.0부터 Pages가 GitHub Actions로 dev/를 빌드해서 올린다. 아래 4장 '전환' 참고)
+  index.html style.css ui.js app.js ... firebase-config.js
+.github/workflows/deploy.yml   main에 푸시하면 dev/ 빌드 → 테스트 → Pages 배포
+AGENTS.md   ChatGPT(Codex)용 작업 규칙
 dev/
+  VERSION     버전은 여기 한 곳(빌드가 ui.js VERSION·sw.js CACHE·README 첫 줄에 넣는다)
   src/        원본(여기만 고친다)
-    ui.js         화면 전부(바닐라 JS, IIFE). store 어댑터를 받아서 동작
-    style.css     전체 스타일(토큰, 컴포넌트, 1.x 추가분이 아래로 쌓여 있음)
+    model.js      순수 계산(날짜·시간·한 줄 입력·고정 일정 발생 occurrences). window/globalThis.TodoModel. ui.js·push.js가 같이 씀
+    ui.js         화면 전부(바닐라 JS, IIFE). store 어댑터를 받아서 동작. 첫 줄에서 TodoModel을 풀어 씀
+    style.css     전체 스타일(토큰, 컴포넌트, 버전별 추가분이 아래로 쌓여 있음)
     markup.html   body 뼈대
-    pwa/app.js    Firebase 저장소 어댑터(ESM). Firebase SDK 10.12.2를 gstatic에서 동적 import
-    pwa/archive.js 오래된 기록 묶기(순수 함수: 스냅샷 펼치기, 묶을 것 고르기, 저장 요청 → Firestore 작업 목록)
-    pwa/push.js   웹 푸시 구독 + 앞으로 울릴 알림 목록 계산·서버 동기화
-    pwa/sw.js     서비스 워커(캐시, push, notificationclick)
-    pwa/README.md 사용자용 설치 가이드 + 버전 기록 → 배포 시 루트 README.md
-    pwa/firebase-config.js  자리표시자(빌드 결과에 이게 들어감)
+    pwa/app.js    Firebase 저장소 어댑터(ESM). Firebase SDK 12.19.0을 gstatic에서 동적 import
+    pwa/archive.js 오래된 기록 묶기(순수 함수)
+    pwa/push.js   웹 푸시 구독 + 앞으로 울릴 알림 목록 계산·서버 동기화(고정 일정은 TodoModel.occurrences)
+    pwa/sw.js     서비스 워커(한 버전 묶음 캐시, 새 버전 안내, push, notificationclick)
+    pwa/README.md 사용자용 설치 가이드 + 버전 기록
+    pwa/firebase-config.js  실제 Firebase 웹 설정(비밀 아님, 공개 저장소에 원래 있던 값)
     worker/worker.js        Cloudflare Worker 원본 → 빌드가 server/worker.js로 복사
+  assets/     글꼴·morphdom·공휴일(holidays.js, 2027년까지) 저장본
   build.py    dev/dist/app 생성
-  tests/      테스트(아래 7장)
+  tests/      테스트(아래 7장). 공용 도우미 ttb.py
 ```
 
-## 4. 빌드와 배포 절차 (매번 이 순서)
+## 4. 빌드와 배포 절차 (2.5.0~)
 
-1. `dev/src/`의 원본만 고친다.
-2. 버전을 올린다. 두 군데를 같이 바꾼다.
-   - `dev/src/ui.js`의 `const VERSION="x.y.z"` (⋯ 메뉴 맨 아래에 표시)
-   - `dev/src/pwa/sw.js`의 `const CACHE = "ttobak-x.y.z"`
-   - 캐시 이름이 바뀌어야 폰이 새 파일을 받는다.
-3. `dev/src/pwa/README.md` 맨 위에 버전 기록을 한 줄 넣는다.
-4. `python3 dev/build.py`를 돌리면 `dev/dist/app`이 생긴다.
-   - 글꼴, morphdom, 공휴일 원본이 없으면 저장소 루트의 배포본에서 가져온다(새 세션에서는 이 경로가 쓰인다).
-   - 아이콘은 PIL로 매번 다시 그린다.
-5. 테스트를 돌린다: `dev/tests/run_all.sh`
-6. `dev/dist/app/` 내용을 저장소 루트에 덮어쓴다. **`firebase-config.js`만은 빼야 한다**:
+1. `dev/src/`(와 필요하면 `dev/assets/`)만 고친다.
+2. `dev/VERSION`을 올리고, `dev/src/pwa/README.md` 맨 위에 버전 기록을 한 줄 넣는다. `ui.js`·`sw.js`에는 `__VERSION__` 자리표시자만 있다(직접 고치지 않는다).
+3. 로컬 확인: `python3 dev/build.py` → `bash dev/tests/run_all.sh`
+4. 커밋해서 `main`에 푸시한다(커밋 메시지는 한국어, "또박 x.y.z: 요약").
+5. **GitHub Actions `deploy` 워크플로**가 빌드 → 테스트 전부 → Pages 배포를 한다. 테스트가 하나라도 실패하면 배포하지 않는다.
    ```bash
-   cp firebase-config.js /tmp/fbc.js && cp -r dev/dist/app/. ./ && cp /tmp/fbc.js firebase-config.js
-   grep -c my-todo-e4949 firebase-config.js   # 3이면 정상
+   gh api "repos/irmirumi/todo/actions/runs?per_page=3" --jq '.workflow_runs[] | [.name, .head_sha[0:7], .status, .conclusion] | @tsv'
    ```
-7. 커밋하고 `main`에 푸시한다. GitHub Pages가 1~2분 안에 반영된다.
-   - 커밋 메시지는 한국어, "또박 x.y.z: 요약" 형식.
-8. **배포가 실제로 끝났는지 확인한다.** 푸시만으로는 모른다(2026-10-15에 1.7.0이 GitHub 쪽에서 10분 시간 초과로 실패했고, 그게 '진행 중'으로 걸려 1.8.0까지 거부됐다. 사용자는 "업데이트가 느려졌다"고 느꼈다).
-   ```bash
-   gh api "repos/irmirumi/todo/actions/runs?per_page=1" --jq '.workflow_runs[0] | [.head_sha[0:7], .status, .conclusion] | @tsv'
-   ```
-   - `completed success`가 나올 때까지 30초 간격으로 본다. **다음 배포는 앞 배포가 끝난 뒤에 푸시한다**(연달아 푸시하면 겹쳐서 거부될 수 있다).
-   - 실패했으면 이유는 `gh api repos/irmirumi/todo/check-runs/<deploy job id>/annotations`로 본다(작업 로그 다운로드는 프록시에 막힘). 걸린 배포 때문이면 빈 커밋(`git commit --allow-empty`)을 푸시하면 새로 배포된다. `gh run rerun`은 대기열에서 안 움직였다.
-9. 사용자에게 "1~2분 뒤 앱을 완전히 닫았다 열기"를 안내한다. 1.3.1부터 서비스 워커가 `no-cache`로 확인해서 보통 한 번 열면 된다. 안 되면 한 번 더.
+   - `deploy`가 `completed success`인지 본다. 실패 이유는 작업 로그를 못 받으니(프록시) 주석으로 본다: `gh api repos/irmirumi/todo/actions/runs/<run id>/jobs` → 작업 id → `gh api repos/irmirumi/todo/check-runs/<작업 id>/annotations`. `run_all.sh`가 GitHub Actions에서는 실패한 테스트를 `::error`로 남긴다.
+6. 사용자 폰: 앱을 열면 뒤에서 새 버전을 받고 **"새 버전이 있어요 [새로고침]"**이 뜬다. 누르면 바뀐다(앱을 완전히 닫았다 열어도 바뀐다).
 
-**알림 서버(`worker.js`)를 바꿨을 때만**: 사용자가 Cloudflare 대시보드의 Worker → **Edit code**에 파일 전체를 붙여넣고 **Deploy**해야 한다. 자동 배포는 없다. 파일을 보내고 그 절차를 안내한다.
+**전환(2.5.0)**: Pages 설정이 아직 'main 브랜치 루트'면 Actions의 배포 단계만 실패하고, 루트 파일이 그대로 서빙된다. 사용자가 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 바꾸면 그다음 푸시부터 Actions가 배포한다. 바꾸기 전까지는 예전처럼 `dev/dist/app/`을 루트에 복사해서 함께 푸시한다(설정 파일이 같아져서 덮어써도 된다). 바꾼 게 확인되면 루트의 옛 배포본 파일은 지운다.
 
-**환경 제약** (이전 세션 기준):
-- `gh api`의 Pages 상태 조회, git 태그 푸시, GitHub 릴리스 생성은 프록시나 권한에 막혔다. 버전 태그는 사용자가 원할 때 웹에서 직접 만들게 한다.
-- 일반 `git push`는 된다.
+**알림 서버(`worker.js`)를 바꿨을 때만**: 사용자가 Cloudflare 대시보드의 Worker → **Edit code**에 파일 전체를 붙여넣고 **Deploy**해야 한다. 자동 배포는 없다.
+
+**환경 제약**: `gh api`의 Pages 설정 API, Actions 작업 로그 다운로드, git 태그 푸시는 프록시에 막힌다. 일반 `git push`(워크플로 파일 포함)와 runs·jobs·annotations 조회는 된다.
 
 ## 5. 아키텍처와 데이터
 
@@ -107,9 +95,9 @@ dev/
 
 | 접두어 | 의미 | 주요 필드 |
 |---|---|---|
-| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
-| `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, subtasks[{id,t}], createdAt` |
-| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{id,days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{날짜:{time,end,place}}, archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0, 2.3.1에 다시 짬)**: `[{id,days,time,end}]` 요일·시간 줄 여러 개. **같은 요일이 여러 줄에 있어도 된다**(중간에 쉬는 수업). `ovr`·`skips` 키는 `occKey(날짜,id)`: id `""`인 줄은 날짜 그대로(예전 데이터와 호환), 나머지는 `날짜#id`(`KEY_RE`). `days·time·end`는 id `""`인 줄(없으면 첫 줄)과 같게 저장(예전 버전용). 줄이 하나이고 id가 `""`면 `slots:null`. 읽을 땐 반드시 `slotsOf`/`evBase(e,k,sid)`/`evAt(e,k,sid)`를 거치고, 화면 요소엔 `data-s`(줄 id)를 단다. `e.time`을 바로 쓰면 한 줄만 나온다 |
+| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, postponed(미룬 횟수, 2.5.0), deletedAt(휴지통, 2.5.0 — 화면은 `S.trash`로 따로 두고 30일 뒤 지움), from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
+| `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, auto(없으면 켬), madeUntil, subtasks[{id,t}], createdAt` — **2.5.0 자동 추가**: 서버에서 받은 최신 데이터일 때(`onData(d,{server})`) 오늘·내일 것을 `t_<원본id 뒤>_<YYYYMMDD>` 고정 id로 만들고 `madeUntil`을 올린다(두 기기가 동시에 열어도 하나, 지워도 다시 안 만듦) |
+| `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{id,days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{키:{time?,end?,place?}}(바꾼 칸만, 2.4.0), 쓰기는 필드 단위(`skips`는 `store.fx.union/remove`, `ovr.<키>`는 경로 쓰기·`fx.del`, 2.5.0 — 400개 넘으면 그때만 통째로 정리), archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0, 2.3.1에 다시 짬)**: `[{id,days,time,end}]` 요일·시간 줄 여러 개. **같은 요일이 여러 줄에 있어도 된다**(중간에 쉬는 수업). `ovr`·`skips` 키는 `occKey(날짜,id)`: id `""`인 줄은 날짜 그대로(예전 데이터와 호환), 나머지는 `날짜#id`(`KEY_RE`). `days·time·end`는 id `""`인 줄(없으면 첫 줄)과 같게 저장(예전 버전용). 줄이 하나이고 id가 `""`면 `slots:null`. 읽을 땐 반드시 `slotsOf`/`evBase(e,k,sid)`/`evAt(e,k,sid)`를 거치고, 화면 요소엔 `data-s`(줄 id)를 단다. `e.time`을 바로 쓰면 한 줄만 나온다 |
 | `a_YYYY-MM` | 묶인 옛 기록(1.4.0) | `tasks: {t_id: 할 일 본문}` — 60일 지난 완료·안 함. `archive.js`가 하루 한 번(기기별 localStorage `ttobak.arch.<uid>`) 묶고, 화면에는 보통 할 일로 펼쳐 준다. 고치거나 지우면 `writeOps`가 원래 문서로 되살리며 묶음에서 뺀다(한 쓰기 묶음으로). 같은 id가 따로도 있으면 따로 있는 쪽이 이기고, 옛 사본은 다음 묶기 때 지운다 |
 | `meta` | 카테고리 | `cats: [{id, name, color, subs:[{id,name}], archived?}]` (배열 순서 = 화면 순서) |
 
@@ -145,12 +133,11 @@ dev/
 
 ### 5.5 다른 AI와 함께 일하기(2.4.0~)
 - 사용자는 ChatGPT(Codex)에게도 검토·수정을 맡긴다. Codex 규칙은 루트 `AGENTS.md`다.
-- Codex는 새 브랜치에서 `dev/` 아래만 고쳐 PR을 낸다. 루트 배포본·`VERSION`·`CACHE`·README는 건드리지 않는다.
+- Codex는 새 브랜치에서 `dev/` 아래만 고쳐 PR을 낸다. `dev/VERSION`·README 버전 기록은 건드리지 않는다.
 - 사용자가 "PR 올라왔어"라고 하면 Claude가 한다:
-  1. PR 브랜치를 받아(`git fetch origin pull/<번호>/head:pr-<번호>`) 바뀐 것을 읽는다. 루트 `firebase-config.js`를 건드렸으면 그 부분은 버린다.
+  1. PR 브랜치를 받아(`git fetch origin pull/<번호>/head:pr-<번호>`) 바뀐 것을 읽는다.
   2. HANDOFF 규칙(문구, 디자인, 데이터 호환, 비용 0원)에 어긋나는 게 있으면 고치거나 사용자에게 이견으로 알린다.
-  3. `main`에 합친 뒤 평소 배포 절차를 밟는다: 빌드 → 테스트 → 루트 복사 → 버전 올리기 → README → push → Pages 확인.
-  4. PR은 GitHub에서 닫히게 둔다(합친 커밋이 main에 들어가면 자동으로 merged 표시가 안 될 수 있으니, 필요하면 `gh api`로 PR을 닫고 한 줄 남긴다).
+  3. `git merge --no-ff pr-<번호>`로 합치고(그래야 GitHub에서 PR이 merged로 바뀐다) 버전·README를 올려 푸시한다. 배포는 Actions가 한다.
 - 둘이 동시에 같은 파일을 고치면 충돌한다. 사용자에게 한 번에 한쪽만 맡기도록 안내한다.
 
 ## 6. 디자인 규칙
@@ -168,6 +155,7 @@ dev/
   - 누르는 영역은 40px 이상(`::after`로 넓힘).
   - 입력칸은 16px 이상(iOS 확대 방지).
 - **용어 통일**(2.4.0, GPT 검토 반영)
+  - **2.5.0**: '넘기기' = 같은 할 일을 고른 날로 옮기고 `postponed`+1(더 늦은 날로 옮길 때만), 목록 칩 'N번 미룸'. '안 함으로 남기기'는 정말 안 하기로 한 것. 2.1.0~2.4.x의 복사본 방식(`from`·`later`)은 읽기만 한다. '하루 뒤로' 버튼은 없앰(넘기기 창의 '하루 뒤'·'일주일 뒤').
   - 탭 '달력', 동작 '숨기기'(상태 '숨김', 되돌리기는 카테고리 '다시 표시'·반복/고정 '다시 사용'), '넘기기'(안 함으로 남기기 또는 다른 날에 새로 추가를 고르는 창), '안 함 취소', '하루 뒤로', '소요 시간', 알림 '시작할 때', '이날', '시간대'(고정 일정 요일·시간 줄), '백업 만들기'·'백업 복원'
   - 반복 할 일 = `r_`, 매주 꺼내 쓰는 할 일
   - 고정 일정 = `e_`, 수업처럼 매주 같은 시간에 있는 일정
@@ -175,27 +163,15 @@ dev/
 
 ## 7. 테스트
 
-`dev/tests/run_all.sh`가 빌드한 뒤 아래를 순서대로 돌린다. 마지막 확인 때 전부 통과했다.
+`dev/tests/run_all.sh`가 빌드한 뒤 전부 돌린다. **2.5.0부터 모든 화면 테스트가 `check(조건, "설명")`으로 확인한다**(예전엔 절반이 출력만 했다). 공용 도우미는 `ttb.py`(`check`·`serve`·`done`, 서버는 테스트가 죽어도 `atexit`으로 꺼진다 — 예전엔 죽은 테스트의 서버가 남아 다음 테스트가 옛 파일을 받았다).
 
-- **준비물**
-  - Python Playwright: 헤드리스 Chromium. 이전 환경에서는 `/opt/pw-browsers`에 미리 깔려 있었다.
-  - `dev/tests`에서 `npm install`(`http_ece`)
-- **`worker.test.mjs`**: Worker 단위 테스트 23개. `node:sqlite`로 D1을 흉내 내고, 푸시 암호문을 실제로 복호화해서 검증한다.
-- **`push_events.test.mjs`**: 고정 일정 알림 계산(공휴일·쉼·기간·보관·요일별 시간).
-- **`test_archive.py` + `fake_firebase.js`**: 실제 `app.js`를 띄우고 gstatic Firebase만 가짜로 바꿔 끼운 통합 테스트(묶기·펼치기·풀기·되돌리기·하루 한 번). 가짜는 merge 깊은 병합, `deleteField`, 배치 원자성, undefined 거부를 흉내 낸다. Firestore 에뮬레이터는 내려받기가 막혀 못 썼다. 서비스 워커는 막고 돈다.
-- **`archive.test.mjs`**: 묶기 한도(배치 500, 문서당 1500개, 60일 경계).
-- **`test_quick.py`**: 한 줄 입력 해석 표(22개, 기준일 고정)와 입력 흐름, 폰 종일 줄 개수, 23:40 칸 안 잘림, `#add`·`#week` 바로가기.
-- **`test_slots.py`**: 고정 일정 요일·시간 줄(같은 요일 두 번·줄별 쉼/이 날만 바꾸기 키·편집·길이·겹침 안내·추가/빼기·첫 줄 뺀 뒤 id 유지·예전 방식 일정).
-- **`test_dur.py`**: 길이 해석 표, 길이 ↔ 끝 시간 맞춤(폰 시계식·PC 숫자 입력 둘 다), 시작 옮기면 끝도, 자정 넘김, 고정 일정.
-- **`test_backup.py`**(Codex): 백업 복원 한도·재확인·중복 실행·실패 후 재시도.
-- **`test_v24.py`**: 2.4.0 동작(넘기기·반복 등록 초안 저장/취소, 완료한 할 일, 숫자 기준, 전체 탭 구성, 추가 전, 한 줄 입력 날짜, 이날만 바꾼 칸만, 저장 막기, 시간 미정 줄, 메뉴 이름).
-- **`test_v21.py`**: 자정 넘김(목록·편집·시간표 이어서·한 줄 입력), 소분류 이름, 안 함 → 다른 날에(닫기·되돌리기·끝내기·두 번째).
-- **`test_ux.py`**: 2.0.0 사용성(오프라인 알림 줄, 불러오는 중 알림, 캘린더 반복 할 일 → 정보 시트).
-- **`test_tt3.py`**: 폰 3일 보기(처음 오늘이 왼쪽, 화살표 3일, 끝없이 밀기 재배치, 날짜 줄 고정, 7일 전환·기억, PC 7일). **폰 7일 보기를 전제로 한 테스트(`test_asserts`·`test_events`·`test_quick`·`test_week_ev`)는 `todo.tt7=1`을 넣고 돈다.**
-- **`test_week_ev.py`**: 시간표 일요일 시작·보기 필터(기억)·소분류 태그, 고정 일정 이 날만 바꾸기(저장·표시·원래대로·내보내기).
-- **`test_asserts.py`**: 핵심 흐름 회귀 테스트(assert 20개). 추가·편집 저장·삭제/되돌리기·밀린 할 일 옮기기/되돌리기·스와이프·시간표 24시간제·창 크기 바뀔 때 다시 그리기·XSS. **새 기능을 넣으면 여기에 assert를 같이 넣는다.**
-- **`test_*.py`(나머지)**: 화면 테스트. **assert가 없고 값을 출력만 한다.** run_all.sh는 오류·Traceback·비정상 종료만 실패로 잡으니, 출력값은 직접 읽어 본다. 메모리 저장소를 주입하고, 폰(390px)과 PC(1280px) 크기에서 흐름을 확인한다. 스크린샷은 `dev/tests/out/`에 쌓이니까 **바뀐 화면은 직접 열어서 눈으로 확인한다.** 레이아웃 버그 대부분이 이 과정에서 잡혔다.
-- **날짜 의존**: 테스트 데이터는 대부분 "오늘" 기준이라 실행하는 요일에 따라 결과가 달라질 수 있다. 실패하면 앱 버그인지 테스트 가정이 깨진 건지부터 본다.
+- **준비물**: Python `playwright` + Chromium, Pillow, Node, `dev/tests`에서 `npm install`(`http_ece`). CI는 워크플로가 설치한다.
+- **Node**: `worker.test.mjs`(Worker, D1 흉내·푸시 복호화), `push_events.test.mjs`(고정 일정 알림, model.js를 먼저 불러옴), `archive.test.mjs`(묶기 한도)
+- **실제 app.js + 가짜 Firebase(`fake_firebase.js`)**: `test_archive.py`(묶기·풀기·휴지통), `test_write_fail.py`(서버가 거절하면 화면 되돌림·알림, 쉼 arrayUnion)
+- **`test_offline.py`**: 껍데기 한 묶음 캐시, 서버 없이 열기, 새 버전 → '새 버전이 있어요' → 새로고침으로 바뀌고 옛 묶음 지움. 사본 폴더에서 버전을 바꿔 가며 돈다
+- **기능별**: `test_basics`(기본 흐름·휴지통·한글 조합·숨기기·백업), `test_quick`(한 줄 입력 해석 표), `test_slots`(고정 일정 시간대), `test_dur`(소요 시간), `test_events`(고정 일정 화면), `test_week_ev`(시간표 필터·이날만 바꾸기), `test_tt3`(폰 3일 보기), `test_timetable_group`(겹침 묶음), `test_views`(전체 탭 정렬·시간표·소분류 순서·반복 숨기기), `test_all_tab`(밀린 할 일·기록·시간 미정 줄), `test_repeat`(자동 추가를 끈 반복 흐름), `test_push_ui`(알림 화면), `test_safety`(불러오는 중·XSS·버전), `test_sort_time`(시트 닫기·PC 시간 입력·정렬), `test_ux`(오프라인 줄·반복 정보), `test_backup`(Codex: 복원 한도·재확인), `test_v21`(자정 넘김·넘기기), `test_v24`(초안 저장·숫자 기준·전체 탭·저장 막기), `test_v25`(자동 추가·휴지통·검색·편집 접기·오전/오후 바꾸기·비밀번호 재설정·백업 파일·공휴일 끝·필드 쓰기), `test_asserts`(핵심 회귀)
+- **반복 할 일 시드**: 자동 추가(기본 켬)가 끼지 않게, '추가 전' 흐름을 보는 테스트는 시드에 `auto:false`를 넣는다. 메모리 저장소를 감싼 테스트는 `onData(d)`만 넘겨서(서버 표시 없음) 자동 추가가 안 돈다.
+- **날짜 의존**: 테스트 데이터는 대부분 "오늘" 기준이다. 실패하면 앱 버그인지 테스트의 날짜 가정인지 먼저 본다.
 
 ## 8. 실수하기 쉬운 것들 (실제로 겪음)
 
@@ -235,6 +211,8 @@ dev/
   - 매일 아침 "오늘 할 일 n개" 요약 알림(현재 알림 서버로 추가 비용 없이 가능)
 
 ## 10. 버전 기록 요약
+
+- **2.5.0**: Claude 독립 검토(`dev/CRITIQUE-claude.md`) 반영(폰 글자 크기만 빼고). 배포를 GitHub Actions로(`dev/VERSION` 한 곳, `dev/assets`, 실제 설정을 원본에), 서비스 워커 한 버전 묶음 + '새 버전이 있어요', `model.js`로 순수 계산 분리(알림과 화면이 같은 `occurrences`), 쉼·이날만 바꾸기 필드 단위 쓰기, 거절된 쓰기는 화면 되돌림, 넘기기 = 날짜 옮기기 + 미룬 횟수, 반복 할 일 자동 추가(기본 켬), 휴지통(30일), 검색(전체 탭), 할 일 편집 창 접기, 한 줄 입력 오전·오후 바꾸기 버튼, 로그인 안내·비밀번호 재설정, 백업 파일 저장·고르기, 공휴일 자료 끝 안내, 점선은 '추가 전'에만, 시간표 아래 '반복 할 일 관리', Firebase SDK 12.19.0, 테스트 전부 확인형(`ttb.py`). 2.3.0에 저장된 id 없는 시간대 데이터를 요일로 찾게 고침(`evBase`)
 
 - **1.0.0**: 정식 버전 1.
   - 기능: 카테고리·소분류, 시간, 정렬, 공휴일, 반복 할 일, 알림, 오프라인

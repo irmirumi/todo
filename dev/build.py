@@ -29,6 +29,7 @@ RESET = (":root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe
 open(os.path.join(APP, "style.css"), "w", encoding="utf-8").write(RESET + style)
 assert '"__VERSION__"' in ui, "ui.js 의 VERSION 자리표시자가 없다"
 open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui.replace('"__VERSION__"', '"' + VERSION + '"'))
+shutil.copy(os.path.join(SRC, "model.js"), os.path.join(APP, "model.js"))
 open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
     '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
@@ -44,7 +45,7 @@ open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">\n'
     '<link rel="stylesheet" href="fonts/WantedSansVariable.css">\n'
     '<link rel="stylesheet" href="style.css">\n</head>\n<body>\n' + markup +
-    '<script src="vendor/morphdom.min.js"></script>\n<script src="holidays.js"></script>\n<script src="ui.js"></script>\n'
+    '<script src="vendor/morphdom.min.js"></script>\n<script src="holidays.js"></script>\n<script src="model.js"></script>\n<script src="ui.js"></script>\n'
     '<script type="module" src="app.js"></script>\n</body>\n</html>\n')
 for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "manifest.webmanifest", "firestore.rules"]:
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))

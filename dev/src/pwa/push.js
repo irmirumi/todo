@@ -12,7 +12,7 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
   const nameOf = t => { const n = t.sub && subName.get(t.cat + "/" + t.sub); return (t.title || "") + (n ? " · " + n : ""); };
   const max = now + 62 * 864e5, out = [];
   for (const t of tasks.values()) {
-    if (t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
+    if (t.deletedAt || t.done || t.skipped || t.remind == null || !t.date || !t.time || arch.has(t.cat)) continue;
     const [y, mo, d] = t.date.split("-").map(Number), [h, mi] = t.time.split(":").map(Number);
     const at = new Date(y, mo - 1, d, h, mi).getTime() - t.remind * 60000;
     if (!(at > now && at <= max)) continue;
@@ -24,27 +24,21 @@ export function remindersFrom(tasks, cats, base, now = Date.now(), events = null
     const HOL = (typeof window !== "undefined" && window.TTOBAK_HOLIDAYS) || {};
     const key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     const start = new Date(now); start.setHours(0, 0, 0, 0);
+    // 고정 일정이 그날 생기는지·시간·장소는 model.js(occurrences)가 정한다(화면과 같은 계산)
+    const occ = globalThis.TodoModel.occurrences;
     for (const e of events.values()) {
-      // 요일·시간 줄(slots, 2.3.0). 없으면 예전처럼 days·time 한 줄. 같은 요일이 여러 줄에 있을 수 있다.
-      // 이 날만 바꾸기·쉼의 키: id 없는 줄은 날짜, 나머지는 "날짜#id"(ui.js occKey와 같게)
-      const slots = (Array.isArray(e.slots) && e.slots.length ? e.slots : [{ id: "", days: e.days, time: e.time }]).filter(s => s && s.time && Array.isArray(s.days) && s.days.length);
-      if (e.archived || e.remind == null || !slots.length) continue;
+      if (e.archived || e.remind == null) continue;
       for (let i = 0; i <= 62; i++) {
         const d = new Date(start); d.setDate(start.getDate() + i);
         const k = key(d);
-        if ((e.from && k < e.from) || (e.until && k > e.until)) continue;
-        if (e.holOff !== false && HOL[k]) continue;
-        for (const sl of slots) {
-          if (!sl.days.includes(d.getDay())) continue;
-          const ok = sl.id ? k + "#" + sl.id : k;
-          if (Array.isArray(e.skips) && e.skips.includes(ok)) continue;
-          // 이 날만 바꾼 시간·장소(ovr)
-          const o = e.ovr && e.ovr[ok], tm = (o && o.time) || sl.time, pl = o && o.place != null ? o.place : e.place;
+        for (const o of occ(e, k, HOL)) {
+          if (o.off) continue;
+          const tm = o.ev.time, pl = o.ev.place;
           const [oh, om] = tm.split(":").map(Number);
           const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), oh, om).getTime() - e.remind * 60000;
           if (!(at > now && at <= max)) continue;
           const lead = LABEL[e.remind] || (e.remind + "분 후");
-          out.push({ id: e.id + "@" + ok, at, title: e.title, body: lead + " · " + fmt(tm) + (pl ? " · " + pl : ""), url: new URL("./#d=" + k, base).href });
+          out.push({ id: e.id + "@" + o.key, at, title: e.title, body: lead + " · " + fmt(tm) + (pl ? " · " + pl : ""), url: new URL("./#d=" + k, base).href });
         }
       }
     }

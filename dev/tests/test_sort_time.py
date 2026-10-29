@@ -1,10 +1,8 @@
-import os as _os
-HERE=_os.path.dirname(_os.path.abspath(__file__))
-APP=_os.path.join(HERE,"..","dist","app")
-import subprocess, time, sys
+# 시트 닫기(끌기·바깥), PC 숫자 시간 입력·미리보기, 카테고리 안 정렬
+import json, datetime
 from playwright.sync_api import sync_playwright
-OUT=_os.path.join(HERE,"out")+"/"
-srv=subprocess.Popen([sys.executable,"-m","http.server","8774"],cwd=APP,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);time.sleep(1)
+from ttb import check, serve, done, OUT
+srv=serve(8774)
 MOCK="""const m=TodoApp.memoryStore();let cb;const s={kind:'pwa',email:'me@example.com',
 start(c){cb=c;c.onStatus('signedout');},set:m.set,update:m.update,remove:m.remove,saveCats:m.saveCats,importAll:m.importAll,
 signIn(e,p){return Promise.resolve(m.start({onData:cb.onData,onStatus:x=>cb.onStatus(x==='local'?'live':x),onError:cb.onError}));},
@@ -21,12 +19,12 @@ with sync_playwright() as p:
     # 드래그: 입력칸에서 누르고 시트 안 다른 곳에서 떼기 → 안 닫혀야 함
     box=pg.locator("#cn-k1").bounding_box(); box2=pg.locator(".sheet h2").bounding_box()
     pg.mouse.move(box["x"]+10,box["y"]+10); pg.mouse.down(); pg.mouse.move(box2["x"]+5,box2["y"]+5,steps=5); pg.mouse.up()
-    print("drag inside keeps open:", pg.is_visible("#dlg"))
+    check(pg.is_visible("#dlg"), "시트 안에서 끌면 안 닫힘")
     # 입력칸에서 끌어서 바깥에서 놓기 → 안 닫힘(누른 곳이 안쪽)
     pg.mouse.move(box["x"]+10,box["y"]+10); pg.mouse.down(); pg.mouse.move(20,20,steps=5); pg.mouse.up()
-    print("drag to outside keeps open:", pg.is_visible("#dlg"))
+    check(pg.is_visible("#dlg"), "안에서 눌러 밖에서 떼도 안 닫힘")
     pg.mouse.click(20,20); pg.wait_for_timeout(300)
-    print("click outside closes:", not pg.is_visible("#dlg"), "| toast:", pg.inner_text("#toastMsg"))
+    check(not pg.is_visible("#dlg") and pg.inner_text("#toastMsg")=="변경 사항을 저장하지 않았어요", "바깥을 누르면 닫히고 저장 안 함")
     pg.click("#toastAct"); pg.wait_for_timeout(250); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(300)  # 2.2.0~: 다시 열기 → 저장
     # 할 일들: 수업 카테고리
     pg.click("[data-act=add][data-cat=k2]")
@@ -39,14 +37,14 @@ with sync_playwright() as p:
     for t,v in [("나 퀴즈","0900"),("가 강의","2359")]:
         pg.click("text="+t); pg.wait_for_timeout(150)
         pg.click("#e-time"); pg.keyboard.type(v); pg.wait_for_timeout(80)
-        print(t, "preview:", pg.inner_text("#e-time-p"), "| clear btn:", pg.locator("[data-act=notime]").count())
+        check(pg.inner_text("#e-time-p")==("오전 9:00" if v=="0900" else "오후 11:59") and pg.locator("[data-act=notime]").count()==1, t+": 숫자로 쓰면 미리보기")
         pg.keyboard.press("Enter"); pg.wait_for_timeout(300)
     # 잘못된 시간 → 기존 유지
     pg.click("text=가 강의"); pg.fill("#e-time",""); pg.click("#e-time"); pg.keyboard.type("2400"); pg.wait_for_timeout(80)
-    print("bad preview:", pg.inner_text("#e-time-p")); pg.mouse.click(20,20); pg.wait_for_timeout(300)
-    print("order:", pg.locator("#g-k2 .t").all_inner_texts())
-    print("times:", pg.locator("#g-k2 .chip.time").all_inner_texts())
+    check(pg.inner_text("#e-time-p")=="시간을 확인해 주세요", "잘못된 시간 안내"); pg.mouse.click(20,20); pg.wait_for_timeout(300)
+    check(pg.locator("#g-k2 .t").all_inner_texts()==['나 퀴즈','가 강의','다 복습','가 단어','하 과제','수강신청'], "카테고리 안 순서: 소분류 순서 → 시간 → 가나다")
+    check(pg.locator("#g-k2 .chip.time").all_inner_texts()==['오전 9:00','오후 11:59'], "잘못 쓰고 닫으면 원래 시간 그대로")
     pg.click("text=가 강의"); pg.wait_for_timeout(200); pg.screenshot(path=OUT+"pc-edit.png"); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     pg.screenshot(path=OUT+"pc-day.png")
     b.close()
-srv.terminate(); print("errors:",errs)
+srv.terminate(); done(errs)

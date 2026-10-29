@@ -699,3 +699,15 @@ p,.hint,.tnote,.pasthint,.sheet p,.info dd,.menu small{word-break:keep-all;overf
 .field>.snote{margin:0}
 /* 2.5.0 새 버전 안내 */
 .banner.upd{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-color:var(--edge);color:var(--ink);padding:8px 8px 8px 14px}
+/* 2.5.0 검색·휴지통·편집 접기·파일 */
+.searchrow{margin:0 0 14px}
+.inp.search{height:42px;padding:0 14px;background:var(--surface)}
+.tplrow.trow{cursor:default}
+.tplrow.trow:hover{background:none}
+.tplrow.trow .btn{flex:none}
+.emore{align-self:flex-start;margin-left:-10px}
+.filepick{display:inline-flex;align-self:flex-start;cursor:pointer;margin:2px 0 10px}
+.auth .linkish{margin-top:6px}
+/* 점선은 '아직 진짜 할 일이 아닌 것'(추가 전·자동 추가 예정)에만 */
+.chk.skp{border-style:solid;background:var(--sunk)}
+.repbtn{border-style:solid}

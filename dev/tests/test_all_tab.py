@@ -1,10 +1,8 @@
-import os as _os
-HERE=_os.path.dirname(_os.path.abspath(__file__))
-APP=_os.path.join(HERE,"..","dist","app")
-import subprocess, time, sys, json, datetime
+# 전체 탭: 밀린 할 일 접기·넘기기, 기록, 안 함인 날, 시간표 시간 미정 줄·정보 창, 개수 칩
+import json, datetime
 from playwright.sync_api import sync_playwright
-OUT=_os.path.join(HERE,"out")+"/"
-srv=subprocess.Popen([sys.executable,"-m","http.server","8782"],cwd=APP,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);time.sleep(1)
+from ttb import check, serve, done, OUT
+srv=serve(8782)
 T=datetime.date.today(); D=lambda n:(T+datetime.timedelta(days=n)).isoformat()
 mon=T-datetime.timedelta(days=T.weekday())
 cats=[{"id":"k1","name":"일상","color":"c7","subs":[]},{"id":"k2","name":"수업","color":"c5","subs":[{"id":"b1","name":"영어"},{"id":"b2","name":"수학"},{"id":"b3","name":"과학"}]},{"id":"k3","name":"건강","color":"c3","subs":[]}]
@@ -27,44 +25,43 @@ def go(w,h,tag):
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
     pg.goto("http://localhost:8782/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(400)
-    print(tag,"tabs:",pg.inner_text(".seg").replace("\n"," "))
+    check(pg.inner_text(".seg").split()==["달력","시간표","전체"], "탭 이름")
     pg.screenshot(path=OUT+tag+"2-day.png",full_page=True)
     pg.click("[data-act=view][data-v=all]"); pg.wait_for_timeout(300)
-    print(tag,"past collapsed:",pg.inner_text(".pastbox").replace("\n"," "),"| first sec:",pg.inner_text(".dsec .ghead >> nth=0").replace("\n"," "))
+    check("밀린 할 일" in pg.inner_text(".pastbox") and "3개" in pg.inner_text(".pastbox") and pg.locator(".pastbox .task").count()==0, "밀린 할 일 3개, 처음엔 접힘")
     pg.screenshot(path=OUT+tag+"2-all.png",full_page=True)
     pg.click("[data-act=showpast]"); pg.wait_for_timeout(250)
-    print(tag,"past open rows:",[x.inner_text() for x in pg.locator(".pastbox .task .t").all()])
+    check([x.inner_text() for x in pg.locator(".pastbox .task .t").all()]==['어제 할 일','밀린 일','지난주 과제'], "펼치면 최근 날짜부터")
     pg.screenshot(path=OUT+tag+"2-all-open.png",full_page=True)
     pg.click(".pastbox .skipbtn >> nth=0"); pg.click("[data-act=laterskip]"); pg.wait_for_timeout(300)  # 2.1.0~: 언제 할지 묻는 시트 → 안 하고 끝내기
-    print(tag,"after skip past:",pg.locator(".pastbox .task").count(),"| toast:",pg.inner_text("#toastMsg"),"| donebox:",pg.inner_text(".donebox"))
+    check(pg.locator(".pastbox .task").count()==2 and pg.inner_text("#toastMsg")=="‘안 함’으로 남겼어요" and "안 함 1개" in pg.inner_text(".donebox"), "안 함으로 남기면 밀린 할 일에서 빠지고 기록에")
     # check alignment of 지남? now headings: compare baselines of h3 and dw in first dsec
-    print(tag,"baseline diff:",pg.evaluate("(()=>{const h=document.querySelector('.dsec .dlink h3'),d=document.querySelector('.dsec .dlink .rel')||document.querySelector('.dsec .dlink .dw');const a=h.getBoundingClientRect(),c=d.getBoundingClientRect();return Math.round(a.bottom-c.bottom)})()"))
+    check(abs(pg.evaluate("(()=>{const h=document.querySelector('.dsec .dlink h3'),d=document.querySelector('.dsec .dlink .rel')||document.querySelector('.dsec .dlink .dw');const a=h.getBoundingClientRect(),c=d.getBoundingClientRect();return Math.round(a.bottom-c.bottom)})()"))<=3, "날짜 머리 글자 아랫줄 맞춤")
     pg.click("[data-act=view][data-v=day]"); pg.wait_for_timeout(200)
     pg.click("[data-act=pick][data-k='%s']"%D(-1)); pg.wait_for_timeout(250)
-    print(tag,"day of skipped: prog",pg.inner_text(".prog"),"| skipped rows:",pg.locator(".task.skipped").count())
+    check(pg.inner_text(".prog")=="할 일 없음" and pg.locator(".task.skipped").count()==1, "안 함인 날: 흐리게 남고 숫자엔 안 셈")
     pg.screenshot(path=OUT+tag+"2-skipday.png",full_page=True)
-    pg.click(".task.skipped .chk"); pg.wait_for_timeout(250); print(tag,"unskip:",pg.locator(".task.skipped").count())
+    pg.click(".task.skipped .chk"); pg.wait_for_timeout(250); check(pg.locator(".task.skipped").count()==0, "왼쪽 동그라미로 안 함 취소")
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
-    print(tag,"untimed strip:",pg.locator(".uchip").count(),[x.inner_text() for x in pg.locator(".uchip").all()],"| ghost:",pg.locator(".blk.ghost").count())
+    check(pg.locator(".uchip").count()>=3 and pg.inner_text(".ttallL")=="시간 미정", "시간표 위 '시간 미정' 줄")
     pg.screenshot(path=OUT+tag+"2-week.png",full_page=True)
     pg.click(".blk:not(.ghost):not(.grpb) >> nth=0"); pg.wait_for_timeout(300)
-    print(tag,"info:",pg.inner_text("#sheet").replace("\n"," | ")[:200])
+    check("날짜" in pg.inner_text("#sheet") and "완료하기" in pg.inner_text("#sheet"), "시간표 칸 → 정보 창")
     pg.screenshot(path=OUT+tag+"2-info.png")
-    pg.click("#sheet [data-act=toggle]"); pg.wait_for_timeout(300); print(tag,"info after done:",pg.inner_text("#sheet .actions"))
-    pg.click("[data-act=iedit]"); pg.wait_for_timeout(250); print(tag,"edit opened:",pg.locator("#e-title").count())
+    pg.click("#sheet [data-act=toggle]"); pg.wait_for_timeout(300); check("완료 취소" in pg.inner_text("#sheet .actions"), "정보 창에서 완료")
+    pg.click("[data-act=iedit]"); pg.wait_for_timeout(250); check(pg.locator("#e-title").count()==1, "정보 창 → 편집")
     pg.screenshot(path=OUT+tag+"2-edit.png")
     pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     if pg.locator(".blk.ghost").count():
-        pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); print(tag,"ghost info:",pg.inner_text("#sheet").replace("\n"," | ")[:160])
+        pg.click(".blk.ghost >> nth=0"); pg.wait_for_timeout(300); check("추가 전" in pg.inner_text("#sheet") or "자동" in pg.inner_text("#sheet"), "빗금 칸 → 반복 할 일 정보")
         pg.screenshot(path=OUT+tag+"2-ginfo.png")
-        pg.click("[data-act=iadd]"); pg.wait_for_timeout(400); print(tag,"ghost add:",pg.inner_text("#toastMsg"),"| ghosts:",pg.locator(".blk.ghost").count())
+        pg.click("[data-act=iadd]"); pg.wait_for_timeout(400); check("할 일을 추가했어요" in pg.inner_text("#toastMsg"), "이날 할 일에 추가")
     if pg.locator(".ucount").count():  # 폰(1.6.0~): 개수 칩 → 그날 캘린더
-        pg.click(".ucount >> nth=0"); pg.wait_for_timeout(300); print(tag,"ucount → view:",pg.evaluate("document.body.dataset.view"))
-        assert pg.evaluate("document.body.dataset.view") == "day"
+        pg.click(".ucount >> nth=0"); pg.wait_for_timeout(300); check(pg.evaluate("document.body.dataset.view")=="day", "개수 칩 → 그날 달력")
     else:
-        pg.click(".uchip >> nth=0"); pg.wait_for_timeout(300); print(tag,"uchip info:",pg.inner_text("#sheet h2"))
+        pg.click(".uchip >> nth=0"); pg.wait_for_timeout(300); check(pg.inner_text("#sheet h2")!="", "칩 → 정보 창")
         pg.go_back(); pg.wait_for_timeout(300)
-    print(tag,"scrollW:",pg.evaluate("document.documentElement.scrollWidth"))
+    check(pg.evaluate("document.documentElement.scrollWidth")<=w, "가로로 안 넘침")
     b.close()
 go(390,844,"m"); go(1280,900,"pc")
-srv.terminate(); print("errors:",errs)
+srv.terminate(); done(errs)

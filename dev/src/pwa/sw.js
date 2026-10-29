@@ -3,7 +3,7 @@
 // 새 버전은 뒤에서 통째로 받아 두고(install), 화면이 "새로고침"을 누르거나 앱을 완전히 닫았다 열 때 바뀐다.
 const CACHE = "ttobak-__VERSION__";
 const LIB = "ttobak-lib-1"; // 글꼴 조각·Firebase 라이브러리: 버전과 상관없이 오래 쓴다
-const SHELL = ["./", "./index.html", "./style.css", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
+const SHELL = ["./", "./index.html", "./style.css", "./model.js", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png"];
 

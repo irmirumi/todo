@@ -1,4 +1,5 @@
 globalThis.window={TTOBAK_HOLIDAYS:{"2026-10-09":["한글날"]}};
+await import(new URL("../src/model.js", import.meta.url));
 const { remindersFrom } = await import(new URL("../src/pwa/push.js", import.meta.url));
 const now=new Date(2026,9,5,8,0).getTime(); // Mon 10/5 08:00
 const events=new Map([["e_1",{id:"e_1",title:"영어회화",place:"공학관",days:[1,5],time:"09:00",remind:10,holOff:true,skips:["2026-10-12"],until:"2026-10-31"}],
