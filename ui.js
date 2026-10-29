@@ -15,7 +15,7 @@ const DEFAULT_CATS=[{id:"k1",name:"일상",color:"c7",subs:[]},{id:"k2",name:"�
 const HOL=window.TTOBAK_HOLIDAYS||{};
 const REMIND=[[null,"끔"],[0,"시작할 때"],[5,"5분 전"],[10,"10분 전"],[30,"30분 전"],[60,"1시간 전"],[1440,"하루 전"]];
 const remindLabel=m=>(REMIND.find(r=>r[0]===m)||[0,m+"분 전"])[1];
-const VERSION="2.4.0";
+const VERSION="2.4.1";
 const WEEK=[0,1,2,3,4,5,6]; /* 요일 순서: 일요일부터(캘린더·시간표와 같게) */
 const sortDays=ds=>WEEK.filter(d=>Array.isArray(ds)&&ds.includes(d));
 /* "매주 월·수", 매일이면 그냥 "매일" */
@@ -815,6 +815,15 @@ function cleanTpl(r){
 function parseImport(text){
   let d;try{d=JSON.parse(text);}catch(e){return {err:"백업을 읽을 수 없어요. 복사한 내용이 빠지지 않았는지 확인해 주세요"};}
   if(!d||!Array.isArray(d.tasks))return {err:"백업을 읽을 수 없어요. 복사한 내용이 빠지지 않았는지 확인해 주세요"};
+  // 조용히 잘라내면 성공으로 표시돼도 백업 일부를 잃는다.
+  // 기존 안전 한도를 넘으면 쓰기 전에 전체를 거부한다.
+  const over=(v,n)=>Array.isArray(v)&&v.length>n;
+  if(over(d.cats,40)||over(d.tpls,200)||over(d.events,200)
+    ||(Array.isArray(d.cats)&&d.cats.some(c=>c&&over(c.subs,60)))
+    ||d.tasks.concat(Array.isArray(d.tpls)?d.tpls:[]).some(t=>t&&over(t.subtasks,100))
+    ||(Array.isArray(d.events)&&d.events.some(e=>e&&(over(e.slots,14)||over(e.skips,400)
+      ||(e.ovr&&typeof e.ovr==="object"&&Object.keys(e.ovr).length>400)))))
+    return {err:"복원 한도를 넘는 항목이 있어요. 복원을 중단했어요. 원본 백업을 보관해 주세요"};
   const tasks=d.tasks.filter(t=>t&&typeof t.id==="string"&&/^t_[A-Za-z0-9_-]{1,60}$/.test(t.id)).map(t=>Object.assign({id:t.id},clean(t)));
   let cats=null;
   if(Array.isArray(d.cats)&&d.cats.length)cats=d.cats.filter(c=>c&&typeof c.id==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(c.id)).slice(0,40).map(c=>{
@@ -842,9 +851,9 @@ function cleanSlots(v){
 function drawImport(){
   const d=S.importData;
   drawSheet('<h2>백업 복원</h2><p>‘백업 만들기’에서 복사한 텍스트를 붙여넣어 주세요.</p>'+
-    '<textarea class="inp code" id="i-in" placeholder="여기에 붙여넣기" aria-label="복원할 백업"></textarea><div class="err" id="i-err"></div>'+
+    '<textarea class="inp code" id="i-in" placeholder="여기에 붙여넣기" aria-label="복원할 백업">'+esc(d?S.importText:'')+'</textarea><div class="err" id="i-err" role="alert"></div>'+
     (d?'<p id="i-sum">할 일 <b>'+d.tasks.length+'개</b>'+(d.cats?' · 카테고리 <b>'+d.cats.length+'개</b>':'')+(d.tpls.length?' · 반복 할 일 <b>'+d.tpls.length+'개</b>':'')+(d.events.length?' · 고정 일정 <b>'+d.events.length+'개</b>':'')+'</p>'+
-      '<p class="tnote">백업에 있는 기존 항목은 백업 내용으로 바뀌어요. 백업에 없는 할 일과 일정은 그대로 남아요.'+(d.cats?' <b>카테고리 목록은 백업으로 모두 바뀌어요.</b> 사라진 카테고리의 할 일은 첫 번째 카테고리에 표시돼요.':'')+'</p>':'')+
+      '<p class="tnote" id="i-warning">백업에 있는 기존 항목은 백업 내용으로 바뀌어요. 백업에 없는 할 일과 일정은 그대로 남아요.'+(d.cats?' <b>카테고리 목록은 백업으로 모두 바뀌어요.</b> 사라진 카테고리의 할 일은 첫 번째 카테고리에 표시돼요.':'')+'</p>':'')+
     '<div class="actions"><span class="sp"></span><button class="btn pri" type="button" data-act="'+(d?'importgo':'importcheck')+'">'+(d?'백업 복원하기':'확인')+'</button></div>');
 }
 
@@ -1457,9 +1466,9 @@ document.addEventListener("click",ev=>{
     case"import":S.importData=null;openSheet("import",drawImport);break;
     case"importcheck":{const txt=$("#i-in").value;const r=parseImport(txt);if(r.err){$("#i-err").textContent=r.err;break;}
       if(!r.tasks.length&&!r.cats&&!r.tpls.length&&!r.events.length){$("#i-err").textContent="가져올 할 일이 없어요";break;}
-      S.importData=r;drawImport();break;}
-    case"importgo":{const d=S.importData;if(!d)break;b.disabled=true;b.textContent="복원 중…";
-      store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{onError(e);b.disabled=false;b.textContent="백업 복원하기";});break;}
+      S.importData=r;S.importText=txt;drawImport();break;}
+    case"importgo":{const d=S.importData;if(!d)break;b.disabled=true;$("#i-in").disabled=true;b.textContent="복원 중…";
+      store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{onError(e);b.disabled=false;const input=$("#i-in");if(input)input.disabled=false;b.textContent="백업 복원하기";});break;}
     case"logout":S.sheet=null;closeDlg();store.signOut();break;
     case"close":closeDlg();break;
     case"save":saveChecked();break;
@@ -1503,7 +1512,12 @@ document.addEventListener("change",ev=>{const id=ev.target.id,sm=SLOT_ID.exec(id
   if(id==="e-end"&&ev.target.type==="text"&&!S.edit.endBad)ev.target.value=S.edit.end;}});
 document.addEventListener("input",ev=>{
   const el=ev.target;
-  if(el.matches&&el.matches(".addrow input")){S.addDraft=el.value;updQuick();}
+  if(el.id==="i-in"){
+    S.importData=null;$("#i-err").textContent="";
+    for(const id of ["#i-sum","#i-warning"]){const node=$(id);if(node)node.remove();}
+    const button=$("[data-act=importgo]");if(button){button.dataset.act="importcheck";button.textContent="확인";}
+  }
+  else if(el.matches&&el.matches(".addrow input")){S.addDraft=el.value;updQuick();}
   else if(editing()&&(el.id==="e-time"||el.id==="e-end")){syncEdit();redrawEdit();}
   else if(editing()&&S.edit&&S.edit.ev&&/^s-(time|end)-\d+$/.test(el.id)){syncEdit();drawEv();}
 });

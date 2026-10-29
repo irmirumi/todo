@@ -39,7 +39,8 @@ def go(w,h,tag):
     print(tag,"week title:",pg.inner_text(".dayhead h1"),"| cols:",pg.locator(".tth").count(),"| blocks:",pg.locator(".blk:not(.ghost)").count(),"ghost:",pg.locator(".blk.ghost").count(),"| now line:",pg.locator(".nowline").count())
     pg.screenshot(path=OUT+tag+"-week.png",full_page=True)
     pg.click("[data-act=wnav][data-d='1']"); pg.wait_for_timeout(300); print(tag,"next week:",pg.inner_text(".dayhead .eyebrow"))
-    pg.click("[data-act=wtoday]"); pg.wait_for_timeout(300)
+    # 3일 보기는 부드럽게 넘어가서 '오늘' 버튼이 늦게 나타난다: 고정 대기 대신 보일 때까지 기다린다
+    pg.wait_for_selector("[data-act=wtoday]:not([hidden])", timeout=5000); pg.click("[data-act=wtoday]"); pg.wait_for_timeout(300)
     pg.click(".blk.tblk >> nth=0"); pg.wait_for_timeout(300); pg.click("[data-act=iedit]"); pg.wait_for_timeout(250)
     print(tag,"edit from week, start/end:",pg.input_value("#e-time"),pg.input_value("#e-end"))
     pg.fill("#e-end","0900" if w>600 else "09:00"); pg.wait_for_timeout(150)

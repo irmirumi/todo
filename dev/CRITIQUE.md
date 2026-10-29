@@ -77,4 +77,6 @@ P1은 잘못된 데이터 덮어쓰기/누락 위험, P2는 핵심 흐름의 실
 
 ### 이번 변경 후 전체 결과
 
-`source /workspace/todo-cloud/activate.sh` 후 `bash dev/tests/run_all.sh` 실행: 빌드 통과, Node 스크립트 3/3 통과, Python 화면 스크립트 20/21 통과(신규 백업 검사 포함). `test_views.py:42`만 기존과 같은 숨겨진 `[data-act=wtoday]` 클릭 대기 초과로 실패해 전체 종료 코드는 1이다. 신규 백업 검사 30개, 기존 핵심 흐름 26개, archive 통합 19개, v24 27개 assert가 실행 완료했다. 화면 스크립트 개수와 개별 assert 수는 다른 단위다. 로그: `/workspace/todo-cloud/critique-tests.log`, 상세 `/workspace/todo-cloud/test-details/`. 환경용 경로는 배포 파일이 아니다.
+`bash dev/tests/run_all.sh` 실행(Codex 환경): 빌드 통과, Node 스크립트 3/3 통과, Python 화면 스크립트 20/21 통과(신규 백업 검사 포함). `test_views.py:42`만 기존과 같은 숨겨진 `[data-act=wtoday]` 클릭 대기 초과로 실패해 전체 종료 코드는 1이다. 신규 백업 검사 30개, 기존 핵심 흐름 26개, archive 통합 19개, v24 27개 assert가 실행 완료했다. 화면 스크립트 개수와 개별 assert 수는 다른 단위다.
+
+합친 뒤 Claude 환경에서 다시 돌린 결과는 HANDOFF 버전 기록 2.4.1에 있다.
