@@ -1334,19 +1334,19 @@ function renderMemo(){
   if(S.mode==="loading"){morph($("#main"),h);return;}
   if(wide){
     let bw=2400,bh=1600;for(const m of list){bw=Math.max(bw,m.x+(m.w||MEMO_W)+600);bh=Math.max(bh,m.y+(m.h||MEMO_H)+600);}
-    h+='<p class="mhint">빈 곳을 두 번 눌러 메모를 붙여요 · 위쪽 막대를 끌어 옮기고, 오른쪽 아래 모서리로 크기를 바꿔요</p>'+
+    h+='<p class="mhint">빈 곳을 두 번 눌러 메모를 붙여요. 메모 위쪽을 끌면 옮겨지고, 모서리를 끌면 크기가 바뀌어요</p>'+
       '<div class="board" id="board"><div class="bsurf" id="bsurf" style="width:'+bw+'px;height:'+bh+'px">'+
       list.map(t=>{const ed=S.mEdit===t.id;
         return '<div class="mnote'+(t.color?' tint':'')+(ed?' editing':'')+'" id="mn-'+t.id+'" data-mid="'+t.id+'" style="left:'+t.x+'px;top:'+t.y+'px;width:'+(t.w||MEMO_W)+'px;height:'+(t.h||MEMO_H)+'px;z-index:'+(t.z||1)+(t.color?';--cc:var(--'+t.color+')':'')+'">'+
-          '<div class="mbar" data-drag="'+t.id+'"><span class="mwhen">'+esc(memoWhen(t))+'</span><button class="mopen" type="button" data-act="mopen" data-id="'+t.id+'" aria-label="'+esc(memoTitle(t))+' 크게 열기">'+
+          '<div class="mbar" data-drag="'+t.id+'"><span class="mwhen">'+esc(memoWhen(t))+'</span><button class="mopen" type="button" title="크게 열기" data-act="mopen" data-id="'+t.id+'" aria-label="'+esc(memoTitle(t))+' 크게 열기">'+
           '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5h3v3M5.5 11.5h-3v-3M11.5 2.5 8 6M2.5 11.5 6 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>'+
           (ed?'<textarea class="mta" id="mt-'+t.id+'" aria-label="메모 내용" spellcheck="false">'+esc(t.text)+'</textarea>'
-            :'<div class="mbody md" data-act="medit" data-id="'+t.id+'">'+(t.text.trim()?mdHtml(t.text):'<p class="mempty">눌러서 쓰기</p>')+'</div>')+
+            :'<div class="mbody md" data-act="medit" data-id="'+t.id+'">'+(t.text.trim()?mdHtml(t.text):'<p class="mempty">비어 있어요. 눌러서 써요</p>')+'</div>')+
           '<span class="mrz" data-rz="'+t.id+'" aria-hidden="true"></span></div>';}).join("")+
       '</div></div>';
   }else{
     const res=q?list.filter(t=>String(t.text||"").toLowerCase().includes(q)):list;
-    if(!list.length)h+='<p class="hint">아직 메모가 없어요. ＋를 눌러 수업 메모처럼 할 일로 적기 애매한 것을 남겨요. ‘# 제목’, ‘- [ ] 체크’처럼 간단한 마크다운을 쓸 수 있어요</p>';
+    if(!list.length)h+='<p class="hint">아직 메모가 없어요. 수업 내용처럼 할 일로 적기 애매한 것을 ＋로 남겨 두세요</p>';
     else if(!res.length)h+='<p class="empty">‘'+esc(S.mq.trim())+'’에 맞는 메모가 없어요</p>';
     else h+='<div class="mlist">'+res.map(t=>'<article class="mcard'+(t.color?' tint':'')+'"'+memoStyle(t)+' data-act="mopen" data-id="'+t.id+'" tabindex="0" aria-label="'+esc(memoTitle(t))+'">'+
       '<div class="mbody md">'+(t.text.trim()?mdHtml(t.text):'<p class="mempty">빈 메모</p>')+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>').join("")+'</div>';
@@ -1372,11 +1372,11 @@ function openMemo(id){
 }
 function drawMemoSheet(){
   const e=S.memoEdit;if(!e)return;const t=e.id&&S.memos.get(e.id);
-  drawSheet('<p class="eyebrow sheet-eb"><span>'+(e.id?'메모 · '+esc(memoWhen(t||{})):'새 메모')+'</span></p>'+
+  drawSheet('<p class="eyebrow sheet-eb"><span>'+(e.id?'메모 · '+esc(memoWhen(t||{}))+'에 고침':'새 메모')+'</span></p>'+
     '<div class="sw msw" role="group" aria-label="메모 색"><button type="button" class="mplain" aria-pressed="'+(!e.color)+'" aria-label="기본" data-act="mcolor" data-color=""></button>'+
       COLORS.map(k=>'<button type="button" style="--cc:var(--'+k+')" aria-pressed="'+(k===e.color)+'" aria-label="'+COLOR_NAME[k]+'" data-act="mcolor" data-color="'+k+'"></button>').join("")+'</div>'+
     '<textarea class="inp mtext" id="m-text" aria-label="메모 내용" placeholder="# 제목&#10;내용을 적어요&#10;- [ ] 체크 목록">'+esc(e.text)+'</textarea>'+
-    '<p class="snote">마크다운: # 제목 · **굵게** · *기울임* · - 목록 · - [ ] 체크 · `코드` · [링크](https://…)</p>'+
+    '<p class="snote">꾸미기: # 제목 · **굵게** · - 목록 · - [ ] 체크 · `코드` · 주소는 링크로</p>'+
     '<div class="actions">'+(e.id?'<button class="btn dng" type="button" data-act="mdel">휴지통으로</button>':'')+'<span class="sp"></span><button class="btn pri" type="button" data-act="close">완료</button></div>');
 }
 function commitMemo(){
