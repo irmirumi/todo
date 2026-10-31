@@ -882,3 +882,6 @@ dialog .toast.out{animation:toastupout .16s var(--ease-in) forwards}
 #vDay{view-transition-name:seg-day}#vWeek{view-transition-name:seg-week}#vAll{view-transition-name:seg-all}#vMemo{view-transition-name:seg-memo}
 ::view-transition-old(seg-day),::view-transition-old(seg-week),::view-transition-old(seg-all),::view-transition-old(seg-memo),
 ::view-transition-new(seg-day),::view-transition-new(seg-week),::view-transition-new(seg-all),::view-transition-new(seg-memo){animation-duration:.24s}
+/* 메모 편집 칸은 넉넉히(textarea.inp의 76px보다 우선) */
+textarea.inp.mtext{min-height:min(46vh,420px)}
+@media (max-width:560px){textarea.inp.mtext{min-height:42dvh}}
