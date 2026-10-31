@@ -25,7 +25,7 @@ def go(w,h,tag):
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
     pg.goto("http://localhost:8782/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(400)
-    check(pg.inner_text(".seg").split()==["달력","시간표","전체"], "탭 이름")
+    check(pg.inner_text(".seg").split()==["달력","시간표","전체","메모"], "탭 이름")
     pg.screenshot(path=OUT+tag+"2-day.png",full_page=True)
     pg.click("[data-act=view][data-v=all]"); pg.wait_for_timeout(300)
     check("밀린 할 일" in pg.inner_text(".pastbox") and "3개" in pg.inner_text(".pastbox") and pg.locator(".pastbox .task").count()==0, "밀린 할 일 3개, 처음엔 접힘")

@@ -27,7 +27,7 @@ let today=keyOf(new Date());
 const pref={get(k,d){try{const v=localStorage.getItem("todo."+k);return v==null?d:v;}catch(e){return d;}},set(k,v){try{localStorage.setItem("todo."+k,v);}catch(e){}}};
 const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
 
-const S={tasks:new Map(),trash:new Map(),tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
+const S={tasks:new Map(),trash:new Map(),memos:new Map(),mq:"",mEdit:null,mFresh:null,memoEdit:null,tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
   calMode:pref.get("calMode",narrow?"week":"month"),tt7:pref.get("tt7","")==="1",ttFirst:null,ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
   adding:null,addSub:null,addDraft:"",lastSub:{},focusAdd:false,
   sheet:null,editing:null,edit:null,editGone:false,catDraft:null,catDelArm:null,catMoved:null,importData:null};
@@ -110,6 +110,7 @@ function morph(el,html){
     onBeforeElUpdated(from,to){
       for(const c of TRANSIENT)if(from.classList&&from.classList.contains(c))to.classList.add(c);
       if(from===document.activeElement&&(from.tagName==="INPUT"||from.tagName==="TEXTAREA"))return false;
+      if(from.classList&&from.classList.contains("dragging"))return false; // 메모 보드: 끄는 중인 메모
       return !from.isEqualNode(to);
     },
     onNodeAdded(n){if(S.anim&&!reduced&&n.nodeType===1&&n.classList.contains("task")){n.classList.add("enter");setTimeout(()=>n.classList.remove("enter"),300);}return n;}
@@ -167,7 +168,7 @@ function render(){
   const out=S.mode==="signedout"||S.mode==="config";
   document.body.dataset.view=S.view;
   document.body.dataset.auth=out?"out":"in";
-  for(const v of ["day","week","all"]){const b=document.querySelector('[data-act=view][data-v="'+v+'"]');if(b)b.setAttribute("aria-pressed",S.view===v);}
+  for(const v of ["day","week","all","memo"]){const b=document.querySelector('[data-act=view][data-v="'+v+'"]');if(b)b.setAttribute("aria-pressed",S.view===v);}
   const bn=$("#banner");
   const offline=S.mode!=="local"&&!out&&navigator.onLine===false;
   bn.hidden=S.mode!=="local"&&!offline;bn.classList.toggle("offline",offline);
@@ -175,7 +176,7 @@ function render(){
   else if(offline)bn.textContent="오프라인이에요. 바꾼 내용은 연결되면 저장되고 다른 기기에도 반영돼요";
   if(S.mode==="signedout")return renderLogin();
   if(S.mode==="config")return renderConfig();
-  if(S.view==="day"){renderCal();renderDay();}else if(S.view==="week")renderWeek();else renderAll();
+  if(S.view==="day"){renderCal();renderDay();}else if(S.view==="week")renderWeek();else if(S.view==="memo")renderMemo();else renderAll();
   if(S.focusAdd&&S.adding){S.focusAdd=false;const inp=document.getElementById("add-"+S.adding);if(inp)inp.focus();}
 }
 
@@ -658,6 +659,7 @@ dlg.addEventListener("pointerdown",e=>{downOut=e.target===dlg&&outside(e);});
 dlg.addEventListener("click",e=>{const ok=downOut&&e.target===dlg&&outside(e);downOut=false;if(ok)closeDlg();});
 dlg.addEventListener("close",()=>{
   const kind=S.sheet;
+  if(kind==="memo")commitMemo();
   if(EDIT_KINDS.includes(kind)){
     if(S.saveReq){if(S.lostDraft&&S.lostDraft.editing===S.editing)S.lostDraft=null;if(kind==="edit")commitEdit();else if(kind==="tpl")commitTpl();else if(kind==="ev")commitEv();else if(kind==="evday")commitEvDay();else commitCats();}
     else if(!S.editGone){if(kind==="cats")syncCats();else syncEdit();
@@ -716,7 +718,7 @@ function drawMenu(){
     '<button type="button" data-act="evs">고정 일정<small>'+(S.events.size?[...S.events.values()].filter(e=>!evOff(e)).length+'개 · ':'')+'수업처럼 매주 같은 시간에 있는 일정'+'</small></button>'+
     '<button type="button" data-act="tpls">반복 할 일<small>'+(S.tpls.size?[...S.tpls.values()].filter(r=>!tplOff(r)).length+'개 · ':'')+'요일마다 체크할 일</small></button>'+
     (store.push?'<button type="button" data-act="notify">알림<small id="m-notify">'+NSTATE[S.pushState||"..."]+'</small></button>':'')+
-    '<button type="button" data-act="trash">휴지통<small>'+(S.trash.size?S.trash.size+'개 · ':'')+'지운 할 일은 30일 동안 남아요</small></button>'+
+    '<button type="button" data-act="trash">휴지통<small>'+(S.trash.size?S.trash.size+'개 · ':'')+'지운 할 일·메모는 30일 동안 남아요</small></button>'+
     '<button type="button" data-act="export">백업 만들기<small>파일로 저장하거나 텍스트로 복사</small></button>'+
     '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
@@ -756,10 +758,11 @@ function drawTpls(){
   drawSheet(h);
 }
 function exportJSON(){
-  return JSON.stringify({app:"ttobak",version:1,exportedAt:new Date().toISOString(),cats:S.cats,tasks:[...S.tasks.values(),...S.trash.values()],tpls:[...S.tpls.values()],events:[...S.events.values()]});
+  return JSON.stringify({app:"ttobak",version:1,exportedAt:new Date().toISOString(),cats:S.cats,tasks:[...S.tasks.values(),...[...S.trash.values()].filter(t=>t.id.startsWith("t_"))],tpls:[...S.tpls.values()],events:[...S.events.values()],
+    memos:[...S.memos.values(),...[...S.trash.values()].filter(t=>t.id.startsWith("m_"))]});
 }
 function drawExport(){
-  drawSheet('<h2>백업 만들기</h2><p>할 일 '+S.tasks.size+'개 · 카테고리 '+S.cats.length+'개'+(S.tpls.size?' · 반복 할 일 '+S.tpls.size+'개':'')+(S.events.size?' · 고정 일정 '+S.events.size+'개':'')+'. 파일이나 복사한 텍스트를 따로 보관해 주세요. ‘백업 복원’에서 다시 불러올 수 있어요.</p>'+
+  drawSheet('<h2>백업 만들기</h2><p>할 일 '+S.tasks.size+'개 · 카테고리 '+S.cats.length+'개'+(S.tpls.size?' · 반복 할 일 '+S.tpls.size+'개':'')+(S.events.size?' · 고정 일정 '+S.events.size+'개':'')+(S.memos.size?' · 메모 '+S.memos.size+'개':'')+'. 파일이나 복사한 텍스트를 따로 보관해 주세요. ‘백업 복원’에서 다시 불러올 수 있어요.</p>'+
     '<textarea class="inp code" id="x-out" readonly aria-label="백업 텍스트">'+esc(exportJSON())+'</textarea>'+
     '<div class="actions"><button class="btn sec" type="button" data-act="copy">텍스트 복사</button><span class="sp"></span><button class="btn pri" type="button" data-act="xfile">파일로 저장</button></div>');
 }
@@ -795,7 +798,7 @@ function parseImport(text){
   // 조용히 잘라내면 성공으로 표시돼도 백업 일부를 잃는다.
   // 기존 안전 한도를 넘으면 쓰기 전에 전체를 거부한다.
   const over=(v,n)=>Array.isArray(v)&&v.length>n;
-  if(over(d.cats,40)||over(d.tpls,200)||over(d.events,200)
+  if(over(d.cats,40)||over(d.tpls,200)||over(d.events,200)||over(d.memos,2000)
     ||(Array.isArray(d.cats)&&d.cats.some(c=>c&&over(c.subs,60)))
     ||d.tasks.concat(Array.isArray(d.tpls)?d.tpls:[]).some(t=>t&&over(t.subtasks,100))
     ||(Array.isArray(d.events)&&d.events.some(e=>e&&(over(e.slots,14)||over(e.skips,5000)
@@ -816,7 +819,13 @@ function parseImport(text){
       skips:(Array.isArray(e.skips)?e.skips:[]).filter(x=>KEY_RE.test(x)),archived:!!e.archived,createdAt:c.createdAt,
       ovr:Object.fromEntries(Object.entries(e.ovr&&typeof e.ovr==="object"?e.ovr:{}).filter(([k,o])=>KEY_RE.test(k)&&o&&(TIME_RE.test(o.time)||typeof o.place==="string"))
         .map(([k,o])=>[k,Object.assign(TIME_RE.test(o.time)?{time:o.time,end:okEnd(o.time,o.end)?o.end:null}:{},typeof o.place==="string"?{place:o.place.slice(0,60)}:{})]))};});
-  return {tasks,cats,tpls,events};
+  /* 메모(2.8.0): 글 2만 자, 자리·크기는 보드 안의 숫자로 */
+  const num=(v,lo,hi,dv)=>Number.isFinite(v)?Math.min(hi,Math.max(lo,Math.round(v))):dv;
+  const memos=(Array.isArray(d.memos)?d.memos:[]).filter(m=>m&&typeof m.id==="string"&&/^m_[A-Za-z0-9_-]{1,60}$/.test(m.id)).map(m=>({id:m.id,
+    text:typeof m.text==="string"?m.text.slice(0,20000):"",color:COLORS.includes(m.color)?m.color:"",x:num(m.x,0,20000,40),y:num(m.y,0,20000,40),w:num(m.w,160,1600,240),h:num(m.h,120,1600,200),z:num(m.z,0,1e6,1),
+    createdAt:typeof m.createdAt==="number"?m.createdAt:Date.now(),updatedAt:typeof m.updatedAt==="number"?m.updatedAt:Date.now(),
+    ...(typeof m.deletedAt==="number"&&m.deletedAt>0&&m.deletedAt<=Date.now()+864e5?{deletedAt:m.deletedAt}:{})}));
+  return {tasks,cats,tpls,events,memos};
 }
 function cleanSlots(v){
   if(!Array.isArray(v))return null;const ids=new Set();
@@ -830,7 +839,7 @@ function drawImport(){
   drawSheet('<h2>백업 복원</h2><p>‘백업 만들기’에서 저장한 파일을 고르거나, 복사한 텍스트를 붙여넣어 주세요.</p>'+
     '<label class="btn sec filepick">백업 파일 고르기<input type="file" id="i-file" accept=".json,application/json,text/plain" hidden></label>'+
     '<textarea class="inp code" id="i-in" placeholder="여기에 붙여넣기" aria-label="복원할 백업">'+esc(d?S.importText:'')+'</textarea><div class="err" id="i-err" role="alert"></div>'+
-    (d?'<p id="i-sum">할 일 <b>'+d.tasks.length+'개</b>'+(d.cats?' · 카테고리 <b>'+d.cats.length+'개</b>':'')+(d.tpls.length?' · 반복 할 일 <b>'+d.tpls.length+'개</b>':'')+(d.events.length?' · 고정 일정 <b>'+d.events.length+'개</b>':'')+'</p>'+
+    (d?'<p id="i-sum">할 일 <b>'+d.tasks.length+'개</b>'+(d.cats?' · 카테고리 <b>'+d.cats.length+'개</b>':'')+(d.tpls.length?' · 반복 할 일 <b>'+d.tpls.length+'개</b>':'')+(d.events.length?' · 고정 일정 <b>'+d.events.length+'개</b>':'')+(d.memos.length?' · 메모 <b>'+d.memos.length+'개</b>':'')+'</p>'+
       '<p class="tnote" id="i-warning">백업에 있는 기존 항목은 백업 내용으로 바뀌어요. 백업에 없는 할 일과 일정은 그대로 남아요.'+(d.cats?' <b>카테고리 목록은 백업으로 모두 바뀌어요.</b> 사라진 카테고리의 할 일은 첫 번째 카테고리에 표시돼요.':'')+'</p>':'')+
     '<div class="actions"><span class="sp"></span><button class="btn pri" type="button" data-act="'+(d?'importgo':'importcheck')+'">'+(d?'백업 복원하기':'확인')+'</button></div>');
 }
@@ -1266,6 +1275,161 @@ function addFromTpl(id,k){
   return nid;
 }
 
+/* ---------- 메모(2.8.0) ----------
+   m_ 문서: {text, color("" 또는 c1~c8), x, y, w, h, z, createdAt, updatedAt, deletedAt?} — 날짜와 상관없는 메모(수업 메모처럼 할 일로 적기 애매한 것)
+   폰(좁은 화면)은 목록 + 편집 시트, PC(넓고 마우스)는 캔버스에 포스트잇처럼. 같은 데이터를 두 모양으로 본다.
+   글은 간단한 마크다운(mdHtml). 지운 메모는 할 일처럼 휴지통(S.trash)에 30일 */
+const MEMO_W=240,MEMO_H=200;
+const memoWide=()=>{try{return window.matchMedia("(min-width:900px) and (pointer:fine)").matches;}catch(e){return false;}};
+const memoList=()=>[...S.memos.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+/* 마크다운: 먼저 전부 이스케이프하고 나서 정해진 모양만 태그로 바꾼다(사용자 글이 HTML로 해석되지 않게) */
+function mdInline(s){
+  const codes=[];s=s.replace(/`([^`]+)`/g,(m,c)=>{codes.push(c);return "\u0000"+(codes.length-1)+"\u0000";});
+  s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)"]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<"]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*\w])\*([^*\s](?:[^*]*[^*\s])?)\*(?!\*)/g,'$1<i>$2</i>')
+    .replace(/~~([^~]+)~~/g,'<s>$1</s>');
+  return s.replace(/\u0000(\d+)\u0000/g,(m,i)=>'<code>'+codes[+i]+'</code>');
+}
+function mdHtml(text){
+  let h="",list=null;const close=()=>{if(list){h+=list==="ol"?'</ol>':'</ul>';list=null;}};
+  const open=k=>{if(list!==k){close();h+=k==="ol"?'<ol>':k==="chk"?'<ul class="mchk">':'<ul>';list=k;}};
+  String(text||"").split("\n").forEach((raw,i)=>{
+    let m;
+    if((m=raw.match(/^\s*[-*] \[( |x|X)\]\s?(.*)$/))){open("chk");const on=m[1]!==" ";
+      h+='<li'+(on?' class="on"':'')+'><button type="button" class="mcb'+(on?' on':'')+'" data-act="mcheck" data-line="'+i+'" role="checkbox" aria-checked="'+on+'" aria-label="'+esc(m[2]||"체크")+'"></button><span>'+mdInline(esc(m[2]))+'</span></li>';return;}
+    if((m=raw.match(/^\s*[-*] (.*)$/))){open("ul");h+='<li>'+mdInline(esc(m[1]))+'</li>';return;}
+    if((m=raw.match(/^\s*\d+[.)] (.*)$/))){open("ol");h+='<li>'+mdInline(esc(m[1]))+'</li>';return;}
+    close();
+    if((m=raw.match(/^(#{1,3})\s+(.*)$/))){h+='<p class="mh mh'+m[1].length+'">'+mdInline(esc(m[2]))+'</p>';return;}
+    if((m=raw.match(/^>\s?(.*)$/))){h+='<blockquote>'+mdInline(esc(m[1]))+'</blockquote>';return;}
+    if(/^\s*(-{3,}|\*{3,})\s*$/.test(raw)){h+='<hr>';return;}
+    if(!raw.trim()){h+='<p class="mgap"></p>';return;}
+    h+='<p>'+mdInline(esc(raw))+'</p>';
+  });
+  close();return h;
+}
+const memoTitle=t=>{const l=String(t.text||"").split("\n").find(x=>x.trim());return l?l.replace(/^#{1,3}\s+|^\s*[-*] (\[[ xX]\]\s?)?|^>\s?/g,"").replace(/[*`~]/g,"").trim().slice(0,60):"빈 메모";};
+function memoWhen(t){const d=new Date(t.updatedAt||t.createdAt||Date.now()),k=keyOf(d);
+  return k===today?"오늘 "+fmtTime(pad(d.getHours())+":"+pad(d.getMinutes())):relWord(k)||(d.getFullYear()!==new Date().getFullYear()?d.getFullYear()+"년 ":"")+(d.getMonth()+1)+"월 "+d.getDate()+"일";}
+const memoStyle=t=>t.color?' style="--cc:var(--'+t.color+')"':'';
+/* 새 메모 자리: 보드에서 다른 메모와 덜 겹치는 곳(왼쪽 위부터 격자로) */
+function memoSpot(){
+  const all=[...S.memos.values()];
+  for(let r=0;r<40;r++)for(let c=0;c<5;c++){const x=40+c*(MEMO_W+24),y=40+r*(MEMO_H+24);
+    if(!all.some(m=>m.x<x+MEMO_W&&m.x+(m.w||MEMO_W)>x&&m.y<y+MEMO_H&&m.y+(m.h||MEMO_H)>y))return {x,y};}
+  return {x:40,y:40};
+}
+const memoTop=()=>Math.max(0,...[...S.memos.values()].map(m=>m.z||0))+1;
+function newMemo(at,text,color){
+  const id=uid8("m_"),p=at||memoSpot(),now=Date.now();
+  const body={text:text||"",color:color||"",x:Math.round(p.x),y:Math.round(p.y),w:MEMO_W,h:MEMO_H,z:memoTop(),createdAt:now,updatedAt:now};
+  S.memos.set(id,Object.assign({id},body));setTask(id,body);return id;
+}
+function patchMemo(id,p){const t=S.memos.get(id);if(!t)return;Object.assign(t,p);patchTask(id,p);}
+function renderMemo(){
+  const q=(S.mq||"").trim().toLowerCase(),wide=memoWide()&&!q,list=memoList();
+  let h='<div class="dayhead"><div class="hrow"><h1>메모</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button></div></div>';
+  h+='<div class="searchrow"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
+  if(S.mode==="loading"){morph($("#main"),h);return;}
+  if(wide){
+    let bw=2400,bh=1600;for(const m of list){bw=Math.max(bw,m.x+(m.w||MEMO_W)+600);bh=Math.max(bh,m.y+(m.h||MEMO_H)+600);}
+    h+='<p class="mhint">빈 곳을 두 번 눌러 메모를 붙여요 · 위쪽 막대를 끌어 옮기고, 오른쪽 아래 모서리로 크기를 바꿔요</p>'+
+      '<div class="board" id="board"><div class="bsurf" id="bsurf" style="width:'+bw+'px;height:'+bh+'px">'+
+      list.map(t=>{const ed=S.mEdit===t.id;
+        return '<div class="mnote'+(t.color?' tint':'')+(ed?' editing':'')+'" id="mn-'+t.id+'" data-mid="'+t.id+'" style="left:'+t.x+'px;top:'+t.y+'px;width:'+(t.w||MEMO_W)+'px;height:'+(t.h||MEMO_H)+'px;z-index:'+(t.z||1)+(t.color?';--cc:var(--'+t.color+')':'')+'">'+
+          '<div class="mbar" data-drag="'+t.id+'"><span class="mwhen">'+esc(memoWhen(t))+'</span><button class="mopen" type="button" data-act="mopen" data-id="'+t.id+'" aria-label="'+esc(memoTitle(t))+' 크게 열기">'+
+          '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5h3v3M5.5 11.5h-3v-3M11.5 2.5 8 6M2.5 11.5 6 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>'+
+          (ed?'<textarea class="mta" id="mt-'+t.id+'" aria-label="메모 내용" spellcheck="false">'+esc(t.text)+'</textarea>'
+            :'<div class="mbody md" data-act="medit" data-id="'+t.id+'">'+(t.text.trim()?mdHtml(t.text):'<p class="mempty">눌러서 쓰기</p>')+'</div>')+
+          '<span class="mrz" data-rz="'+t.id+'" aria-hidden="true"></span></div>';}).join("")+
+      '</div></div>';
+  }else{
+    const res=q?list.filter(t=>String(t.text||"").toLowerCase().includes(q)):list;
+    if(!list.length)h+='<p class="hint">아직 메모가 없어요. ＋를 눌러 수업 메모처럼 할 일로 적기 애매한 것을 남겨요. ‘# 제목’, ‘- [ ] 체크’처럼 간단한 마크다운을 쓸 수 있어요</p>';
+    else if(!res.length)h+='<p class="empty">‘'+esc(S.mq.trim())+'’에 맞는 메모가 없어요</p>';
+    else h+='<div class="mlist">'+res.map(t=>'<article class="mcard'+(t.color?' tint':'')+'"'+memoStyle(t)+' data-act="mopen" data-id="'+t.id+'" tabindex="0" aria-label="'+esc(memoTitle(t))+'">'+
+      '<div class="mbody md">'+(t.text.trim()?mdHtml(t.text):'<p class="mempty">빈 메모</p>')+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>').join("")+'</div>';
+  }
+  morph($("#main"),h);
+  if(wide&&S.mEdit){const ta=document.getElementById("mt-"+S.mEdit);if(ta&&document.activeElement!==ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}}
+}
+/* 체크 목록 줄 하나 켜고 끄기(메모를 열지 않고 바로) */
+function memoCheck(id,line){
+  const t=S.memos.get(id);if(!t)return;const L=String(t.text).split("\n");if(!L[line])return;
+  L[line]=L[line].replace(/\[( |x|X)\]/,m=>m==="[ ]"?"[x]":"[ ]");patchMemo(id,{text:L.join("\n"),updatedAt:Date.now()});render();if(S.sheet==="memo"&&dlg.open)drawMemoSheet();
+}
+/* 보드에서 바로 쓰기: 입력 중엔 0.8초마다, 벗어나면 바로 저장. 바뀐 글만 */
+let memoT=null;
+function memoFlush(id){clearTimeout(memoT);memoT=null;const ta=document.getElementById("mt-"+id),t=S.memos.get(id);if(!ta||!t)return;if(ta.value!==t.text)patchMemo(id,{text:ta.value,updatedAt:Date.now()});}
+/* 편집 시트(폰, PC '크게 열기' 공통). 메모는 닫으면 저장한다(할 일 편집과 달리 '저장' 버튼이 없다 — 글을 쓰다 잃지 않게) */
+function openMemo(id){
+  const t=id&&S.memos.get(id);if(id&&!t)return;
+  if(S.mEdit){memoFlush(S.mEdit);S.mEdit=null;}
+  S.memoEdit={id:id||null,text:t?t.text:"",color:t?t.color||"":"",base:t?{text:t.text,color:t.color||""}:null};S.memoArm=false;
+  openSheet("memo",drawMemoSheet);
+  const ta=$("#m-text");if(ta&&!id)ta.focus();
+}
+function drawMemoSheet(){
+  const e=S.memoEdit;if(!e)return;const t=e.id&&S.memos.get(e.id);
+  drawSheet('<p class="eyebrow sheet-eb"><span>'+(e.id?'메모 · '+esc(memoWhen(t||{})):'새 메모')+'</span></p>'+
+    '<div class="sw msw" role="group" aria-label="메모 색"><button type="button" class="mplain" aria-pressed="'+(!e.color)+'" aria-label="기본" data-act="mcolor" data-color=""></button>'+
+      COLORS.map(k=>'<button type="button" style="--cc:var(--'+k+')" aria-pressed="'+(k===e.color)+'" aria-label="'+COLOR_NAME[k]+'" data-act="mcolor" data-color="'+k+'"></button>').join("")+'</div>'+
+    '<textarea class="inp mtext" id="m-text" aria-label="메모 내용" placeholder="# 제목&#10;내용을 적어요&#10;- [ ] 체크 목록">'+esc(e.text)+'</textarea>'+
+    '<p class="snote">마크다운: # 제목 · **굵게** · *기울임* · - 목록 · - [ ] 체크 · `코드` · [링크](https://…)</p>'+
+    '<div class="actions">'+(e.id?'<button class="btn dng" type="button" data-act="mdel">휴지통으로</button>':'')+'<span class="sp"></span><button class="btn pri" type="button" data-act="close">완료</button></div>');
+}
+function commitMemo(){
+  const e=S.memoEdit;S.memoEdit=null;if(!e)return;const ta=$("#m-text");if(ta)e.text=ta.value;
+  if(e.gone)return;
+  if(!e.id){if(e.text.trim()){newMemo(null,e.text,e.color);toast("메모를 추가했어요");}return;}
+  if(!S.memos.has(e.id))return;
+  const p={};if(e.text!==e.base.text)p.text=e.text;if(e.color!==e.base.color)p.color=e.color;
+  if(Object.keys(p).length){p.updatedAt=Date.now();patchMemo(e.id,p);}
+}
+function delMemo(id){
+  const t=S.memos.get(id);if(!t)return;S.memos.delete(id);if(S.mEdit===id)S.mEdit=null;
+  patchTask(id,{deletedAt:Date.now()});render();
+  toast("메모를 휴지통으로 옮겼어요",{label:"되돌리기",fn:()=>patchTask(id,{deletedAt:null})});
+}
+/* 보드: 끌어서 옮기기·크기 바꾸기(포인터). 끄는 동안엔 화면을 다시 그려도 그 메모는 건드리지 않는다(morph가 .dragging을 건너뜀) */
+(function(){
+  let g=null;
+  document.addEventListener("pointerdown",ev=>{
+    if(S.view!=="memo"||ev.button!==0)return;
+    const dh=ev.target.closest&&ev.target.closest("[data-drag],[data-rz]");if(!dh||ev.target.closest("button"))return;
+    const id=dh.dataset.drag||dh.dataset.rz,t=S.memos.get(id),el=document.getElementById("mn-"+id);if(!t||!el)return;
+    if(S.mEdit&&S.mEdit!==id){memoFlush(S.mEdit);}
+    ev.preventDefault();const z=(t.z||0)<memoTop()-1?memoTop():t.z;el.style.zIndex=z;
+    g={id,el,rz:!!dh.dataset.rz,x0:ev.clientX,y0:ev.clientY,x:t.x,y:t.y,w:t.w||MEMO_W,h:t.h||MEMO_H,z,moved:false};
+    el.classList.add("dragging");try{dh.setPointerCapture(ev.pointerId);}catch(e){}
+  });
+  document.addEventListener("pointermove",ev=>{
+    if(!g)return;const dx=ev.clientX-g.x0,dy=ev.clientY-g.y0;if(Math.abs(dx)+Math.abs(dy)>2)g.moved=true;
+    if(g.rz){g.el.style.width=Math.max(160,g.w+dx)+"px";g.el.style.height=Math.max(120,g.h+dy)+"px";}
+    else{g.el.style.left=Math.max(0,g.x+dx)+"px";g.el.style.top=Math.max(0,g.y+dy)+"px";}
+  });
+  const end=()=>{
+    if(!g)return;const {id,el,rz,z,moved}=g;g=null;el.classList.remove("dragging");
+    const p=rz?{w:Math.round(parseFloat(el.style.width)),h:Math.round(parseFloat(el.style.height))}:{x:Math.round(parseFloat(el.style.left)),y:Math.round(parseFloat(el.style.top))};
+    if(moved||z!==(S.memos.get(id)||{}).z){p.z=z;patchMemo(id,p);}render();
+  };
+  document.addEventListener("pointerup",end);document.addEventListener("pointercancel",end);
+  document.addEventListener("dblclick",ev=>{
+    if(S.view!=="memo"||ev.target.id!=="bsurf")return;
+    const r=ev.target.getBoundingClientRect();
+    const id=newMemo({x:Math.max(0,ev.clientX-r.left-MEMO_W/2),y:Math.max(0,ev.clientY-r.top-20)});S.mEdit=id;S.mFresh=id;render();
+  });
+  document.addEventListener("focusout",ev=>{
+    const el=ev.target;if(!el.id||!el.id.startsWith("mt-"))return;const id=el.id.slice(3);
+    memoFlush(id);
+    /* 두 번 눌러 만들고 아무것도 안 쓰고 벗어나면 그 메모는 없앤다(빈 포스트잇이 남지 않게) */
+    const t=S.memos.get(id);if(t&&S.mFresh===id&&!t.text.trim()){S.memos.delete(id);delTask(id);}
+    if(S.mFresh===id)S.mFresh=null;
+    setTimeout(()=>{if(S.mEdit===id&&document.activeElement!==document.getElementById("mt-"+id)){S.mEdit=null;render();}},0);
+  });
+})();
+
 /* ---------- 카테고리 관리 시트 ---------- */
 const upSvg='<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3.5 8.5L7 5l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const dnSvg='<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3.5 5.5L7 9l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1337,7 +1501,15 @@ document.addEventListener("click",ev=>{
   const a=b.dataset.act;
   if(S.mode==="loading"&&/^(add|toggle|edit|menu|carry|tpl|tpladd|tpladdw|info|ginfo|skip|tgroup|einfo|slot|evs)$/.test(a)){if(!S.loadTold){S.loadTold=true;toast("불러오는 중이에요");setTimeout(()=>{S.loadTold=false;},2500);}return;}
   switch(a){
-    case"view":{const v=b.dataset.v;if(v==="week"&&S.view!=="week"){S.week=weekStart(S.sel);S.ttFirst=S.sel;}S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
+    case"mnew":{if(memoWide()&&!(S.mq||"").trim()){if(S.mEdit)memoFlush(S.mEdit);const p=memoSpot(),id=newMemo(p);S.mEdit=id;S.mFresh=id;render();
+        const bd=$("#board");if(bd&&(p.y<bd.scrollTop||p.y>bd.scrollTop+bd.clientHeight-100||p.x<bd.scrollLeft||p.x>bd.scrollLeft+bd.clientWidth-100))bd.scrollTo({left:Math.max(0,p.x-40),top:Math.max(0,p.y-40)});}
+      else openMemo(null);break;}
+    case"mopen":if(ev.target.closest("a"))break;openMemo(b.dataset.id);break;
+    case"medit":{if(ev.target.closest("a"))break;if(S.mEdit&&S.mEdit!==b.dataset.id)memoFlush(S.mEdit);S.mEdit=b.dataset.id;render();break;}
+    case"mcheck":{const host=b.closest("[data-mid],[data-id]");if(host)memoCheck(host.dataset.mid||host.dataset.id,+b.dataset.line);break;}
+    case"mcolor":{const e=S.memoEdit;if(!e)break;const ta=$("#m-text");if(ta)e.text=ta.value;e.color=b.dataset.color;drawMemoSheet();break;}
+    case"mdel":{const e=S.memoEdit;if(!e||!e.id)break;e.gone=true;closeDlg();delMemo(e.id);break;}
+    case"view":{const v=b.dataset.v;if(S.mEdit){memoFlush(S.mEdit);S.mEdit=null;}if(v==="week"&&S.view!=="week"){S.week=weekStart(S.sel);S.ttFirst=S.sel;}S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();break;}
     case"ttshow":S.ttShow=b.dataset.v;pref.set("ttShow",S.ttShow);render();break;
     case"wnav":{const d=+b.dataset.d;
       if(isThree()){const tt=$("#main .tt3");if(tt&&S.ttColW)tt.scrollBy({left:d*3*S.ttColW,behavior:reduced?"auto":"smooth"});break;}
@@ -1456,7 +1628,7 @@ document.addEventListener("click",ev=>{
       try{navigator.clipboard.writeText(ta.value).then(()=>toast("복사했어요"),sel);}catch(e){sel();}break;}
     case"import":S.importData=null;openSheet("import",drawImport);break;
     case"importcheck":{const txt=$("#i-in").value;const r=parseImport(txt);if(r.err){$("#i-err").textContent=r.err;break;}
-      if(!r.tasks.length&&!r.cats&&!r.tpls.length&&!r.events.length){$("#i-err").textContent="복원할 항목이 없어요";break;}
+      if(!r.tasks.length&&!r.cats&&!r.tpls.length&&!r.events.length&&!r.memos.length){$("#i-err").textContent="복원할 항목이 없어요";break;}
       S.importData=r;S.importText=txt;drawImport();break;}
     case"importgo":{const d=S.importData;if(!d)break;b.disabled=true;$("#i-in").disabled=true;b.textContent="복원 중…";
       store.importAll(d).then(n=>{closeDlg();toast("백업을 복원했어요");},e=>{if(e&&e.code==="partial"){const er=$("#i-err");if(er)er.textContent="일부만 복원됐어요. 같은 백업으로 한 번 더 복원해 주세요(이미 들어간 것은 겹치지 않아요)";}else onError(e);b.disabled=false;const input=$("#i-in");if(input)input.disabled=false;b.textContent="백업 복원하기";});break;}
@@ -1525,6 +1697,9 @@ document.addEventListener("input",ev=>{
   }
   else if(el.matches&&el.matches(".addrow input")){S.addDraft=el.value;updQuick();}
   else if(el.id==="q"){S.q=el.value;S.qMax=0;render();}
+  else if(el.id==="mq"){S.mq=el.value;if(S.mEdit){memoFlush(S.mEdit);S.mEdit=null;}render();}
+  else if(el.id==="m-text"){if(S.memoEdit)S.memoEdit.text=el.value;}
+  else if(el.id&&el.id.startsWith("mt-")){const id=el.id.slice(3);clearTimeout(memoT);memoT=setTimeout(()=>memoFlush(id),800);}
   else if(editing()&&(el.id==="e-time"||el.id==="e-end")){syncEdit();redrawEdit();}
   else if(editing()&&S.edit&&S.edit.ev&&/^s-(time|end)-\d+$/.test(el.id)){syncEdit();drawEv();}
 });
@@ -1583,7 +1758,10 @@ function handleEnter(el){
 }
 const enterTarget=el=>el.matches&&(el.matches(".addrow input,.subnew")||el.id==="e-title"||el.id==="e-place"||el.id==="s-new"||el.id==="e-dur"||((el.id==="e-time"||el.id==="e-end"||/^s-(time|end)-\d+$/.test(el.id))&&el.type==="text"));
 document.addEventListener("keydown",ev=>{
-  const el=ev.target;if(!enterTarget(el)){return;}
+  const el=ev.target;
+  if(ev.key==="Escape"&&el.id&&el.id.startsWith("mt-")){ev.preventDefault();el.blur();return;}
+  if(ev.key==="Enter"&&el.classList&&el.classList.contains("mcard")){ev.preventDefault();openMemo(el.dataset.id);return;}
+  if(!enterTarget(el)){return;}
   if(ev.key==="Escape"&&el.matches(".addrow input")){ev.preventDefault();S.adding=null;render();return;}
   if(ev.key!=="Enter"&&ev.keyCode!==13)return;
   if(ev.isComposing||ev.keyCode===229){pendingEnter=el;return;}
@@ -1660,7 +1838,7 @@ function applyPatch(t,p){
 }
 function memoryStore(){
   const tasks=new Map();let cats=null,cb=null;
-  const emit=()=>{if(!cb)return;const t=new Map(),r=new Map(),e=new Map();for(const [k,v] of tasks)(k.startsWith("r_")?r:k.startsWith("e_")?e:t).set(k,v);cb.onData({tasks:t,cats,tpls:r,events:e},{server:true});};
+  const emit=()=>{if(!cb)return;const t=new Map(),r=new Map(),e=new Map(),mm=new Map();for(const [k,v] of tasks)(k.startsWith("r_")?r:k.startsWith("e_")?e:k.startsWith("m_")?mm:t).set(k,v);cb.onData({tasks:t,cats,tpls:r,events:e,memos:mm},{server:true});};
   return {kind:"memory",
     start(c){cb=c;cb.onStatus("local");emit();},
     set(id,b){tasks.set(id,Object.assign({id},b));emit();return Promise.resolve();},
@@ -1671,19 +1849,23 @@ function memoryStore(){
     raise(id,f,v){const t=tasks.get(id);if(!t||(t[f]||"")>=v)return Promise.resolve(false);tasks.set(id,Object.assign({},t,{[f]:v}));emit();return Promise.resolve(true);},
     removeIf(id,f,v){const t=tasks.get(id);if(!t||t[f]!==v)return Promise.resolve(false);tasks.delete(id);emit();return Promise.resolve(true);},
     saveCats(c){cats=c;emit();return Promise.resolve();},
-    importAll(d){if(d.cats)cats=d.cats;d.tasks.concat(d.tpls||[],d.events||[]).forEach(t=>{const b=Object.assign({},t);delete b.id;tasks.set(t.id,Object.assign({id:t.id},b));});emit();return Promise.resolve(d.tasks.length);}};
+    importAll(d){if(d.cats)cats=d.cats;d.tasks.concat(d.tpls||[],d.events||[],d.memos||[]).forEach(t=>{const b=Object.assign({},t);delete b.id;tasks.set(t.id,Object.assign({id:t.id},b));});emit();return Promise.resolve(d.tasks.length);}};
 }
 
 /* 새 버전 안내: 서비스 워커가 새 묶음을 다 받으면 app.js가 부른다. 누르면 새 워커로 바꾸고 다시 연다 */
 let updApply=null;
 function updateReady(apply){updApply=apply;const u=$("#upd");if(u)u.hidden=false;}
 /* 지운 할 일(deletedAt)은 따로 둔다: 화면의 모든 목록·숫자·알림은 S.tasks만 본다 */
-function splitTrash(all){const a=new Map(),t=new Map();for(const [k,v] of all)(v.deletedAt?t:a).set(k,v);S.tasks=a;S.trash=t;}
+function splitTrash(all,memos){const a=new Map(),t=new Map(),m=new Map();for(const [k,v] of all)(v.deletedAt?t:a).set(k,v);
+  for(const [k,v] of memos||[])(v.deletedAt?t:m).set(k,v);S.tasks=a;S.trash=t;S.memos=m;}
 function drawTrash(){
   const list=[...S.trash.values()].sort((a,b)=>b.deletedAt-a.deletedAt);
-  let h='<h2>휴지통</h2><p>지운 할 일은 30일 뒤에 완전히 삭제돼요</p>';
+  let h='<h2>휴지통</h2><p>지운 할 일과 메모는 30일 뒤에 완전히 삭제돼요</p>';
   if(!list.length)h+='<p class="empty">비어 있어요</p>';
-  else h+='<div class="tpllist">'+list.map(t=>{const c=catOf(t),left=Math.max(1,30-Math.floor((Date.now()-t.deletedAt)/864e5));
+  else h+='<div class="tpllist">'+list.map(t=>{const left=Math.max(1,30-Math.floor((Date.now()-t.deletedAt)/864e5));
+    if(t.id.startsWith("m_"))return '<div class="tplrow trow"'+(t.color?' style="--cc:var(--'+t.color+')"':' style="--cc:var(--muted)"')+'><span class="dot"></span><span class="nm"><span class="nt">'+esc(memoTitle(t))+'</span></span><span class="when">메모 · '+left+'일 남음</span>'+
+      '<button class="btn ghost sm" type="button" data-act="trestore" data-id="'+t.id+'" aria-label="'+esc(memoTitle(t))+' 복원">복원</button></div>';
+    const c=catOf(t);
     return '<div class="tplrow trow" style="--cc:var(--'+c.color+')"><span class="dot"></span><span class="nm">'+nameH(t)+'</span><span class="when">'+(t.date?md(t.date):'날짜 없음')+' · '+left+'일 남음</span>'+
       '<button class="btn ghost sm" type="button" data-act="trestore" data-id="'+t.id+'" aria-label="'+esc(t.title)+' 복원">복원</button></div>';}).join("")+'</div>';
   h+='<div class="actions">'+(list.length?'<button class="btn dng" type="button" data-act="tempty">'+(S.trashArm?'모두 영구 삭제':'휴지통 비우기')+'</button>':'')+'<span class="sp"></span><button class="btn ghost" type="button" data-act="close">닫기</button></div>';
@@ -1696,9 +1878,9 @@ window.TodoApp={
     store=s;
     render();
     store.start({
-      onData(d,meta){S.fresh=!!(meta&&meta.server);splitTrash(d.tasks);S.tpls=d.tpls instanceof Map?d.tpls:new Map();S.events=d.events instanceof Map?d.events:new Map();if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();if(S.sheet==="info"&&dlg.open&&!sheetClosing)drawInfo();else if(S.sheet==="group"&&dlg.open&&!sheetClosing)drawGroup();else if(S.sheet==="trash"&&dlg.open&&!sheetClosing)drawTrash();
+      onData(d,meta){S.fresh=!!(meta&&meta.server);splitTrash(d.tasks,d.memos instanceof Map?d.memos:null);S.tpls=d.tpls instanceof Map?d.tpls:new Map();S.events=d.events instanceof Map?d.events:new Map();if(Array.isArray(d.cats)&&d.cats.length)S.cats=d.cats;if(S.mode==="signedout"||S.mode==="config")return;render();if(S.sheet==="info"&&dlg.open&&!sheetClosing)drawInfo();else if(S.sheet==="group"&&dlg.open&&!sheetClosing)drawGroup();else if(S.sheet==="trash"&&dlg.open&&!sheetClosing)drawTrash();
         if(meta&&meta.server)daily();},
-      onStatus(m){if(m===S.mode)return;if(m==="live")setTimeout(()=>openDate(location.hash),0);if(m==="signedout"){S.tasks=new Map();S.trash=new Map();S.tpls=new Map();S.events=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
+      onStatus(m){if(m===S.mode)return;if(m==="live")setTimeout(()=>openDate(location.hash),0);if(m==="signedout"){S.tasks=new Map();S.trash=new Map();S.memos=new Map();S.mEdit=null;S.tpls=new Map();S.events=new Map();S.cats=DEFAULT_CATS.slice();S.anim=false;if(dlg.open)dlg.close();}
         const out=x=>x==="signedout"||x==="config";
         if(out(m)!==out(S.mode))$("#main").innerHTML="";
         S.mode=m;render();

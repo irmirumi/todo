@@ -19,13 +19,14 @@ const bodyOf = t => { const b = Object.assign({}, t); delete b.id; return b; };
 
 /* 스냅샷 문서들 → 화면에 줄 데이터 + 묶음 색인. docs: [{id, data}] */
 export function expand(docs) {
-  const tasks = new Map(), tpls = new Map(), events = new Map(), arch = new Map(), sizes = new Map(), dups = new Map(), bytes = new Map(); let cats = null;
+  const tasks = new Map(), tpls = new Map(), events = new Map(), memos = new Map(), arch = new Map(), sizes = new Map(), dups = new Map(), bytes = new Map(); let cats = null;
   const loose = [];
   for (const { id, data: v } of docs) {
     if (id === "meta") cats = v.cats;
     else if (id.startsWith("t_")) tasks.set(id, Object.assign({ id }, v));
     else if (id.startsWith("r_")) tpls.set(id, Object.assign({ id }, v));
     else if (id.startsWith("e_")) events.set(id, Object.assign({ id }, v));
+    else if (id.startsWith("m_")) memos.set(id, Object.assign({ id }, v)); // 메모(2.8.0): 묶지 않는다
     else if (id.startsWith("a_") && v && v.tasks && typeof v.tasks === "object") loose.push([id, v.tasks]);
   }
   // 묶음 안의 할 일: 같은 id가 따로 살아 있으면(다른 기기에서 되살린 경우) 따로 있는 쪽이 이긴다
@@ -40,7 +41,7 @@ export function expand(docs) {
     }
     sizes.set(aid, n); bytes.set(aid, bytesOf(map));
   }
-  return { tasks, tpls, events, cats, arch, sizes, dups, bytes };
+  return { tasks, tpls, events, memos, cats, arch, sizes, dups, bytes };
 }
 
 /* 묶을 할 일 고르기 → 작업 목록. now: ms */

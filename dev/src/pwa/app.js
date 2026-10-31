@@ -62,9 +62,9 @@ function listen(uid) {
   let first = true;
   unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
     const docs = []; snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
-    const { tasks, tpls, events, cats, arch, sizes, dups, bytes } = expand(docs);
+    const { tasks, tpls, events, memos, cats, arch, sizes, dups, bytes } = expand(docs);
     cur = { tasks, arch, sizes, dups, bytes };
-    last = { tasks, cats, tpls, events };
+    last = { tasks, cats, tpls, events, memos };
     // server: 기기 저장본이 아니라 서버에서 받은 최신이고 올리는 중인 것도 없을 때(자동 추가는 이때만 — 옛 사본으로 덮어쓰지 않게)
     cb.onData(last, { server: !snap.metadata.fromCache && !snap.metadata.hasPendingWrites });
     // 기기에 남아 있던 옛 사본으로 서버의 알림 목록을 덮어쓰지 않도록, 서버에서 받은 것일 때만 맞춘다
@@ -144,6 +144,7 @@ const store = {
     d.tasks.forEach(t => ops.push([t.id, bodyOf(t)]));
     (d.tpls || []).forEach(r => ops.push([r.id, bodyOf(r)]));
     (d.events || []).forEach(e => ops.push([e.id, bodyOf(e)]));
+    (d.memos || []).forEach(m => ops.push([m.id, bodyOf(m)]));
     // 400개씩 나눠 쓴다. 각 묶음은 전부 되거나 전부 안 되지만, 두 번째 묶음부터 실패하면 앞 묶음은 이미 들어가 있다(partial).
     // 같은 백업을 다시 복원하면 같은 id에 같은 내용을 쓰므로 안전하다
     for (let i = 0; i < ops.length; i += 400) {

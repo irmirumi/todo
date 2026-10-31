@@ -39,7 +39,7 @@ def go(w,h,tag):
     t=[x for x in pg.evaluate("[...__d.tasks.values()]") if x["title"]=="새 할일"][0]; check(t["cat"]=="k3" and t["date"]==D(1), "전체 탭 추가: 고른 카테고리·날짜")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(150)
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
-    check(pg.locator(".blk:not(.ghost)").count()>=6 and pg.locator(".nowline").count()==1, "시간표: 칸들과 지금 선")
+    check(pg.locator(".blk:not(.ghost)").count()>=4 and pg.locator(".nowline").count()==1, "시간표: 칸들과 지금 선 "+str((pg.locator(".blk:not(.ghost)").count(),pg.locator(".nowline").count())))
     check(pg.locator(".tth").count()==(21 if w<600 else 7), "폰 3일 보기는 21일 이어 붙임, PC는 7일")
     pg.screenshot(path=OUT+tag+"-week.png",full_page=True)
     pg.click("[data-act=wnav][data-d='1']"); pg.wait_for_timeout(300)

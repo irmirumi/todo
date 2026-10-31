@@ -91,6 +91,8 @@ with sync_playwright() as p:
 
     # 고정 일정: 이날만 장소만 → 원본 시간을 고치면 그날도 따라감
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
+    # 보고 있는 날이 내일이라 시간표 주가 넘어갈 수 있다(토요일): 보이는 첫 고정 일정 칸의 날로 확인
+    tk = pg.locator(".blk.ev").first.get_attribute("data-k")
     blk = pg.locator(f".blk.ev[data-k='{tk}']")
     blk.click(); pg.click(".sheet [data-act=evday]"); pg.fill("#e-place", "온라인"); pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(250)
     check(ev()["ovr"] == {tk: {"place": "온라인"}}, "이날만: 바꾼 장소만 기록 " + str(ev()["ovr"]))
@@ -104,7 +106,8 @@ with sync_playwright() as p:
     pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(200)
     check(pg.inner_text("#toastMsg") == "요일과 시작 시간을 정해 주세요" and pg.is_visible(".sheet [data-act=save]"), "요일·시간 없으면 저장 막기")
     esc()
-    # 시간표 위 줄 이름
+    # 시간표 위 줄 이름(보고 있는 주가 다음 주면 시간 미정 할 일이 없을 수 있어 이번 주로)
+    pg.evaluate("()=>{const b=document.querySelector('[data-act=wtoday]');if(b)b.click();}"); pg.wait_for_timeout(300)
     check(pg.locator(".ttallL").inner_text() == "시간 미정", "시간표 위 줄: 시간 미정")
     check(pg.locator(".ttfacts [data-act=evs]").inner_text() == "고정 일정 관리", "시간표 아래: 고정 일정 관리")
     pg.click("[data-act=menu]"); m = pg.inner_text(".menu")
