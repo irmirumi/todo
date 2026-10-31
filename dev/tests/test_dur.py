@@ -44,7 +44,7 @@ with sync_playwright() as p:
         check(end() == "12:45", f"{name}: 길이 직접 '45분' → 12:45")
         setv("#e-time", "23:30"); pg.click(".durrow [data-m='60']"); pg.wait_for_timeout(80)
         check(end() == "00:30", f"{name}: 자정 넘김 23:30 + 1시간 → 00:30")
-        pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(200)
+        pg.click(".sheet [data-act=save]"); pg.wait_for_timeout(350)
         t = pg.evaluate("window.__last.tasks.get('t_1')")
         check(t["time"] == "23:30" and t["end"] == "00:30", f"{name}: 저장")
         # 고정 일정 시트에도

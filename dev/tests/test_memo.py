@@ -18,7 +18,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
     pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp")
-    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(200)
+    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
     check(pg.locator(".mcard").count() == 2 and pg.locator(".board").count() == 0, "폰: 목록으로 보임(보드 없음)")
     check(pg.locator(".mcard").first.get_attribute("data-id") == "m_a", "최근 고친 것이 위")
     card = pg.locator(".mcard[data-id=m_a]")
@@ -39,6 +39,24 @@ with sync_playwright() as p:
     check("메모를 추가했어요" in pg.inner_text("#toastMsg"), "추가 알림")
     pg.click("[data-act=mnew]"); pg.wait_for_timeout(200); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(len(memos(pg)) == 3, "아무것도 안 쓰고 닫으면 안 만듦")
+    # 꾸미기 막대: 커서 줄에 체크 목록, 다시 누르면 뗌 / 굵게는 선택한 글에 / 목록에서 엔터면 다음 줄도 목록, 빈 항목 엔터면 끝
+    pg.click("[data-act=mnew]"); pg.wait_for_timeout(200)
+    pg.keyboard.type("살 것"); pg.click(".sheet .mfmt [data-k=chk]"); pg.wait_for_timeout(50)
+    check(pg.input_value("#m-text") == "- [ ] 살 것" and pg.evaluate("document.activeElement.id") == "m-text", "체크 버튼: 커서 줄을 체크 목록으로(입력칸 포커스 유지)")
+    pg.keyboard.press("Enter"); pg.keyboard.type("계산기"); pg.keyboard.press("Enter"); pg.keyboard.press("Enter")
+    check(pg.input_value("#m-text") == "- [ ] 살 것\n- [ ] 계산기\n", "엔터로 체크 목록 이어가기, 빈 항목에서 엔터면 끝 " + repr(pg.input_value("#m-text")))
+    pg.keyboard.type("중요"); pg.keyboard.down("Shift"); [pg.keyboard.press("ArrowLeft") for _ in range(2)]; pg.keyboard.up("Shift")
+    pg.click(".sheet .mfmt [data-k=b]"); pg.wait_for_timeout(50)
+    check(pg.input_value("#m-text").endswith("**중요**"), "굵게: 선택한 글을 감쌈")
+    pg.click(".sheet .mfmt [data-k=b]"); pg.wait_for_timeout(50)
+    check(pg.input_value("#m-text").endswith("\n중요"), "굵게 한 번 더: 뗌")
+    pg.click(".sheet .mfmt [data-k=h]"); pg.wait_for_timeout(50)
+    check(pg.input_value("#m-text").endswith("\n# 중요"), "제목 버튼")
+    pg.keyboard.press("Control+z"); pg.wait_for_timeout(50)
+    check(pg.input_value("#m-text").endswith("\n중요"), "되돌리기(Ctrl+Z)도 됨")
+    pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
+    nm = [v for v in memos(pg).values() if v["text"].startswith("- [ ] 살 것")]
+    check(len(nm) == 1, "꾸민 메모 저장")
     # 고치기: 바꾼 칸만
     pg.click(".mcard[data-id=m_b]"); pg.wait_for_timeout(200)
     pg.fill("#m-text", "영어 단어 외울 것 (30개)"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
@@ -56,7 +74,7 @@ with sync_playwright() as p:
     check(pg.locator(".mcard[data-id=m_b]").count() == 1, "복원")
     # 백업
     pg.click("[data-act=menu]"); pg.click("[data-act=export]"); data = json.loads(pg.input_value("#x-out")); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    check(len(data.get("memos", [])) == 3 and all(t["id"].startswith("t_") for t in data["tasks"]), "백업에 메모 포함(할 일과 따로)")
+    check(len(data.get("memos", [])) == 4 and all(t["id"].startswith("t_") for t in data["tasks"]), "백업에 메모 포함(할 일과 따로)")
     check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "폰: 가로로 안 넘침")
     ctx.close()
     # ---------- PC ----------
@@ -64,7 +82,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
     pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp")
-    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(200)
+    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
     check(pg.locator(".board .mnote").count() == 2, "PC: 보드에 포스트잇")
     box = pg.locator("#mn-m_a").bounding_box()
     check(abs(box["width"] - 260) < 2, "저장된 크기대로")
@@ -84,6 +102,10 @@ with sync_playwright() as p:
     check(pg.evaluate("document.activeElement.id") == "mt-m_b", "누르면 그 자리에서 쓰기")
     pg.keyboard.press("End"); pg.keyboard.type("\n- 다음 주까지"); pg.wait_for_timeout(1000)
     check(memos(pg)["m_b"]["text"].endswith("- 다음 주까지"), "쓰는 중에도 저장")
+    check(pg.locator("#mn-m_b .mbar .mfmt").count() == 1, "보드: 쓰는 중엔 막대에 꾸미기 버튼")
+    pg.keyboard.press("Control+b"); pg.keyboard.type("x"); pg.wait_for_timeout(50)
+    check(pg.input_value("#mt-m_b").endswith("**x**"), "Ctrl+B: 굵게")
+    pg.keyboard.press("Control+z"); pg.keyboard.press("Control+z"); pg.wait_for_timeout(50)
     pg.keyboard.press("Escape"); pg.wait_for_timeout(200)
     check(pg.locator("#mn-m_b textarea").count() == 0 and pg.locator("#mn-m_b .mbody li").count() == 1, "Esc로 끝내면 마크다운으로")
     # 두 번 눌러 붙이기 → 안 쓰고 벗어나면 없어짐
@@ -108,7 +130,7 @@ with sync_playwright() as p:
     # 다크
     ctx = b.new_context(viewport={"width": 1280, "height": 860}, color_scheme="dark"); pg = ctx.new_page()
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(200)
+    pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
     pg.screenshot(path=OUT + "memo-pc-dark.png")
     ctx.close()
     b.close()

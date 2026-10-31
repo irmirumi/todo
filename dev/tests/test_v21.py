@@ -35,7 +35,7 @@ with sync_playwright() as p:
     check("다음 날 오전 1:30에 끝나요" in pg.inner_text(".sheet") and pg.locator(".tbad").count() == 0, "편집: 오류 대신 '다음 날 …에 끝나요'")
     pg.fill("#e-end", "23:00"); pg.dispatch_event("#e-end", "change")
     check(pg.locator(".tbad").count() == 1, "시작과 같은 시각만 오류")
-    pg.fill("#e-end", "00:30"); pg.dispatch_event("#e-end", "change"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(200)
+    pg.fill("#e-end", "00:30"); pg.dispatch_event("#e-end", "change"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(350)
     check(tasks()["t_n"]["end"] == "00:30", "자정 넘긴 끝 시간 저장")
     q2 = pg.evaluate("TodoApp.parseQuick('밤 11시-1시 야식','2026-10-15')")
     check(q2["time"] == "23:00" and q2["end"] == "01:00", "한 줄 입력 '밤 11시-1시' → 새벽 1시까지")
