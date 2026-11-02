@@ -61,6 +61,8 @@ os.makedirs(os.path.join(APP, "app")); os.makedirs(os.path.join(APP, "memo"))
 open(os.path.join(APP, "app", "index.html"), "w", encoding="utf-8").write(page("또박", "../", manifest="../manifest.webmanifest"))
 open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("또박 메모", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png", hol=False))
 shutil.copy(os.path.join(SRC, "pwa", "memo.webmanifest"), os.path.join(APP, "memo", "manifest.webmanifest"))
+# 2.9.0 서비스 워커가 남은 기기에서 app/을 처음 열 때 빠져나오는 길(rescue.js 맨 위 설명)
+shutil.copy(os.path.join(SRC, "pwa", "rescue.js"), os.path.join(APP, "app", "app.js"))
 for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "manifest.webmanifest", "firestore.rules"]:
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))
 # 버전이 들어가는 파일
