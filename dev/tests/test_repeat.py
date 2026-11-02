@@ -27,7 +27,10 @@ def run(w,h,touch,tag):
     pg.click("[data-act=tplfrom]"); pg.wait_for_timeout(200)
     check(len(pg.locator(".days .pill[aria-pressed=true]").all())==1 and pg.input_value("#e-time")=="10:00" and pg.locator(".subs li:not(.new)").count()==1 and pg.locator(".subs input[type=checkbox]").count()==0, "반복 등록 창: 그 요일·시간·세부 할 일(체크 없이)")
     pg.uncheck("#e-auto"); pg.wait_for_timeout(100)  # 이 테스트는 '추가 전' 흐린 줄 흐름(자동 추가는 test_v25.py)
-    pg.click(".days [data-d='1']"); pg.click(".days [data-d='3']"); pg.wait_for_timeout(100)
+    # 오늘 요일은 이미 눌려 있다. 오늘 요일이 아닌 두 요일만 더해 늘 3개가 되게 한다(월·수요일에 실행해도 같음)
+    wd=int(pg.evaluate("new Date().getDay()")); extra=[d for d in (1,3,5) if d!=wd][:2]
+    for d_ in extra: pg.click(".days [data-d='%d']"%d_)
+    pg.wait_for_timeout(100)
 
     pg.screenshot(path=OUT+tag+"-tpl.png")
     pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)

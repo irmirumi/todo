@@ -20,7 +20,7 @@ const docs=[
  [P+'t_late',T({title:'늦게 끝낸 것',date:k(now-90*day),done:true,doneAt:now-5*day})],
  [P+'t_dup',T({title:'되살린 것',date:k(now-90*day)})],
  [P+'a_2000-01',{tasks:{t_dup:{title:'되살린 것(옛 사본)',date:'2000-01-05',done:true,doneAt:1,cat:'k1',subtasks:[]}}}],
- [P+'r_1',{title:'반복',days:[1],cat:'k1',subtasks:[]}],
+ [P+'r_1',{title:'반복',days:[1],cat:'k1',auto:false,subtasks:[]}],
  [P+'meta',{cats:[{id:'k1',name:'일상',color:'c7',subs:[]},{id:'k2',name:'공부',color:'c5',subs:[]}]}]];
 sessionStorage.setItem('fakefs',JSON.stringify(docs));sessionStorage.setItem('oldday',k(now-90*day));sessionStorage.setItem('old2day',k(now-100*day));})();"""
 n = 0

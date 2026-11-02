@@ -1,4 +1,5 @@
 # 기본 흐름: 로그인, 카테고리·소분류, 한 줄 추가(포커스 유지), 편집 저장/버리기, 휴지통·되돌리기, 시간 지우기, 한글 조합 엔터, 카테고리 순서·숨김, 공휴일, 스와이프, 백업 복원, 다크
+import datetime
 from playwright.sync_api import sync_playwright
 from ttb import check, serve, done, OUT
 srv = serve(8773)
@@ -82,7 +83,11 @@ def extra(pg):
     pg.click("[data-act=menu]"); pg.click("[data-act=cats]"); pg.click("[data-act=catunarc][data-cat=k2]"); pg.click(".sheet :is([data-act=save],[data-act=close])"); pg.wait_for_timeout(300)
     check(pg.locator(".ghead h3").all_inner_texts() == ["일상", "건강", "수업"], "다시 표시하면 맨 뒤로 " + str(pg.locator(".ghead h3").all_inner_texts()))
     # 공휴일: 10/9
+    # 오늘이 어느 달이든 달 보기로 10/9까지 이동(고정 날짜라 오늘이 11월이 되면 달력에 없었다)
     if pg.locator("[data-k='2026-10-09']").count()==0: pg.click("[data-act=calmode]"); pg.wait_for_timeout(200)
+    for _ in range(40):
+        if pg.locator("[data-k='2026-10-09']").count(): break
+        pg.click("[data-act=nav][data-d='%d']"%(-1 if datetime.date.today()>datetime.date(2026,10,9) else 1)); pg.wait_for_timeout(120)
     pg.click("[data-k='2026-10-09']"); pg.wait_for_timeout(100)
     check("한글날" in pg.inner_text(".eyebrow"), "공휴일 이름")
     pg.screenshot(path=OUT+"p-hol.png")

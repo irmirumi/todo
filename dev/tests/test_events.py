@@ -5,6 +5,7 @@ from ttb import check, serve, done, OUT
 srv=serve(8784)
 T=datetime.date.today(); D=lambda n:(T+datetime.timedelta(days=n)).isoformat()
 mon=T-datetime.timedelta(days=T.weekday())
+SUN=-(T.isoweekday()%7)  # 이번 주 일요일까지의 날수(시간표는 일요일 시작)
 cats=[{"id":"k1","name":"일상","color":"c7","subs":[]},{"id":"k2","name":"수업","color":"c5","subs":[{"id":"b1","name":"영어"},{"id":"b2","name":"수학"},{"id":"b3","name":"과학"}]},{"id":"k3","name":"건강","color":"c3","subs":[]}]
 tasks=[
  ("t_1","장보기","k1",None,D(0),"18:00",None),("t_2","수학 숙제","k2","b2",D(0),"10:00","11:30"),("t_3","영어 단어","k2","b1",D(0),"10:00",None),
@@ -30,7 +31,7 @@ def go(w,h,tag):
     check(len(strip)==len(exp) and all(any(n in x for x in strip) for n,_ in exp), "달력 일정 띠: 오늘 요일 것만 "+str(strip))
     pg.screenshot(path=OUT+tag+"4-day.png",full_page=True)
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
-    check(pg.locator(".blk.ev").count()>=3 and "고정 일정 관리" in pg.inner_text(".ttfoot"), "시간표 고정 일정 칸·관리 버튼")
+    check(pg.locator(".blk.ev, .blk.grpb").count()>=3 and pg.locator(".blk.ev").count()>=1 and "고정 일정 관리" in pg.inner_text(".ttfoot"), "시간표 고정 일정 칸·관리 버튼")
     pg.screenshot(path=OUT+tag+"4-week.png",full_page=True)
     pg.click(".blk.ev >> nth=0"); pg.wait_for_timeout(300)
     inf=pg.inner_text("#sheet"); check("고정 일정" in inf and "이날만 바꾸기" in inf and "이날만 쉼" in inf, "고정 일정 정보 창")
@@ -38,7 +39,7 @@ def go(w,h,tag):
     pg.click("[data-act=eskipday]"); pg.wait_for_timeout(300); check(pg.inner_text("#sheet [data-act=eskipday]")=="쉼 취소", "이날만 쉼 → 쉼 취소")
     pg.go_back(); pg.wait_for_timeout(300); check(pg.locator(".blk.ev.off").count()==1, "쉬는 칸 흐리게")
     # slot → 고정 일정
-    col=pg.locator(".ttcol >> nth=4"); bb=col.bounding_box()
+    col=pg.locator(".ttcol[data-k='%s']"%D(SUN+4)); bb=col.bounding_box()  # 목요일(폰 7일 보기는 빈 일·토요일 열을 숨기므로 nth 대신 날짜로)
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.8); pg.wait_for_timeout(300)
     check("무엇을 넣을까요?" in pg.inner_text("#sheet"), "빈칸 → 무엇을 넣을지")
     pg.click("[data-act=slotev]"); pg.wait_for_timeout(300)
@@ -48,7 +49,7 @@ def go(w,h,tag):
     pg.screenshot(path=OUT+tag+"4-evedit.png")
     pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400); check(pg.inner_text("#toastMsg")=="고정 일정을 추가했어요", "고정 일정 추가 알림")
     # slot → 할 일
-    col=pg.locator(".ttcol >> nth=5"); bb=col.bounding_box()
+    col=pg.locator(".ttcol[data-k='%s']"%D(SUN+5)); bb=col.bounding_box()  # 금요일
     pg.mouse.click(bb["x"]+bb["width"]/2, bb["y"]+bb["height"]*0.3); pg.wait_for_timeout(300)
     pg.click("[data-act=slottask]"); pg.wait_for_timeout(300); pg.keyboard.type("슬롯 할 일"); pg.click(":is([data-act=save],[data-act=close])"); pg.wait_for_timeout(400)
     t=[x for x in pg.evaluate("[...__d.tasks.values()]") if x["title"]=="슬롯 할 일"]; check(len(t)==1 and t[0]["time"] and t[0]["end"], "빈칸에서 할 일: 그 날·시간, 끝 +1시간")
