@@ -1,6 +1,7 @@
 # 또박
 
-개인 할 일 PWA. 앱 주소: https://irmirumi.github.io/todo/
+개인 할 일 PWA **또박**과 메모 앱 **끄적**(같은 코드·계정).
+또박: https://irmirumi.github.io/todo/app/ · 끄적: https://irmirumi.github.io/todo/memo/
 
 - 원본: `dev/src/` · 빌드: `python3 dev/build.py` → `dev/dist/app` · 테스트: `bash dev/tests/run_all.sh`
 - `main`에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 빌드·테스트 후 Pages에 올린다.

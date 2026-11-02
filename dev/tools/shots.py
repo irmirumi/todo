@@ -18,9 +18,10 @@ for d in range(-2,5):
   tasks.append(dict(id=f't_{d+2}_{j}',title=name,date=str(base+datetime.timedelta(days=d)),cat=f'k{j%8+1}',time=f'{9+j:02}:00' if j<5 else None,end=f'{10+j:02}:00' if j<5 else None,done=j==1,doneAt=1793200000000 if j==1 else None,postponed=4 if j==2 else 0,note='',subtasks=[],createdAt=j,remind=10 if j==0 else None))
 tasks.append(dict(id='t_trash',title='취소된 준비물 <확인>',date=str(base),cat='k1',deletedAt=1793200000000))
 events=[dict(id=f'e_{i}',title=n,place='강의실 '+str(i+1),color=f'c{i+3}',days=[1,4],time='10:30',end='11:45',slots=[dict(id='',days=[1,4],time='10:30',end='11:45'),dict(id='b',days=[3,5],time='14:00',end='15:15')],holOff=False) for i,n in enumerate(['자료구조','영어회화','스터디'])]
-tpls=[dict(id=f'r_{i}',title=n,days=list(range(7)),cat='k1',time='08:00',auto=i!=2,subtasks=[]) for i,n in enumerate(['물 마시기','일기 쓰기','분리수거'])]
+tpls=[dict(id=f'r_{i}',title=n,days=list(range(7)),cat='k1',time='08:00',subtasks=[]) for i,n in enumerate(['물 마시기','일기 쓰기','분리수거'])]+[dict(id='r_w',title='근로',cat='k2',days=[1],time='13:00',end='16:30',subtasks=[],slots=[dict(id='',days=[1],time='13:00',end='16:30'),dict(id='a',days=[2],time='15:00',end='16:30'),dict(id='b',days=[3],time='13:30',end='14:30')])]
+memos=[dict(id='m_1',text='# 자료구조 3주차\n- 스택은 **LIFO**\n- [ ] 과제 범위 확인\n- [x] 슬라이드 받기',color='c5',x=40,y=40,w=260,h=220,z=1,createdAt=1,updatedAt=1793300000000),dict(id='m_2',text='장보기\n- 우유\n- 계란',color='c3',x=330,y=40,w=240,h=200,z=2,createdAt=1,updatedAt=1793200000000),dict(id='m_3',text='와이파이 비번 abcd1234',color='',x=40,y=300,w=240,h=160,z=3,createdAt=1,updatedAt=1793100000000)]
 def mock(empty):
- data=dict(cats=None if empty else cats,tasks=[] if empty else tasks,tpls=[] if empty else tpls,events=[] if empty else events)
+ data=dict(cats=None if empty else cats,tasks=[] if empty else tasks,tpls=[] if empty else tpls,events=[] if empty else events,memos=[] if empty else memos)
  return 'const m=TodoApp.memoryStore();m.importAll('+json.dumps(data,ensure_ascii=False)+''');let cb;const start=()=>m.start({onData:(d,meta)=>{window.__reviewData=d;cb.onData(d,meta);},onStatus:s=>cb.onStatus('live'),onError:cb.onError});TodoApp.boot({...m,start(c){cb=c;cb.onStatus('signedout');},signIn(){start();return Promise.resolve();},resetPassword(){return Promise.resolve();},push:{state:async()=>'on',enable:async()=>{},disable:async()=>{},test:async()=>({sent:1})}});'''
 manifest=[]
 try:
@@ -35,7 +36,7 @@ try:
      prefix=f'{width}-{theme}-'+('empty' if empty else 'week')
      def shot(name):
       filename=prefix+'-'+name+'.png';pg.screenshot(path=str(OUT/filename));manifest.append(filename)
-     pg.goto(f'http://127.0.0.1:{srv.server_port}/');pg.wait_for_selector('#l-email');shot('login')
+     pg.goto(f'http://127.0.0.1:{srv.server_port}/app/');pg.wait_for_selector('#l-email');shot('login')
      pg.fill('#l-email','review@example.test');pg.fill('#l-pw','local-only');pg.click('#l-btn');pg.wait_for_selector('.grp');shot('day')
      if empty:
       pg.click('[data-act=add][data-cat=k1]');pg.fill('#add-k1','내일 3시 회의');shot('quick');pg.press('#add-k1','Enter');pg.press('#add-k1','Escape')
@@ -51,6 +52,15 @@ try:
       pg.click('[data-act=view][data-v=day]');pg.locator('[data-act=edit]').first.click();shot('edit');pg.click('[data-act=eskip]');shot('later');pg.press('body','Escape');pg.wait_for_function('!document.querySelector("#dlg").open')
       for action in ['tpls','evs','trash']:
        pg.click('[data-act=menu]');shot('menu');pg.click('[data-act='+action+']');shot(action);pg.press('body','Escape');pg.wait_for_function('!document.querySelector("#dlg").open')
+      pg.click('[data-act=menu]');pg.click('[data-act=tpls]');pg.click('.tplrow:has-text("근로")');shot('tpl-slots');pg.press('body','Escape');pg.wait_for_function('!document.querySelector("#dlg").open')
+      if width>600:
+       pg.click('[data-act=view][data-v=memo]');pg.wait_for_timeout(400);shot('memo-board')
+     # 끄적
+     pg.goto(f'http://127.0.0.1:{srv.server_port}/memo/');pg.wait_for_selector('.mcard,.mpempty,.mnote,.hint,#board,#l-email')
+     if pg.locator('#l-email').count():pg.fill('#l-email','review@example.test');pg.fill('#l-pw','local-only');pg.click('#l-btn');pg.wait_for_selector('.mcard,.mpempty,.mnote,.hint,#board')
+     shot('kkeut')
+     if not empty and width<600:
+      pg.click('.mcard >> nth=0');pg.wait_for_timeout(300);shot('kkeut-edit')
      ctx.close()
   b.close()
 finally: srv.shutdown()

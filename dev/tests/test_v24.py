@@ -35,7 +35,7 @@ with sync_playwright() as p:
 
     # 캘린더 숫자: 카테고리 머리도 안 함 제외(2개 중 1개 완료 + 보고서 = 1/2)
     check(pg.inner_text("#g-k1 .cnt") == "1/2" and "1/2 완료" in pg.inner_text(".prog"), "카테고리 숫자와 날짜 완료율이 같은 기준: " + pg.inner_text("#g-k1 .cnt"))
-    check("눌러서 추가" in pg.inner_text("#g-k1 .task.ghost"), "반복 할 일 흐린 줄에 '추가 전'")
+    check(pg.locator("#g-k1 .task.ghost .gadd").count() >= 1, "반복 할 일 흐린 줄에 ＋")
     # 완료한 할 일엔 넘기기 없음
     pg.click("#g-k1 .ttl:has-text('끝낸 일')")
     check(pg.locator(".sheet [data-act=eskip]").count() == 0, "완료한 할 일: 넘기기 없음")

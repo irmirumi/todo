@@ -51,7 +51,7 @@ def run(w,h,touch,tag):
     if pg.locator(f"[data-k='{k}']").count()==0: pg.click("[data-act=nav][data-d='1']"); pg.wait_for_timeout(300)
     pg.click(f"[data-k='{k}']"); pg.wait_for_timeout(300)
     check(pg.locator(".task.ghost").count()==1 and pg.inner_text(".prog").endswith("할 일이 없어요") and pg.inner_text("#g-k2 .cnt")=="", "다른 날: 흐린 줄 하나, 숫자엔 안 셈")
-    check("눌러서 추가" in pg.inner_text(".task.ghost .meta"), "흐린 줄에 '추가 전'")
+    check(pg.locator(".task.ghost .gadd[aria-label$='할 일로 추가']").count() == 1 and pg.locator(".task.ghost .chip.pre").count() == 0, "흐린 줄: ＋(할 일로 추가), 따로 붙는 칩 없음(3.0.0)")
     pg.screenshot(path=OUT+tag+"-ghost.png")
     pg.click(".task.ghost .gadd"); pg.wait_for_timeout(400)
     check(pg.locator(".task.ghost").count()==0 and pg.locator(".task:not(.ghost)").count()==1 and "0/1" in pg.inner_text(".prog"), "＋ → 진짜 할 일, 숫자에 셈")

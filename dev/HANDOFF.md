@@ -1,7 +1,7 @@
 # 또박 유지보수 인수인계
 
 또박의 유지보수(기능 추가, 수정, 최적화)를 새 대화에서 이어 가기 위한 문서다.
-처음 한 번 끝까지 읽고 시작한다. 마지막 갱신: 2026-11-02, **2.10.0**(폰 메모 앱 새 모양) 배포 뒤.
+처음 한 번 끝까지 읽고 시작한다. 마지막 갱신: 2026-11-02, **3.0.0**(끄적·서식·반복 시간대·자동 추가 없앰) 배포 뒤.
 
 ## 0. 새 채팅에서 시작할 때 (2026-11-02 인계)
 
@@ -20,7 +20,8 @@
 
 ## 1. 한눈에
 
-- **무엇**: 한 사람(사용자 본인)이 폰과 PC에서 같이 쓰는 할 일·시간표 PWA.
+- **무엇**: 한 사람(사용자 본인)이 폰과 PC에서 같이 쓰는 할 일·시간표 PWA **또박**과, 같은 코드·계정으로 따로 설치하는 메모 앱 **끄적**(3.0.0에 '또박 메모'에서 이름을 바꿈 — 사용자: 할 일 앱과 메모 앱이 이름으로 구분이 안 됨, 별개 브랜드처럼. 사용자는 대화에서 둘을 '또박'·'메모'라고 부른다).
+- **입구**: 또박 `…/todo/app/`, 끄적 `…/todo/memo/`, `…/todo/`는 또박으로 넘겨주기(5.3).
 - **주소**: https://irmirumi.github.io/todo/ (GitHub Pages. `main`에 푸시하면 GitHub Actions가 `dev/`를 빌드해서 올린다)
 - **저장**: Firebase. 로그인은 이메일·비밀번호, 데이터는 Firestore(프로젝트 `my-todo-e4949`). 무료 요금제다.
 - **알림**: Cloudflare Workers 무료 플랜 + D1.
@@ -65,6 +66,7 @@
 dev/
   VERSION     버전은 여기 한 곳(빌드가 ui.js VERSION·sw.js CACHE·README 첫 줄에 넣는다)
   src/        원본(여기만 고친다)
+    rich.js       끄적 글 서식(3.0.0, window.TtobakRich): 블록 doc, 옛 마크다운 읽기·사본, 보기 HTML, 쓰는 대로 보이는 편집기(contenteditable). 5.3 참고
     model.js      순수 계산(날짜·시간·한 줄 입력·고정 일정 발생 occurrences). window/globalThis.TodoModel. ui.js·push.js가 같이 씀
     ui.js         화면 전부(바닐라 JS, IIFE). store 어댑터를 받아서 동작. 첫 줄에서 TodoModel을 풀어 씀
     style.css     전체 스타일(토큰, 컴포넌트, 버전별 추가분이 아래로 쌓여 있음)
@@ -108,8 +110,8 @@ dev/
 ### 5.1 저장소 어댑터
 `TodoApp.boot(store)` 하나로 화면이 뜬다. store 인터페이스는 `ui.js` 맨 위 주석에 있다.
 - 메서드: `start(cb)`, `set(id,body)`, `update(id,patch)`, `remove(id)`, `saveCats(cats)`, `importAll(data)`, `signIn`, `signOut`, `email`, `push`
-- **조건부 쓰기(2.6.0, 있으면 씀)**: `create(id,body)`(없을 때만 만듦), `raise(id,field,value)`(더 클 때만 올림), `removeIf(id,field,value)`(그 값일 때만 지움). Firebase는 트랜잭션이라 **오프라인이면 실패**하고 다음 서버 스냅샷 때 다시 한다. 자동 추가·`madeUntil`·휴지통 비우기만 이걸 쓴다. 없는 store(테스트 목업)는 화면 데이터로 확인하는 대체 경로를 탄다(`createTask`·`raiseTpl`·`removeIf`)
-- `cb.onData(d, meta)`: `meta.server`(캐시 아님·올리는 중 없음)를 `S.fresh`로 둔다. **자동 추가·휴지통 비우기(`daily`)는 `S.fresh`이고 온라인일 때만** — 들어오는 곳은 새 스냅샷, 연결 완료(`onStatus live`), 날짜 바뀜(`tick`)
+- **조건부 쓰기(2.6.0, 있으면 씀)**: `removeIf(id,field,value)`(그 값일 때만 지움). Firebase는 트랜잭션이라 **오프라인이면 실패**하고 다음 서버 스냅샷 때 다시 한다. 휴지통 30일 비우기만 이걸 쓴다(3.0.0에 자동 추가와 함께 `create`·`raise`는 뺐다). 없는 store(테스트 목업)는 그냥 지운다
+- `cb.onData(d, meta)`: `meta.server`(캐시 아님·올리는 중 없음)를 `S.fresh`로 둔다. **휴지통 비우기(`daily`)는 `S.fresh`이고 온라인일 때만** — 들어오는 곳은 새 스냅샷, 연결 완료(`onStatus live`), 날짜 바뀜(`tick`)
 - **편집 저장은 바꾼 칸만(2.6.0)**: 창을 열 때 값(`S.edit._base`)과 비교해 다른 칸만 `update`한다(`diffOf`). 다른 기기가 그사이 고친 다른 칸을 덮지 않는다. 같은 칸을 양쪽에서 고치면 나중 것이 이긴다(세부 할 일 목록은 통째로 한 칸)
 - `cb.onData`가 받는 것: `{tasks, cats, tpls, events}`. `tasks`, `tpls`, `events`는 Map이다.
 - 테스트는 `TodoApp.memoryStore()`를 쓴다. 문서 id 접두어로 Map을 나눈다.
@@ -119,9 +121,9 @@ dev/
 
 | 접두어 | 의미 | 주요 필드 |
 |---|---|---|
-| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, postponed(미룬 횟수, 2.5.0), deletedAt(휴지통, 2.5.0 — 화면은 `S.trash`로 따로 두고 30일 뒤 지움), from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
-| `m_` | 메모(2.8.0) | `text`(간단한 마크다운, 2만 자), `color`("" 또는 c1~c8), `x, y, w, h, z`(PC 보드의 자리·크기·겹침 순서), `createdAt, updatedAt, deletedAt`(휴지통) — 날짜와 상관없다(사용자와 논의: 포스트잇은 계속 보이는 게 핵심, 날짜에 묶인 건 할 일 메모로). 묶기(archive) 대상 아님 |
-| `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], until, archived, auto(없으면 켬), madeUntil, subtasks[{id,t}], createdAt` — **자동 추가(2.5.0, 2.6.0 보강)**: 서버 최신 데이터일 때 오늘·내일 것을 `t_<원본id 뒤>_<YYYYMMDD>` 고정 id로 **없을 때만**(`create`) 만들고, 다 끝난 뒤 `madeUntil`을 **올리기만**(`raise`) 한다. 고정 id만으로는 늦게 도착한 쓰기가 먼저 생긴 쪽의 완료·편집을 덮을 수 있어서(Codex C1) 트랜잭션으로 바꿨다. 지워도 다시 안 만듦 |
+| `t_` | 할 일 | `title, note, date(YYYY-MM-DD|null), time(HH:MM|null), end, remind(분|null), cat, sub, done, doneAt, skipped, skippedAt, createdAt, subtasks[{id,t,done}], tpl, tslot(반복 할 일의 시간대 id, 3.0.0), postponed(미룬 횟수, 2.5.0), deletedAt(휴지통, 2.5.0 — 화면은 `S.trash`로 따로 두고 30일 뒤 지움), from·fromDate·again(다시 넣은 할 일: 원래 id·날짜·몇 번째), later·laterDate(안 함 한 원래 할 일: 다시 넣은 id·날짜)` — 1.5.0의 `due, dueTime, dueRemind`가 남아 있을 수 있지만 1.7.0부터 안 쓴다(화면·알림·가져오기 모두 무시) |
+| `m_` | 메모(끄적, 2.8.0) | **`doc`(3.0.0, 블록 배열 `[{k:"p"|"h"|"l"|"c", t, b?:[시작,끝,…](굵게, 평평한 숫자 — Firestore는 배열 안 배열 불가), d?:1(체크)}]`)** + `text`(같은 내용의 마크다운 사본 — 2.x 기기용. 읽을 땐 `TtobakRich.docOf`: text가 doc의 사본과 다르면 옛 기기가 고친 것으로 보고 text를 읽음), `color`("" 또는 c1~c8), `x, y, w, h, z`(PC 보드의 자리·크기·겹침 순서), `createdAt, updatedAt, deletedAt`(휴지통) — 날짜와 상관없다(사용자와 논의: 포스트잇은 계속 보이는 게 핵심, 날짜에 묶인 건 할 일 메모로). 묶기(archive) 대상 아님 |
+| `r_` | 반복 할 일(매주 템플릿) | `title, note, time, end, remind, cat, sub, days[0-6], slots?, until, archived, subtasks[{id,t}], createdAt` — **시간대(3.0.0)**: `slots`는 고정 일정과 같은 `[{id,days,time,end}]`(시간 없는 줄도 됨, `cleanSlots(v,true)`), 첫 줄은 `days·time·end`에도. 읽을 땐 `slotsOf`·`evBase(r,날짜,sid)`·`allDays(r)`. 흐린 줄은 시간대마다(`ghostsFor`가 `sid`를 붙임), 추가한 할 일은 `tslot`에 그 id(없는 옛 할 일은 그날 모든 시간대를 채운 것으로 봄). **자동 추가는 3.0.0에 없앴다**(사용자: 쓸모없고 왜 들어오는지 모름 → 예전처럼 흐린 줄을 눌러서만). 옛 데이터의 `auto`·`madeUntil`은 읽지도 백업에 받지도 않는다. 2.5~2.10의 자동 추가가 만든 `t_<원본>_<날짜>` 할 일은 보통 할 일로 남는다 |
 | `e_` | 고정 일정(수업 등) | `title, place, color(c1~c8), days, time, end, slots?[{id,days,time,end}], from, until, holOff, remind, note, skips[날짜], ovr{키:{time?,end?,place?}}(바꾼 칸만, 2.4.0), 쓰기는 필드 단위(`skips`는 `store.fx.union/remove`, `ovr.<키>`는 경로 쓰기·`fx.del`, 2.5.0 — 400개 넘으면 그때만 통째로 정리), archived, createdAt` — `ovr`은 이 날만 바꾼 시간·장소(1.7.0), `eventsOn`이 합쳐서 돌려주고(`chg` 표시) 알림도 이 값을 쓴다. 60일 지난 건 저장할 때 지운다. **`slots`(2.3.0, 2.3.1에 다시 짬)**: `[{id,days,time,end}]` 요일·시간 줄 여러 개. **같은 요일이 여러 줄에 있어도 된다**(중간에 쉬는 수업). `ovr`·`skips` 키는 `occKey(날짜,id)`: id `""`인 줄은 날짜 그대로(예전 데이터와 호환), 나머지는 `날짜#id`(`KEY_RE`). `days·time·end`는 id `""`인 줄(없으면 첫 줄)과 같게 저장(예전 버전용). 줄이 하나이고 id가 `""`면 `slots:null`. 읽을 땐 반드시 `slotsOf`/`evBase(e,k,sid)`/`evAt(e,k,sid)`를 거치고, 화면 요소엔 `data-s`(줄 id)를 단다. `e.time`을 바로 쓰면 한 줄만 나온다 |
 | `a_YYYY-MM` | 묶인 옛 기록(1.4.0) | `tasks: {t_id: 할 일 본문}` — 60일 지난 완료·안 함. `archive.js`가 하루 한 번(기기별 localStorage `ttobak.arch.<uid>`) 묶고, 화면에는 보통 할 일로 펼쳐 준다. 고치거나 지우면 `writeOps`가 원래 문서로 되살리며 묶음에서 뺀다(한 쓰기 묶음으로). 같은 id가 따로도 있으면 따로 있는 쪽이 이기고, 옛 사본은 다음 묶기 때 지운다 |
 | `meta` | 카테고리 | `cats: [{id, name, color, subs:[{id,name}], archived?}]` (배열 순서 = 화면 순서) |
@@ -130,6 +132,11 @@ dev/
 - 가져오기(import)는 `clean()`, `cleanTpl()`, events 정리 코드에서 id 패턴과 값을 검증한다. 세부 할 일 id 검증은 XSS를 막으려고 넣은 것이다.
 
 ### 5.3 화면 구조 (`ui.js`)
+- **끄적 서식(3.0.0, `rich.js`)**: 사용자 요청 "마크다운 말고 따로, 쓸 때 바로 보이게". 편집기는 contenteditable 하나에 블록마다 `<div class="rb" data-k data-d>`.
+  - 엔터·줄 앞 지우기·여러 줄에 걸친 지우기·붙여넣기는 `beforeinput`에서 직접(doc을 고쳐 다시 그리고 커서를 (블록, 글자 위치)로 되돌림). 글자 입력과 **한글 조합은 브라우저에 맡기고**(조합 중엔 아무것도 다시 그리지 않음) 끝나면 읽는다(`tidy`: 줄 맨 앞 "- "·"[] "·"# "·"1. " 지름길, 바르지 않은 DOM 정리)
+  - 체크칸은 블록의 `::before`(편집 중엔 왼쪽 26px을 누르면 체크). 굵게는 doc에서 처리(execCommand 안 씀). 되돌리기는 자체 기록(구조 바꾸기 직전 + 입력이 0.9초 멈출 때)
+  - 붙은 편집기는 `morph`가 건드리지 않는다(`from._rich`). 보드·시트·폰 화면 모두 `mountEd`로 붙이고 `RT.read`로 읽는다. 보기는 `RT.toHtml(doc,{check:true})`(먼저 이스케이프, 주소는 링크)
+  - 알려진 빈틈: 한글 조합 **중에** 엔터가 오면 브라우저가 줄을 나눈다(체크 줄이면 체크 상태까지 복사될 수 있음). 실기기에서 거슬리면 `compositionend` 뒤 정리에서 새 줄의 `d`를 지우기
 - **두 앱, 한 코드(2.9.0, 2.9.1에 자리 바꿈)**: `/todo/app/`은 또박, `/todo/memo/`는 '또박 메모'. 공용 파일(`ui.js`·`app.js`·`style.css`·`sw.js`·아이콘)은 `/todo/`에 있고 두 입구가 `../`로 불러온다. `/todo/` 자체는 `app/`으로 넘겨주는 페이지(뒤 주소 `#d=` 유지 — 홈 화면의 옛 또박·옛 알림·북마크용)
   - **왜 나란한 폴더인가(2.9.1)**: 2.9.0은 또박 범위가 `/todo/`라 `/todo/memo/`를 감싸서 폰이 메모 앱을 '이미 설치된 또박'으로 보고 따로 설치를 못 했다. 게다가 두 manifest의 `"id": "./"`는 start_url의 **origin** 기준으로 풀려 둘 다 `https://irmirumi.github.io/`(같은 앱)였다. 지금: 또박 manifest는 자리(`/todo/manifest.webmanifest`)와 `id: "./"`를 그대로 두고 `start_url`·`scope`만 `app/`(설치된 또박이 제자리에서 갱신될 여지), 메모는 `id: "/todo/memo/"`. **두 범위가 겹치지 않게 유지할 것**(`test_memo_app`이 확인)
   - **폰 메모 앱 화면(2.10.0, `memoPhone()` = 메모 앱이고 보드가 아닐 때)**: 사용자 답(쓰는 화면 좁음·앱 같지 않음·목록이 한눈에 안 들어옴 / 짧은 메모 여러 개 / 목록 모양은 맡김)으로 정함. 목록 `renderMemoPhone`: 머리(제목·개수·돋보기 `msearch`·⋯), 2열 카드(`memoCols`가 글 길이로 높이를 어림해 짧은 쪽 열에 — 위쪽이 늘 최근), 떠 있는 ＋(`.mfab`, 알림은 그 위로). 편집은 시트가 아니라 화면 전체 `#mpage`(`openPage`·`pageSave`·`closePage`·`leavePage`): `history.pushState({mpage})`라 안드로이드 뒤로가기·←·Esc로 닫으면 저장, 쓰는 중 0.8초마다·화면이 가려질 때 저장, 새 메모는 글이 생기면 만들고 다 지우고 닫으면 지움, 색은 팔레트 버튼(`mpal`), 휴지통 버튼. 입력칸 id는 `m-text` 그대로라 꾸미기 막대·목록 이어 쓰기·Ctrl+B가 같이 돈다. 메모 페이지 viewport에 `interactive-widget=resizes-content`(키보드가 올라오면 화면이 줄어 꾸미기 막대가 키보드 위). PC 보드·또박 안의 메모 탭·'크게 열기' 시트는 그대로
@@ -191,11 +198,11 @@ dev/
   - 560px 이하에서는 글자 14.5px, 여백 넉넉히. 바깥 여백은 16px(1.9.1, 시트 안쪽 여백과 같게).
   - 누르는 영역은 40px 이상(`::after`로 넓힘).
   - 입력칸은 16px 이상(iOS 확대 방지).
-- **용어(지금 기준, 2.7.0)** — 화면에서는 이 말만 쓴다. 바꾸면 여기부터 고친다
-  - 탭: '달력'·'시간표'·'전체'·'메모'(메모 탭은 PC만, 2.9.0). 앱 이름: '또박'·'또박 메모'. 메뉴: '메모 앱'(또박 → 메모 앱), '또박 열기'(메모 앱 → 또박)
-  - 메모: 폰은 목록 + 편집 시트(**닫으면 저장** — 할 일 편집과 달리 '저장' 버튼 없이 '완료'), PC(900px 이상·마우스)는 보드에 포스트잇. 지우기는 '휴지통으로'
-  - 할 일 = `t_`. 반복 할 일 = `r_`(요일마다 체크할 일, 앱을 열면 오늘·내일 몫이 자동으로 들어옴). 고정 일정 = `e_`(수업처럼 매주 정해진 시간, 체크 안 함). 둘은 일부러 나눠 둔다(체크하는 일 / 시간을 차지하는 일정)
-  - 반복 흐린 줄 칩: '추가 예정'(자동) · '눌러서 추가'(자동 끔)
+- **용어(지금 기준, 3.0.0)** — 화면에서는 이 말만 쓴다. 바꾸면 여기부터 고친다
+  - 탭: '달력'·'시간표'·'전체'·'메모'(메모 탭은 PC 또박만). 앱 이름: '또박'·'끄적'(머리 제목도 '끄적'). 메뉴: '끄적'(또박 → 끄적, 작게 '메모 앱'), '또박 열기'(끄적 → 또박)
+  - 메모: 폰 끄적은 2열 카드 + 화면 전체 편집, PC는 보드에 포스트잇, 좁은 PC 창은 목록 + 시트. 모두 **닫으면 저장**. 서식 버튼 '제목'·'굵게'·'목록'·'체크'(+폰 '되돌리기'·'다시 하기'). 지우기는 '휴지통으로'. 사용자에게 '마크다운'이라는 말은 안 쓴다
+  - 할 일 = `t_`. 반복 할 일 = `r_`(요일마다 체크할 일, 흐린 줄을 눌러서 그날 할 일로). 고정 일정 = `e_`(수업처럼 매주 정해진 시간, 체크 안 함). 둘은 일부러 나눠 둔다(체크하는 일 / 시간을 차지하는 일정). 둘 다 '시간대'(요일·시간 줄)를 여럿 둘 수 있다
+  - 반복 흐린 줄: 따로 붙는 칩 없이 ＋ 버튼(3.0.0)
   - **날짜 옮기기**: 같은 할 일을 고른 날로(늦은 날로 옮기면 `postponed`+1, 정보 창 '옮긴 횟수'. 목록엔 안 보임 — 사용자 결정). 창 제목 '언제로 옮길까요?', 고르는 말 '오늘·내일·모레·하루 뒤·일주일 뒤·이날로 옮기기'
   - **안 함**: 정말 안 하기로 한 것('안 함으로 남기기', 되돌리기 '안 함 취소'). 안 함인 할 일도 '날짜 옮기기'로 다시 할 수 있다
   - **휴지통으로**: 할 일 지우기(30일 뒤 완전히 삭제). 반복 할 일·고정 일정·카테고리는 휴지통이 없어서 **'삭제' → '정말 삭제'** 두 번 누름
@@ -214,8 +221,8 @@ dev/
 - **Node**: `worker.test.mjs`(Worker, D1 흉내·푸시 복호화·보낸 알림 다시 안 넣기), `push_events.test.mjs`(고정 일정 알림, model.js를 먼저 불러옴), `archive.test.mjs`(묶기 개수·크기 한도)
 - **실제 app.js + 가짜 Firebase(`fake_firebase.js`)**: `test_archive.py`(묶기·풀기·휴지통), `test_write_fail.py`(서버가 거절하면 화면 되돌림·알림, 쉼 arrayUnion, 여러 묶음 복원 중간 실패 `failAfter`)
 - **`test_offline.py`**: 껍데기 한 묶음 캐시, 서버 없이 열기(메모 앱·옛 주소 넘겨주기도, 서비스 워커는 하나), 새 버전 → '새 버전이 있어요' → 새로고침으로 바뀌고 옛 묶음 지움. 사본 폴더에서 버전을 바꿔 가며 돈다
-- **기능별**: `test_basics`(기본 흐름·휴지통·한글 조합·숨기기·백업), `test_quick`(한 줄 입력 해석 표), `test_slots`(고정 일정 시간대), `test_dur`(소요 시간), `test_events`(고정 일정 화면), `test_week_ev`(시간표 필터·이날만 바꾸기), `test_tt3`(폰 3일 보기), `test_timetable_group`(겹침 묶음), `test_views`(전체 탭 정렬·시간표·소분류 순서·반복 숨기기), `test_all_tab`(밀린 할 일·기록·시간 미정 줄), `test_repeat`(자동 추가를 끈 반복 흐름), `test_push_ui`(알림 화면), `test_safety`(불러오는 중·XSS·버전), `test_sort_time`(시트 닫기·PC 시간 입력·정렬), `test_ux`(오프라인 줄·반복 정보), `test_backup`(Codex: 복원 한도·재확인), `test_v21`(자정 넘김·넘기기), `test_v24`(초안 저장·숫자 기준·전체 탭·저장 막기), `test_v25`(자동 추가·휴지통·검색·편집 접기·오전/오후 바꾸기·비밀번호 재설정·백업 파일·공휴일 끝·필드 쓰기), `test_v26_sync`(실제 app.js+가짜 Firebase: 두 기기 자동 추가·휴지통·오프라인·바꾼 칸만 저장), `test_memo`(메모 폰 목록·시트·체크·휴지통·백업 — 폰은 2.9.0부터 `/memo/`로 염, PC 보드 끌기·크기·바로 쓰기), `test_memo_app`(2.9.0 메모 앱: 폰 또박 탭·메뉴 링크, 메모 앱 머리·manifest·아이콘·메뉴·휴지통 메모만·보기 설정 안 바꿈·#week 무시, 2.9.1 두 범위 안 겹침·맨 위 주소 넘겨주기·청록, PC 보드), `test_memo_data`(2.9.1, 실제 app.js+가짜 Firebase: 메모 앱은 m_만 구독·할 일 안 건드림·알림 목록 안 보냄, 또박은 전부). **테스트 주소는 `/app/`**(2.9.1부터). 가짜 Firebase는 `query`·`where(documentId())` 범위만 흉내, `__fs.queries`에 구독을 남김, `test_v26_ui`(고정 일정 요약·저장 전 오전/오후·알림 바로 보임·편집 되찾기·저장 실패 안내·검색 더 보기), `test_asserts`(핵심 회귀). Node: `v26.test.mjs`(날짜 검증·백업 필드·이날만 바꾸기 개수·알림 서버 재시도). 화면을 눈으로 볼 때는 `python3 dev/tools/shots.py`(→ `dev/tests/out/shots/`).
-- **반복 할 일 시드**: 자동 추가(기본 켬)가 끼지 않게, '눌러서 추가' 흐름을 보는 테스트는 시드에 `auto:false`를 넣는다. 메모리 저장소를 감싼 테스트는 `onData(d)`만 넘겨서(서버 표시 없음) 자동 추가가 안 돈다.
+- **기능별**: `test_basics`(기본 흐름·휴지통·한글 조합·숨기기·백업), `test_quick`(한 줄 입력 해석 표), `test_slots`(고정 일정 시간대), `test_dur`(소요 시간), `test_events`(고정 일정 화면), `test_week_ev`(시간표 필터·이날만 바꾸기), `test_tt3`(폰 3일 보기), `test_timetable_group`(겹침 묶음), `test_views`(전체 탭 정렬·시간표·소분류 순서·반복 숨기기), `test_all_tab`(밀린 할 일·기록·시간 미정 줄), `test_repeat`(자동 추가를 끈 반복 흐름), `test_push_ui`(알림 화면), `test_safety`(불러오는 중·XSS·버전), `test_sort_time`(시트 닫기·PC 시간 입력·정렬), `test_ux`(오프라인 줄·반복 정보), `test_backup`(Codex: 복원 한도·재확인), `test_v21`(자정 넘김·넘기기), `test_v24`(초안 저장·숫자 기준·전체 탭·저장 막기), `test_v25`(자동 추가·휴지통·검색·편집 접기·오전/오후 바꾸기·비밀번호 재설정·백업 파일·공휴일 끝·필드 쓰기), `test_v26_sync`(실제 app.js+가짜 Firebase: 두 기기 자동 추가·휴지통·오프라인·바꾼 칸만 저장), `test_memo`(메모 폰 목록·시트·체크·휴지통·백업 — 폰은 2.9.0부터 `/memo/`로 염, PC 보드 끌기·크기·바로 쓰기), `test_memo_app`(2.9.0 메모 앱: 폰 또박 탭·메뉴 링크, 메모 앱 머리·manifest·아이콘·메뉴·휴지통 메모만·보기 설정 안 바꿈·#week 무시, 2.9.1 두 범위 안 겹침·맨 위 주소 넘겨주기·청록, PC 보드), `test_v30_repeat`(3.0.0 반복 할 일 시간대·자동 추가 없음·목록 정렬), `rich.test.mjs`(Node: 서식 변환·검사·이스케이프), `test_memo_data`(2.9.1, 실제 app.js+가짜 Firebase: 메모 앱은 m_만 구독·할 일 안 건드림·알림 목록 안 보냄, 또박은 전부). **테스트 주소는 `/app/`**(2.9.1부터). 가짜 Firebase는 `query`·`where(documentId())` 범위만 흉내, `__fs.queries`에 구독을 남김, `test_v26_ui`(고정 일정 요약·저장 전 오전/오후·알림 바로 보임·편집 되찾기·저장 실패 안내·검색 더 보기), `test_asserts`(핵심 회귀). Node: `v26.test.mjs`(날짜 검증·백업 필드·이날만 바꾸기 개수·알림 서버 재시도). 화면을 눈으로 볼 때는 `python3 dev/tools/shots.py`(→ `dev/tests/out/shots/`).
+- **반복 할 일 시드**: 3.0.0부터 자동 추가가 없어서 `auto` 값은 상관없다(예전 테스트 시드에 남은 `auto:false`는 무시됨).
 - **날짜 의존**: 테스트 데이터는 대부분 "오늘" 기준이다. 실패하면 앱 버그인지 테스트의 날짜 가정인지 먼저 본다.
 
 ## 8. 실수하기 쉬운 것들 (실제로 겪음)
@@ -278,6 +285,8 @@ dev/
   - 매일 아침 "오늘 할 일 n개" 요약 알림(현재 알림 서버로 추가 비용 없이 가능)
 
 ## 10. 버전 기록 요약
+
+- **3.0.0**: 사용자 요청 다섯 가지 + 점검. 메모 앱 이름 **끄적**(청록 손글씨 아이콘·마크, `memo_icon`·`memoMarkSvg`), 끄적 서식 `rich.js`(5.3 '끄적 서식', 보드·시트·폰 모두 같은 편집기, 옛 마크다운 메모는 읽어서 보여 줌, 저장은 `doc`+`text` 사본), 반복 할 일 시간대(`slots`·`tslot`, 편집은 고정 일정과 같은 `slotCard`, 흐린 줄·시간표·정보 창·추가가 시간대별), 반복 할 일 자동 추가 없앰(`autoAdd`·`create`·`raise`·`e-auto`·'추가 예정' 칩 제거), 고정 일정·반복 할 일 목록에서 여러 줄이면 이름이 가운데. 점검: 흐린 줄의 '눌러서 추가' 칩 빼서 덜 시끄럽게, 죽은 코드 정리, 스크린샷 도구에 끄적·반복 시간대. 테스트 `rich.test.mjs`·`test_v30_repeat.py`, `test_memo`를 새 편집기로 다시 씀, 자동 추가 테스트는 '안 만든다'로
 
 - **2.10.0**: 폰 메모 앱 새 모양(5.3 '폰 메모 앱 화면'): 2열 카드·떠 있는 ＋·돋보기 검색, 화면 전체 편집(뒤로가기로 닫기, 쓰는 중 저장, 키보드 위 꾸미기 막대). `test_memo` 폰 부분을 새 화면으로
 

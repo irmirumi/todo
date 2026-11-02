@@ -140,10 +140,8 @@ const setTask=(id,b)=>store.set(id,b);
 const patchTask=(id,p)=>store.update(id,p);
 const delTask=id=>store.remove(id);
 /* 2.6.0 조건부 쓰기: 두 기기가 같은 정리 작업을 할 때 늦게 도착한 쓰기가 상대의 변경을 덮지 않게.
-   저장소가 지원하면 서버에서 확인하고 쓴다(Firestore 트랜잭션 — 오프라인이면 실패하고 다음에 다시 함). 아니면 화면이 가진 데이터로 확인
-   createTask: 없을 때만 만든다(true/false) · raiseTpl: 값이 지금보다 클 때만 올린다 · removeIf: 그 필드가 아직 그 값일 때만 지운다 */
-const createTask=(id,b)=>store.create?store.create(id,b):S.tasks.has(id)||S.trash.has(id)?Promise.resolve(false):Promise.resolve(store.set(id,b)).then(()=>true);
-const raiseTpl=(id,f,v)=>store.raise?store.raise(id,f,v):((S.tpls.get(id)||{})[f]||"")<v?Promise.resolve(patchTask(id,{[f]:v})):Promise.resolve();
+   저장소가 지원하면 서버에서 확인하고 쓴다(Firestore 트랜잭션 — 오프라인이면 실패하고 다음에 다시 함). 아니면 화면이 가진 데이터로 확인.
+   removeIf: 그 필드가 아직 그 값일 때만 지운다(휴지통 30일 비우기). 3.0.0에 자동 추가를 없애며 create·raise는 뺐다 */
 const removeIf=(id,f,v)=>store.removeIf?store.removeIf(id,f,v):Promise.resolve(delTask(id));
 /* 편집: 창을 열 때의 값(_base)과 비교해 사용자가 바꾼 칸만 저장한다(다른 기기가 그사이 고친 칸을 덮지 않게) */
 const diffOf=(base,next)=>{const p={};for(const k of Object.keys(next))if(JSON.stringify(next[k])!==JSON.stringify(base[k]))p[k]=next[k];return p;};
@@ -305,7 +303,7 @@ function ghostRow(t){
   const sub=t.sub?subsOf(cat).find(s=>s.id===t.sub):null;
   if(t.time)meta.push('<span class="chip time">'+fmtRange(t.time,t.end)+'</span>');
   if(store&&store.push&&t.remind!=null&&t.time)meta.push('<span class="rmd">'+bellSvg+remindLabel(t.remind)+'</span>');
-  meta.unshift('<span class="chip pre">눌러서 추가</span>');
+
   meta.push('<span class="rep">'+repSvg+weekly(t.days)+'</span>');
   const ds=' data-id="'+t.id+'" data-k="'+t.date+'" data-s="'+esc(t.sid||"")+'"';
   return '<li id="gh-'+t.id+(t.sid?'-'+esc(t.sid):'')+'" class="task ghost" style="--cc:var(--'+cat.color+')">'+
@@ -1752,8 +1750,6 @@ document.addEventListener("click",ev=>{
       if(t.tpl&&S.tpls.has(t.tpl)){openTpl(t.tpl);S.carry={draft:d,used:false};break;}
       openTpl(null,{title:e.title.trim()||t.title,note:e.note,time:e.timeBad?(t.time||""):e.time,end:e.endBad?(t.end||""):e.end,remind:e.remind,cat:e.cat,sub:e.sub,
         subtasks:e.subtasks.filter(s=>s.t.trim()),date:(!e.nodate&&e.date)||S.sel,from:t.id});S.carry={draft:d,used:false};break;}
-    case"eday":{syncEdit();const d=+b.dataset.d,ds=S.edit.days;
-      S.edit.days=ds.includes(d)?ds.filter(x=>x!==d):sortDays(ds.concat(d));redrawEdit();break;}
     case"tpldel":{if(!S.delArm){syncEdit();S.delArm=true;drawEdit();toast("휴지통에 남지 않아요. 한 번 더 누르면 삭제돼요");break;}
       const id=S.editing,r=S.tpls.get(id);S.editGone=true;closeDlg();if(!r)break;
       const body=Object.assign({},r);delete body.id;delTask(id);

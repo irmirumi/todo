@@ -28,7 +28,7 @@ with sync_playwright() as p:
     # --- 반복 할 일은 자동으로 안 들어온다(3.0.0, 사용자 결정). 옛 데이터의 auto 값과 상관없이 흐린 줄 → 눌러서 추가
     ts = tasks()
     check(not any(v.get("tpl") for v in ts.values()) and tpl("r_auto").get("madeUntil") is None, "자동 추가 없음(옛 auto 값이 있어도)")
-    check(pg.locator(".task.ghost").count() == 2 and all("눌러서 추가" in x for x in pg.locator(".task.ghost").all_inner_texts()), "둘 다 '눌러서 추가' 흐린 줄")
+    check(pg.locator(".task.ghost").count() == 2 and pg.locator(".task.ghost .gadd").count() == 2, "둘 다 ＋로 추가하는 흐린 줄")
     pg.click(".task.ghost:has-text('분리수거') .gadd"); pg.wait_for_timeout(400)
     a = [v for v in tasks().values() if v.get("tpl") == "r_auto"]
     check(len(a) == 1 and a[0]["title"] == "분리수거" and a[0]["time"] == "08:00" and a[0]["remind"] == 10 and a[0]["subtasks"][0]["t"] == "캔" and a[0]["date"] == tk, "＋로 추가: 원본 내용 그대로(시간·알림·세부)")
