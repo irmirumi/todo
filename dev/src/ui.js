@@ -1329,6 +1329,7 @@ function memoDoc(t){const c=docCache.get(t);if(c&&c.text===t.text&&c.doc===t.doc
 const memoTitle=t=>RT.title(memoDoc(t))||"빈 메모";
 const memoPlain=t=>RT.toPlain(memoDoc(t)).toLowerCase();
 const memoBody=t=>RT.isEmpty(memoDoc(t))?'<p class="mempty">빈 메모</p>':RT.toHtml(memoDoc(t),{check:true});
+/* 보기 칸: 편집기와 같은 블록 규칙(.rview) */
 const sameDoc=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function memoWhen(t){const d=new Date(t.updatedAt||t.createdAt||Date.now()),k=keyOf(d);
   return k===today?"오늘 "+fmtTime(pad(d.getHours())+":"+pad(d.getMinutes())):relWord(k)||(d.getFullYear()!==new Date().getFullYear()?d.getFullYear()+"년 ":"")+(d.getMonth()+1)+"월 "+d.getDate()+"일";}
@@ -1355,8 +1356,9 @@ function caretEnd(el){if(!el)return;el.focus();try{const r=document.createRange(
 function renderMemo(){
   if(memoPhone())return renderMemoPhone();
   const q=(S.mq||"").trim().toLowerCase(),wide=memoWide()&&!q,list=memoList();
-  let h='<div class="dayhead"><div class="hrow"><h1>'+(MEMO_APP?'끄적':'메모')+'</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button>'+(MEMO_APP?moreBtn:'')+'</div></div>';
-  h+='<div class="searchrow"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
+  /* 끄적(PC)은 앱 이름 대신 검색 막대 머리, 또박의 메모 탭은 탭 이름 '메모' */
+  let h=MEMO_APP?kbar(true):'<div class="dayhead"><div class="hrow"><h1>메모</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button></div></div>'+
+    '<div class="searchrow"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
   if(S.mode==="loading"){morph($("#main"),h);return;}
   if(wide){
     let bw=2400,bh=1600;for(const m of list){bw=Math.max(bw,m.x+(m.w||MEMO_W)+600);bh=Math.max(bh,m.y+(m.h||MEMO_H)+600);}
@@ -1367,7 +1369,7 @@ function renderMemo(){
           '<div class="mbar" data-drag="'+t.id+'">'+(ed?fmtBar():'<span class="mwhen">'+esc(memoWhen(t))+'</span>')+'<button class="mopen" type="button" title="크게 열기" data-act="mopen" data-id="'+t.id+'" aria-label="'+esc(memoTitle(t))+' 크게 열기">'+
           '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5h3v3M5.5 11.5h-3v-3M11.5 2.5 8 6M2.5 11.5 6 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>'+
           (ed?'<div class="mta" id="mt-'+t.id+'"></div>'
-            :'<div class="mbody md" data-act="medit" data-id="'+t.id+'">'+memoBody(t)+'</div>')+
+            :'<div class="mbody md rview" data-act="medit" data-id="'+t.id+'">'+memoBody(t)+'</div>')+
           '<span class="mrz" data-rz="'+t.id+'" aria-hidden="true"></span></div>';}).join("")+
       '</div></div>';
   }else{
@@ -1375,7 +1377,7 @@ function renderMemo(){
     if(!list.length)h+='<p class="hint">메모 없음</p>';
     else if(!res.length)h+='<p class="empty">‘'+esc(S.mq.trim())+'’ 검색 결과 없음</p>';
     else h+='<div class="mlist">'+res.map(t=>'<article class="mcard'+(t.color?' tint':'')+'"'+memoStyle(t)+' data-act="mopen" data-id="'+t.id+'" tabindex="0" aria-label="'+esc(memoTitle(t))+'">'+
-      '<div class="mbody md">'+memoBody(t)+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>').join("")+'</div>';
+      '<div class="mbody md rview">'+memoBody(t)+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>').join("")+'</div>';
   }
   morph($("#main"),h);
   if(wide&&S.mEdit){const id=S.mEdit,t=S.memos.get(id),el=document.getElementById("mt-"+id);
@@ -1437,22 +1439,23 @@ function memoCols(list){
   return c;
 }
 const memoCardP=t=>'<article class="mcard pc'+(t.color?' tint':'')+'"'+memoStyle(t)+' data-act="mopen" data-id="'+t.id+'" tabindex="0" aria-label="'+esc(memoTitle(t))+'">'+
-  '<div class="mbody md">'+memoBody(t)+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>';
+  '<div class="mbody md rview">'+memoBody(t)+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>';
 function renderMemoPhone(){
-  const q=(S.mq||"").trim().toLowerCase(),list=memoList(),open=!!(S.mSearch||q);
-  let h='<div class="mphead"><div class="mpt"><h1>끄적</h1>'+(list.length?'<span class="mcount">'+list.length+'</span>':'')+'</div><span class="sp"></span>'+
-    '<button class="mpi" type="button" data-act="msearch" aria-label="메모 검색" aria-pressed="'+open+'">'+searchSvg+'</button>'+moreBtn+'</div>';
-  if(open)h+='<div class="searchrow mps"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
+  const q=(S.mq||"").trim().toLowerCase(),list=memoList();
+  /* 머리는 검색 막대 하나(앱 이름을 위에 쓰지 않는다 — 사용자 규칙) */
+  let h=kbar(false);
   if(S.mode!=="loading"){
     const res=q?list.filter(t=>memoPlain(t).includes(q)):list;
-    if(!list.length)h+='<div class="mpempty">'+memoMarkSvg+'<p>메모 없음</p><small>＋를 눌러 첫 메모 쓰기</small></div>';
+    if(!list.length)h+='<div class="mempty-k">'+memoMarkSvg+'<p>메모 없음</p><small>＋를 눌러 첫 메모 쓰기</small></div>';
     else if(!res.length)h+='<p class="empty">‘'+esc(S.mq.trim())+'’ 검색 결과 없음</p>';
     else{const [a,b]=memoCols(res);h+='<div class="mgrid"><div class="mcol">'+a.map(memoCardP).join("")+'</div><div class="mcol">'+b.map(memoCardP).join("")+'</div></div>';}
     h+='<button class="mfab" type="button" data-act="mnew" aria-label="새 메모">'+fabSvg+'</button>';
   }
   morph($("#main"),h);
-  if(S.mFocusQ){S.mFocusQ=false;const i=$("#mq");if(i)i.focus();}
 }
+/* 끄적 머리: 검색 막대(돋보기·입력·⋯). PC 끄적은 오른쪽에 ＋ */
+const kbar=withPlus=>'<div class="kbar"><label class="ksearch">'+searchSvg+'<input id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색">'+moreBtn+'</label>'+
+  (withPlus?'<button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button>':'')+'</div>';
 let mpage=null,mpT=null;
 function pageEl(){
   if(!mpage){mpage=document.createElement("div");mpage.id="mpage";mpage.hidden=true;mpage.setAttribute("role","dialog");mpage.setAttribute("aria-modal","true");mpage.setAttribute("aria-label","메모 쓰기");document.body.appendChild(mpage);}
@@ -1507,7 +1510,7 @@ window.addEventListener("popstate",()=>{if(pageOpen()&&!(history.state&&history.
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&pageOpen())pageSave();});
 /* 꾸미기 막대(3.0.0): 기호 없이 버튼으로 — 제목·굵게·목록·체크(+폰은 되돌리기·다시). 누를 때 편집기 포커스를 뺏지 않는다(폰 키보드가 안 닫히게).
    커서가 있는 줄의 모양은 버튼이 눌린 상태로 보인다(syncFmt) */
-const FMT=[["h","제목",'<b class="fg">제목</b>'],["b","굵게",'<b class="fg fb">B</b>'],
+const FMT=[["h","제목",'<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3v10M10 3v10M3 8h7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M12.6 9.2 14 8.4V13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'],["b","굵게",'<b class="fg fb">B</b>'],
   ["l","목록",'<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="4.5" r="1.3" fill="currentColor"/><circle cx="3" cy="11.5" r="1.3" fill="currentColor"/><path d="M6.5 4.5h7M6.5 11.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'],
   ["c","체크",'<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.3" width="4.6" height="4.6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.6 11.4l1.2 1.2 2.2-2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.8 4.6h4.8M8.8 11.6h4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>']];
 const UNDO=[["undo","되돌리기",'<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'],
@@ -1638,7 +1641,7 @@ document.addEventListener("click",ev=>{
     case"mopen":if(ev.target.closest("a"))break;if(memoPhone())openPage(b.dataset.id);else openMemo(b.dataset.id);break;
     case"mback":leavePage();break;
     case"mpal":S.mPal=!S.mPal;pageTop();break;
-    case"msearch":if(S.mSearch||(S.mq||"").trim()){S.mSearch=false;S.mq="";}else{S.mSearch=true;S.mFocusQ=true;}render();break;
+
     case"medit":{if(ev.target.closest("a"))break;if(S.mEdit&&S.mEdit!==b.dataset.id)memoFlush(S.mEdit);S.mEdit=b.dataset.id;render();break;}
     case"mcheck":{const host=b.closest("[data-mid],[data-id]");if(host)memoCheck(host.dataset.mid||host.dataset.id,+b.dataset.line);break;}
     case"mcolor":{const e=S.memoEdit;if(!e)break;if(e.page){e.color=b.dataset.color;pageTop();if(e.id)pageSave();break;}e.color=b.dataset.color;drawMemoSheet();break;}

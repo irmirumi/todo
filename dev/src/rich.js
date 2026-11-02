@@ -112,22 +112,16 @@
   /* ---------- 보기(카드·보드) ---------- */
   const linkify = s => s.replace(/(^|[\s(])(https?:\/\/[^\s<"')]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
   const inlineHtml = (x, links) => runsOf(x).map(r => { const s = links ? linkify(esc(r.s)) : esc(r.s); return r.b ? "<b>" + s + "</b>" : s; }).join("");
-  // check: 체크칸을 누를 수 있게(data-act="mcheck" data-line=블록 번호)
+  // 보기도 편집기와 같은 블록 모양(.rb[data-k])이라 쓰는 화면과 보는 화면이 똑같다(3.1.0). check: 체크칸을 누를 수 있게(data-act="mcheck" data-line=블록 번호)
   function toHtml(doc, opt) {
-    const o = opt || {}; let h = "", list = "";
-    const close = () => { if (list) { h += "</ul>"; list = ""; } };
-    (doc || []).forEach((x, i) => {
+    const o = opt || {};
+    return (doc || []).map((x, i) => {
       const s = inlineHtml(x, true);
-      if (x.k === "l" || x.k === "c") {
-        if (list !== x.k) { close(); list = x.k; h += x.k === "c" ? '<ul class="mchk">' : "<ul>"; }
-        h += x.k === "c" ? '<li class="' + (x.d ? "on" : "") + '">' + (o.check ? '<button type="button" class="mcb' + (x.d ? " on" : "") + '" data-act="mcheck" data-line="' + i + '" role="checkbox" aria-checked="' + !!x.d + '" aria-label="' + esc(x.t || "체크") + '"></button>' : '<span class="mcb' + (x.d ? " on" : "") + '"></span>') + "<span>" + (s || "&nbsp;") + "</span></li>" : "<li>" + (s || "&nbsp;") + "</li>";
-        return;
-      }
-      close();
-      h += x.k === "h" ? '<p class="mh mh1">' + s + "</p>" : x.t ? "<p>" + s + "</p>" : '<p class="mgap"></p>';
-    });
-    close();
-    return h;
+      const box = x.k !== "c" ? "" : o.check
+        ? '<button type="button" class="mcb' + (x.d ? " on" : "") + '" data-act="mcheck" data-line="' + i + '" role="checkbox" aria-checked="' + !!x.d + '" aria-label="' + esc(x.t || "체크") + '"></button>'
+        : '<span class="mcb' + (x.d ? " on" : "") + '"></span>';
+      return '<div class="rb" data-k="' + x.k + '"' + (x.k === "c" && x.d ? ' data-d="1"' : "") + ">" + box + (s || "<br>") + "</div>";
+    }).join("");
   }
 
   /* ---------- 편집기 ---------- */

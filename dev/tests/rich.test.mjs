@@ -42,7 +42,7 @@ ok(R.clean(Array.from({ length: 3000 }, () => ({ k: "p", t: "x" }))).length === 
 // 보기 HTML: 이스케이프, 링크, 체크칸
 const h = R.toHtml(R.clean([{ k: "p", t: "<img src=x onerror=alert(1)> https://ex.am/p?q=1" }, { k: "c", t: "할 것", d: 1 }, { k: "l", t: "하나" }]), { check: true });
 ok(!/<img/.test(h) && h.includes("&lt;img") && h.includes('<a href="https://ex.am/p?q=1"'), "HTML은 글자로, 주소는 링크");
-ok(h.includes('data-act="mcheck" data-line="1"') && h.includes('class="mcb on"') && h.includes("<ul><li>하나</li></ul>"), "체크칸(줄 번호)·목록");
+ok(h.includes('data-act="mcheck" data-line="1"') && h.includes('class="mcb on"') && h.includes('<div class="rb" data-k="l">하나</div>') && h.includes('data-k="c" data-d="1"'), "보기도 편집기와 같은 블록(체크칸·줄 번호·목록)");
 ok(R.title(R.clean([{ k: "p", t: "  " }, { k: "h", t: " 제목 " }])) === "제목", "제목은 첫 글자 있는 줄");
 const tg = plain(R.toggle(d, 2));
 ok(tg[2].d === 1 && R.toggle(d, 0) === null, "체크 뒤집기(체크 줄만)");

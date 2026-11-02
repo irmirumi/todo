@@ -56,8 +56,8 @@ try:
       if width>600:
        pg.click('[data-act=view][data-v=memo]');pg.wait_for_timeout(400);shot('memo-board')
      # 끄적
-     pg.goto(f'http://127.0.0.1:{srv.server_port}/memo/');pg.wait_for_selector('.mcard,.mpempty,.mnote,.hint,#board,#l-email')
-     if pg.locator('#l-email').count():pg.fill('#l-email','review@example.test');pg.fill('#l-pw','local-only');pg.click('#l-btn');pg.wait_for_selector('.mcard,.mpempty,.mnote,.hint,#board')
+     pg.goto(f'http://127.0.0.1:{srv.server_port}/memo/');pg.wait_for_selector('.mcard,.mempty-k,.mnote,.hint,#board,#l-email')
+     if pg.locator('#l-email').count():pg.fill('#l-email','review@example.test');pg.fill('#l-pw','local-only');pg.click('#l-btn');pg.wait_for_selector('.mcard,.mempty-k,.mnote,.hint,#board')
      shot('kkeut')
      if not empty and width<600:
       pg.click('.mcard >> nth=0');pg.wait_for_timeout(300);shot('kkeut-edit')

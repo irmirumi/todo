@@ -36,7 +36,7 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.setItem('todo.view','week')")
     pg.goto(MEMO); pg.wait_for_selector(".mcard")
     check(pg.title() == "끄적" and pg.evaluate("document.documentElement.dataset.app") == "memo", "끄적 페이지(제목·data-app)")
-    check(pg.locator("header.top").count() == 0 and pg.inner_text("#main h1") == "끄적" and pg.locator("#main .mphead .more").is_visible(), "메모 앱: 탭 줄 없이 머리에 ⋯")
+    check(pg.locator("header.top").count() == 0 and pg.locator("#main h1").count() == 0 and pg.locator("#main .kbar .more").is_visible(), "끄적: 탭 줄·앱 이름 없이 검색 막대 머리에 ⋯")
     check(pg.locator(".mcard").count() == 1, "메모 목록(휴지통 것은 빼고)")
     check(pg.evaluate("document.querySelector('link[rel=manifest]').href").endswith("/memo/manifest.webmanifest"), "메모 앱 전용 manifest")
     mf = pg.evaluate("fetch('manifest.webmanifest').then(r=>r.json())")
