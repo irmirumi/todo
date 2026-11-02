@@ -30,6 +30,7 @@ open(os.path.join(APP, "style.css"), "w", encoding="utf-8").write(RESET + style)
 assert '"__VERSION__"' in ui, "ui.js 의 VERSION 자리표시자가 없다"
 open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui.replace('"__VERSION__"', '"' + VERSION + '"'))
 shutil.copy(os.path.join(SRC, "model.js"), os.path.join(APP, "model.js"))
+shutil.copy(os.path.join(SRC, "rich.js"), os.path.join(APP, "rich.js"))  # 끄적 글 서식(3.0.0)
 def page(title, pre="", app=None, manifest="manifest.webmanifest", icon="icon-192.png", touch="apple-touch-icon.png", hol=True, vp=""):
     """앱 입구 HTML. 공용 파일은 앱 폴더에 두고 입구만 한 단계 아래 폴더에서 연다(2.9.1): 또박은 app/, 메모 앱은 memo/(pre="../").
     폰은 설치 범위(scope)가 겹치면 두 앱을 따로 설치하지 못해서 입구를 나란한 폴더로 나눴다"""
@@ -48,7 +49,7 @@ def page(title, pre="", app=None, manifest="manifest.webmanifest", icon="icon-19
         f'<link rel="stylesheet" href="{pre}fonts/WantedSansVariable.css">\n'
         f'<link rel="stylesheet" href="{pre}style.css">\n</head>\n<body>\n' + markup +
         f'<script src="{pre}vendor/morphdom.min.js"></script>\n' + (f'<script src="{pre}holidays.js"></script>\n' if hol else '') +
-        f'<script src="{pre}model.js"></script>\n<script src="{pre}ui.js"></script>\n'
+        f'<script src="{pre}model.js"></script>\n<script src="{pre}rich.js"></script>\n<script src="{pre}ui.js"></script>\n'
         f'<script type="module" src="{pre}app.js"></script>\n</body>\n</html>\n')
 # 앱 폴더 맨 위(예전 주소)는 또박으로 넘겨주기만: 홈 화면의 옛 또박·알림·북마크가 그대로 열리게(#d= 같은 뒤 주소도 넘김)
 open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
@@ -59,7 +60,7 @@ open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<body><p><a href="app/">또박 열기</a></p></body>\n</html>\n')
 os.makedirs(os.path.join(APP, "app")); os.makedirs(os.path.join(APP, "memo"))
 open(os.path.join(APP, "app", "index.html"), "w", encoding="utf-8").write(page("또박", "../", manifest="../manifest.webmanifest"))
-open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("또박 메모", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png", hol=False, vp=",interactive-widget=resizes-content"))  # 폰 키보드가 올라오면 화면이 줄어 꾸미기 막대가 키보드 위에(2.10.0)
+open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("끄적", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png", hol=False, vp=",interactive-widget=resizes-content"))  # 폰 키보드가 올라오면 화면이 줄어 꾸미기 막대가 키보드 위에(2.10.0)
 shutil.copy(os.path.join(SRC, "pwa", "memo.webmanifest"), os.path.join(APP, "memo", "manifest.webmanifest"))
 # 2.9.0 서비스 워커가 남은 기기에서 app/을 처음 열 때 빠져나오는 길(rescue.js 맨 위 설명)
 shutil.copy(os.path.join(SRC, "pwa", "rescue.js"), os.path.join(APP, "app", "app.js"))
@@ -136,8 +137,17 @@ icon(512, os.path.join(I, "icon-maskable-512.png"), mark_ratio=0.78, rounded=Fal
 icon(192, os.path.join(I, "icon-maskable-192.png"), mark_ratio=0.78, rounded=False, transparent_corners=False)
 # iOS는 모서리를 알아서 둥글게 깎으므로 꽉 찬 사각형
 icon(180, os.path.join(I, "apple-touch-icon.png"), mark_ratio=0.92, rounded=False, transparent_corners=False)
-# 메모 앱 아이콘(2.9.0, 2.9.1에 청록): 청록 바탕에 흰 메모지(오른쪽 아래 접힘)와 글줄 두 개. ui.js의 memoMarkSvg와 같은 모양
+# 끄적 아이콘(3.0.0): 청록 바탕에 흰 손글씨 고리 두 번(끄적끄적). 곡선은 트로코이드, 원을 촘촘히 찍어 매끈하게. ui.js memoMarkSvg와 같은 곡선
 TEAL = (23, 145, 127, 255)  # manifest background_color #17917F
+import math
+def scribble(n=1400):
+    a, b, t0, t1, tilt = 1.15, 2.9, 0.55 * math.pi, 4.45 * math.pi, -0.12
+    P = []
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n; x = a * t - b * math.sin(t); y = -b * math.cos(t)
+        P.append((x * math.cos(tilt) - y * math.sin(tilt), x * math.sin(tilt) + y * math.cos(tilt)))
+    xs = [p[0] for p in P]; ys = [p[1] for p in P]; cx = (min(xs) + max(xs)) / 2; cy = (min(ys) + max(ys)) / 2; w = max(xs) - min(xs)
+    return [((x - cx) / w, (y - cy) / w) for x, y in P]
 def memo_icon(size, path, mark_ratio=1.0, rounded=True, transparent_corners=True):
     S = size * 4
     im = Image.new("RGBA", (S, S), (0, 0, 0, 0) if transparent_corners else TEAL)
@@ -146,22 +156,10 @@ def memo_icon(size, path, mark_ratio=1.0, rounded=True, transparent_corners=True
         d.rounded_rectangle([0, 0, S - 1, S - 1], radius=int(S * 9 / 32), fill=TEAL)
     else:
         d.rectangle([0, 0, S, S], fill=TEAL)
-    s = S / 32 * mark_ratio * 1.08; o = S / 2 - 16 * s  # 꽉 찬 모양이라 체크보다 작아 보여서 조금 크게
-    P = lambda x, y: (o + x * s, o + y * s)
-    white = (255, 255, 255, 255)
-    # 메모지: 둥근 사각형에서 오른쪽 아래 모서리를 자른 모양
-    d.rounded_rectangle([*P(8.5, 8.5), *P(23.5, 24)], radius=1.5 * s, fill=white)
-    d.polygon([P(23.6, 18.6), P(23.6, 24.1), P(18.1, 24.1)], fill=TEAL)
-    # 접힌 귀퉁이(연한 핑크)
-    fold = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(fold).polygon([P(23.5, 18.6), P(18.1, 18.6), P(18.1, 24)], fill=TEAL[:3] + (115,))
-    im.alpha_composite(fold)
-    # 글줄
-    for (x0, y, x1) in [(12.2, 13.2, 19.8), (12.2, 17.0, 16.8)]:
-        d.line([P(x0, y), P(x1, y)], fill=TEAL, width=int(2 * s))
-        r = s
-        for x in (x0, x1):
-            cx, cy = P(x, y); d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=TEAL)
+    W = S * 0.6 * mark_ratio; r = S * 0.072 * mark_ratio / 2
+    for x, y in scribble():
+        X, Y = S / 2 + x * W, S / 2 + y * W
+        d.ellipse([X - r, Y - r, X + r, Y + r], fill=(255, 255, 255, 255))
     im.resize((size, size), Image.LANCZOS).save(path)
 
 memo_icon(192, os.path.join(I, "memo-192.png"))

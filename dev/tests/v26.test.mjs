@@ -22,12 +22,14 @@ const writes = [];
 const c = vm.createContext({ console, Date, Map, Set, S: { tasks: new Map(), events: new Map() }, uid8: () => "testid", autoOn: r => r.auto !== false,
   syncEdit() {}, toast() {}, store: { fx: { del: () => ({ deleted: true }) } }, patchTask: (id, p) => writes.push({ id, p }) });
 vm.runInContext(model + "\nconst {DATE_RE,TIME_RE,KEY_RE,sortDays,okEnd,evBase,occKey,addDays,keyOf}=TodoModel;\n" +
-  between(ui, "function clean(t){", "function parseImport(") + between(ui, "function commitEvDay(){", "function openLater("), c);
+  between(ui, "function clean(t){", "function parseImport(") + between(ui, "function cleanSlots(", "function drawImport(") + between(ui, "function commitEvDay(){", "function openLater("), c);
 const cl = vm.runInContext(`clean({title:'x',date:'2026-02-31',time:'99:99',deletedAt:-1})`, c);
 ok(cl.date === null && cl.time === null && cl.deletedAt === undefined, "백업: 없는 날짜·시각·이상한 지운 시각은 받지 않음");
 ok(vm.runInContext(`clean({title:'x',deletedAt:Date.now()-1000}).deletedAt>0`, c), "백업: 정상 지운 시각은 그대로");
-ok(vm.runInContext(`cleanTpl({auto:"false"}).auto`, c) === false && vm.runInContext(`cleanTpl({}).auto`, c) === true, "백업: 자동 추가 끔은 문자열이어도 끔, 없으면 켬");
-ok(vm.runInContext(`cleanTpl({madeUntil:"2099-01-01"}).madeUntil`, c) === undefined, "백업: 먼 미래의 만든 날 기록은 버림(자동 추가가 멈추지 않게)");
+ok(vm.runInContext(`cleanTpl({auto:true,madeUntil:"2026-01-01"})`, c).auto === undefined && vm.runInContext(`cleanTpl({madeUntil:"2026-01-01"})`, c).madeUntil === undefined, "백업(3.0.0): 자동 추가 값(auto·madeUntil)은 받지 않음");
+const sl = vm.runInContext(`cleanTpl({days:[1],slots:[{id:"",days:[1],time:"09:00",end:"10:00"},{id:"a1",days:[3],time:null},{id:"bad id",days:[9]}]}).slots`, c);
+ok(sl.length === 2 && sl[1].id === "a1" && sl[1].time === null, "백업(3.0.0): 반복 할 일 시간대는 시간 없어도 받음, 요일 없는 줄은 버림");
+ok(vm.runInContext(`clean({title:'x',tpl:'r_1',tslot:'a1'}).tslot`, c) === "a1" && vm.runInContext(`clean({title:'x',tslot:'a1'}).tslot`, c) === undefined, "백업(3.0.0): 시간대 표시(tslot)는 반복에서 온 할 일만");
 
 // 이날만 바꾸기: 400개가 넘어도 맵 통째로 쓰지 않고 그 칸만
 const ovr = Object.fromEntries(Array.from({ length: 400 }, (_, i) => [new Date(Date.UTC(2020, 0, i + 1)).toISOString().slice(0, 10), { place: "옛 장소" }]));

@@ -1,8 +1,8 @@
 {
   "id": "/todo/memo/",
-  "name": "또박 메모",
-  "short_name": "또박 메모",
-  "description": "또박과 같이 쓰는 메모",
+  "name": "끄적",
+  "short_name": "끄적",
+  "description": "떠오르는 걸 바로 적는 메모",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",

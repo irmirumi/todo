@@ -68,7 +68,7 @@ with sync_playwright() as p:
     pg.fill("#e-title", "운동"); pg.fill("#e-time", "0700"); pg.dispatch_event("#e-time", "change"); pg.fill("#e-end", "0800"); pg.dispatch_event("#e-end", "change"); pg.wait_for_timeout(100)
     pg.click(".sheet [data-act=emore]"); pg.wait_for_timeout(100)
     pg.click(".sheet [data-act=tplfrom]"); pg.wait_for_timeout(150)
-    check(pg.input_value("#e-end") == "08:00", "반복 등록: 끝 시간도 옮김")
+    check(pg.input_value("#s-end-0") == "08:00", "반복 등록: 끝 시간도 옮김(시간대 카드)")
     pg.click(".sheet [data-act=tplcancel]"); pg.wait_for_timeout(300)
     check(tasks()["t_u"]["title"] == "시간 없는 일" and pg.inner_text("#toastMsg") == "변경 내용을 저장하지 않았어요", "반복 등록을 취소하면 할 일 수정도 저장 안 함")
     pg.click("#toastAct"); pg.wait_for_timeout(250)

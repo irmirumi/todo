@@ -1,4 +1,5 @@
-# 2.8.0 메모: 폰 목록·편집 시트(닫으면 저장), 마크다운·체크 바로 하기·색, 휴지통·복원, 검색, PC 보드(두 번 눌러 붙이기·바로 쓰기·끌기·크기·빈 메모 정리), 백업, XSS
+# 메모(끄적): 폰 2열 카드·화면 전체 편집(2.10.0), 3.0.0 서식(쓰는 대로 보임: 제목·굵게·목록·체크, 기호 지름길, 되돌리기),
+# 옛 마크다운 메모 읽기, 체크 바로 하기, 색, 휴지통·복원, 검색, PC 보드(두 번 눌러 붙이기·바로 쓰기·끌기·크기·빈 메모 정리), 백업, XSS
 import json
 from playwright.sync_api import sync_playwright
 from ttb import check, serve, done, OUT
@@ -11,116 +12,131 @@ const s=Object.assign({},m,{kind:'pwa',start(c){m.start({onData:(d,meta)=>{windo
 TodoApp.boot(s);"""
 errs = []
 memos = lambda pg: pg.evaluate("Object.fromEntries(__d.memos)")
+docof = lambda pg, i: pg.evaluate("i=>TtobakRich.docOf(__d.memos.get(i))", i)
+plain = lambda d: "\n".join(x["t"] for x in d)
+eddoc = lambda pg, sel="#m-ed": pg.evaluate("s=>TtobakRich.read(document.querySelector(s))", sel)
+def caret(pg, sel, block, at=None):
+    pg.evaluate("""([s,i,a])=>{const b=document.querySelectorAll(s+' .rb')[i];const r=document.createRange();const t=b.lastChild&&b.lastChild.nodeType===3?b.lastChild:b;
+      if(a==null){r.selectNodeContents(b);r.collapse(false);}else{r.setStart(b.firstChild,a);r.collapse(true);}const g=getSelection();g.removeAllRanges();g.addRange(r);}""", [sel, block, at])
 with sync_playwright() as p:
     b = p.chromium.launch()
-    # ---------- 폰 ----------
+    # ---------- 폰(끄적) ----------
     ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/memo/"); pg.wait_for_selector(".mcard")  # 2.9.0: 폰의 메모는 메모 앱에서(또박에는 메모 탭 없음)
-    check(pg.locator(".mgrid .mcol").count() == 2 and pg.locator(".mcard").count() == 2 and pg.locator(".board").count() == 0, "폰: 2열 카드(보드 없음, 2.10.0)")
-    check(pg.locator(".mfab[data-act=mnew]").is_visible() and pg.locator("#mq").count() == 0 and "2" in pg.inner_text(".mcount"), "떠 있는 ＋, 검색은 접힘, 개수")
+    pg.goto("http://localhost:8798/memo/"); pg.wait_for_selector(".mcard")
+    check(pg.locator(".mgrid .mcol").count() == 2 and pg.locator(".mcard").count() == 2 and pg.locator(".board").count() == 0, "폰: 2열 카드(보드 없음)")
+    check(pg.locator(".mfab[data-act=mnew]").is_visible() and pg.locator("#mq").count() == 0 and "2" in pg.inner_text(".mcount") and pg.inner_text("#main h1") == "끄적", "떠 있는 ＋, 검색은 접힘, 개수, 이름 '끄적'")
     check(pg.locator(".mcard").first.get_attribute("data-id") == "m_a", "최근 고친 것이 위")
     card = pg.locator(".mcard[data-id=m_a]")
-    check(card.locator(".mh1").inner_text() == "자료구조 3주차" and card.locator("b").inner_text() == "LIFO" and pg.locator(".mcard[data-id=m_b] code").count() == 1, "마크다운: 제목·굵게·코드")
+    check(card.locator(".mh1").inner_text() == "자료구조 3주차" and card.locator("b").inner_text() == "LIFO" and "ubiquitous" in pg.inner_text(".mcard[data-id=m_b]") and "`" not in pg.inner_text(".mcard[data-id=m_b]"), "옛 마크다운 메모: 제목·굵게로 보이고 기호는 안 보임")
     check(pg.evaluate("window.__xss") is None and "<img" in card.inner_text(), "HTML은 글자로만(XSS 없음)")
     pg.screenshot(path=OUT + "memo-phone-list.png")
-    # 체크 바로 하기(메모가 열리지 않음)
     card.locator(".mcb").first.click(); pg.wait_for_timeout(150)
-    check("- [x] 과제 범위 확인" in memos(pg)["m_a"]["text"] and not pg.is_visible("#dlg"), "체크 목록은 목록에서 바로 체크")
-    # 새 메모: 화면 전체 편집(2.10.0). 쓰는 중에도 저장, 뒤로가기로 닫힘
+    d = docof(pg, "m_a")
+    check(d[2]["k"] == "c" and d[2].get("d") == 1 and memos(pg)["m_a"].get("doc") and "- [x] 과제 범위 확인" in memos(pg)["m_a"]["text"] and not pg.is_visible("#dlg"), "체크는 목록에서 바로(새 서식 doc + 예전용 text 사본)")
+    # 새 메모: 화면 전체 편집, 쓰는 대로 보이는 서식
     pg.click("[data-act=mnew]"); pg.wait_for_timeout(350)
-    check(pg.locator("#mpage").is_visible() and not pg.is_visible("#dlg") and pg.evaluate("document.activeElement.id") == "m-text", "새 메모: 화면 전체 편집, 입력칸에 바로 포커스")
-    pg.keyboard.type("장보기 말고 수업 준비물\n- [ ] 계산기"); pg.wait_for_timeout(1000)
-    new = [v for v in memos(pg).values() if v["text"].startswith("장보기 말고")]
+    check(pg.locator("#mpage").is_visible() and pg.evaluate("document.activeElement.id") == "m-ed" and pg.locator("#m-ed.rich.empty").count() == 1, "새 메모: 편집기에 바로 포커스, 빈 안내")
+    pg.keyboard.type("장보기 말고 수업 준비물"); pg.keyboard.press("Enter"); pg.keyboard.type("[] 계산기"); pg.wait_for_timeout(1000)
+    new = [v for v in memos(pg).values() if plain(pg.evaluate("t=>TtobakRich.docOf(t)", v)).startswith("장보기 말고")]
     check(len(new) == 1 and new[0]["w"] == 240 and pg.locator("#mpage [data-act=mdel]").count() == 1, "닫기 전에도 0.8초 뒤 저장(새 메모가 생김)")
+    check(eddoc(pg)[1] == {"k": "c", "t": "계산기"} and pg.locator("#m-ed .rb[data-k=c]").count() == 1, "'[] '로 시작하면 체크 줄(기호는 지움)")
     pg.click("#mpage [data-act=mpal]"); pg.click("#mpage [data-act=mcolor][data-color=c3]"); pg.wait_for_timeout(100)
-    check(pg.input_value("#m-text").startswith("장보기 말고") and "tint" in pg.get_attribute("#mpage", "class"), "색을 골라도 쓰던 글 유지, 편집 화면도 그 색")
+    check(plain(eddoc(pg)).startswith("장보기 말고") and "tint" in pg.get_attribute("#mpage", "class"), "색을 골라도 쓰던 글 유지, 편집 화면도 그 색")
     pg.go_back(); pg.wait_for_timeout(350)
     new = [v for v in memos(pg).values() if v["text"].startswith("장보기 말고")]
-    check(len(new) == 1 and new[0]["color"] == "c3" and pg.locator("#mpage").is_hidden() and len(memos(pg)) == 3, "뒤로가기로 닫으면 저장(색 포함, 한 번만 만듦)")
+    check(len(new) == 1 and new[0]["color"] == "c3" and pg.locator("#mpage").is_hidden() and len(memos(pg)) == 3 and "- [ ] 계산기" in new[0]["text"], "뒤로가기로 닫으면 저장(색 포함, 한 번만 만듦)")
     pg.click("[data-act=mnew]"); pg.wait_for_timeout(300); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(len(memos(pg)) == 3, "아무것도 안 쓰고 닫으면 안 만듦")
     pg.click("[data-act=mnew]"); pg.wait_for_timeout(300); pg.keyboard.type("잠깐"); pg.wait_for_timeout(1000)
     check(len(memos(pg)) == 4, "(쓰는 중 저장됨)")
-    pg.fill("#m-text", ""); pg.click("#mpage [data-act=mback]"); pg.wait_for_timeout(300)
-    check(len(memos(pg)) == 3 and not any(v["text"] == "" for v in memos(pg).values()), "새로 쓰다 다 지우고 닫으면 남기지 않음")
-    # 꾸미기 막대: 커서 줄에 체크 목록, 다시 누르면 뗌 / 굵게는 선택한 글에 / 목록에서 엔터면 다음 줄도 목록, 빈 항목 엔터면 끝
-    pg.click("[data-act=mnew]"); pg.wait_for_timeout(200)
-    pg.keyboard.type("살 것"); pg.click("#mpage .mfmt [data-k=chk]"); pg.wait_for_timeout(50)
-    check(pg.input_value("#m-text") == "- [ ] 살 것" and pg.evaluate("document.activeElement.id") == "m-text", "체크 버튼: 커서 줄을 체크 목록으로(입력칸 포커스 유지)")
+    pg.keyboard.press("Control+a"); pg.keyboard.press("Backspace"); pg.click("#mpage [data-act=mback]"); pg.wait_for_timeout(300)
+    check(len(memos(pg)) == 3, "새로 쓰다 다 지우고 닫으면 남기지 않음")
+    # 꾸미기 막대: 버튼은 지금 줄의 모양을 바꾸고 다시 누르면 본문으로, 목록 엔터는 이어지고 빈 줄 엔터면 끝
+    pg.click("[data-act=mnew]"); pg.wait_for_timeout(300)
+    pg.keyboard.type("살 것"); pg.click("#mpage .mfmt [data-k=c]"); pg.wait_for_timeout(50)
+    check(eddoc(pg) == [{"k": "c", "t": "살 것"}] and pg.evaluate("document.activeElement.id") == "m-ed" and pg.get_attribute("#mpage .mfmt [data-k=c]", "aria-pressed") == "true", "체크 버튼: 지금 줄을 체크로(포커스 유지, 버튼 눌림)")
     pg.keyboard.press("Enter"); pg.keyboard.type("계산기"); pg.keyboard.press("Enter"); pg.keyboard.press("Enter")
-    check(pg.input_value("#m-text") == "- [ ] 살 것\n- [ ] 계산기\n", "엔터로 체크 목록 이어가기, 빈 항목에서 엔터면 끝 " + repr(pg.input_value("#m-text")))
+    check([x["k"] for x in eddoc(pg)] == ["c", "c", "p"] and eddoc(pg)[1]["t"] == "계산기", "엔터로 체크 이어가기, 빈 줄에서 엔터면 끝 " + json.dumps(eddoc(pg), ensure_ascii=False))
     pg.keyboard.type("중요"); pg.keyboard.down("Shift"); [pg.keyboard.press("ArrowLeft") for _ in range(2)]; pg.keyboard.up("Shift")
     pg.click("#mpage .mfmt [data-k=b]"); pg.wait_for_timeout(50)
-    check(pg.input_value("#m-text").endswith("**중요**"), "굵게: 선택한 글을 감쌈")
+    check(eddoc(pg)[2] == {"k": "p", "t": "중요", "b": [0, 2]} and pg.locator("#m-ed b").inner_text() == "중요", "굵게: 선택한 글이 바로 굵게 보임(기호 없음)")
     pg.click("#mpage .mfmt [data-k=b]"); pg.wait_for_timeout(50)
-    check(pg.input_value("#m-text").endswith("\n중요"), "굵게 한 번 더: 뗌")
+    check("b" not in eddoc(pg)[2], "굵게 한 번 더: 뗌")
     pg.click("#mpage .mfmt [data-k=h]"); pg.wait_for_timeout(50)
-    check(pg.input_value("#m-text").endswith("\n# 중요"), "제목 버튼")
-    pg.keyboard.press("Control+z"); pg.wait_for_timeout(50)
-    check(pg.input_value("#m-text").endswith("\n중요"), "되돌리기(Ctrl+Z)도 됨")
+    check(eddoc(pg)[2]["k"] == "h" and pg.locator("#m-ed .rb[data-k=h]").count() == 1, "제목 버튼")
+    pg.click("#mpage .mfmt [data-k=undo]"); pg.wait_for_timeout(50)
+    check(eddoc(pg)[2]["k"] == "p", "되돌리기 버튼")
+    pg.click("#mpage .mfmt [data-k=redo]"); pg.wait_for_timeout(50)
+    check(eddoc(pg)[2]["k"] == "h", "다시 하기 버튼")
+    caret(pg, "#m-ed", 1, 0); pg.keyboard.press("Backspace"); pg.wait_for_timeout(50)
+    check(eddoc(pg)[1] == {"k": "p", "t": "계산기"}, "줄 맨 앞에서 지우기: 먼저 체크 표시를 뗌")
+    pg.keyboard.press("Backspace"); pg.wait_for_timeout(50)
+    check(eddoc(pg)[0]["t"] == "살 것계산기" and len(eddoc(pg)) == 2, "한 번 더: 앞 줄에 붙음")
+    # 체크칸 누르기(편집 중)
+    box = pg.locator("#m-ed .rb[data-k=c]").first.bounding_box(); pg.mouse.click(box["x"] + 8, box["y"] + box["height"] / 2); pg.wait_for_timeout(80)
+    check(eddoc(pg)[0].get("d") == 1, "편집 중 체크칸 누르기")
     pg.click("#mpage [data-act=mback]"); pg.wait_for_timeout(300)
-    nm = [v for v in memos(pg).values() if v["text"].startswith("- [ ] 살 것")]
-    check(len(nm) == 1, "꾸민 메모 저장")
+    nm = [v for v in memos(pg).values() if v["text"].startswith("- [x] 살 것")]
+    check(len(nm) == 1 and nm[0]["doc"][1] == {"k": "h", "t": "중요"}, "꾸민 메모 저장")
     # 고치기: 바꾼 칸만
-    pg.click(".mcard[data-id=m_b]"); pg.wait_for_timeout(200)
-    check(pg.input_value("#m-text").startswith("영어 단어") and "에 고침" in pg.inner_text("#mpage .mpwhen"), "카드 누르면 그 메모 편집")
-    pg.fill("#m-text", "영어 단어 외울 것 (30개)"); pg.click("#mpage [data-act=mback]"); pg.wait_for_timeout(300)
-    check(memos(pg)["m_b"]["text"] == "영어 단어 외울 것 (30개)" and memos(pg)["m_b"]["color"] == "", "←로 닫아도 저장")
+    pg.click(".mcard[data-id=m_b]"); pg.wait_for_timeout(250)
+    check(plain(eddoc(pg)) == "영어 단어 외울 것\nubiquitous" and "에 고침" in pg.inner_text("#mpage .mpwhen"), "옛 메모를 열면 기호 없이 그 내용")
+    caret(pg, "#m-ed", 0); pg.keyboard.type(" (30개)"); pg.click("#mpage [data-act=mback]"); pg.wait_for_timeout(300)
+    check(docof(pg, "m_b")[0]["t"] == "영어 단어 외울 것 (30개)" and memos(pg)["m_b"]["color"] == "", "←로 닫아도 저장")
     check(pg.evaluate("history.state&&history.state.mpage") is None and pg.evaluate("document.body.classList.contains('mpopen')") is False, "닫으면 기록·스크롤 잠금 정리")
-    # 검색: 돋보기로 열고, 다시 누르면 지우고 닫음
+    # 검색: 기호 없이 글자로
     pg.click("[data-act=msearch]"); pg.wait_for_timeout(100)
     check(pg.evaluate("document.activeElement.id") == "mq", "돋보기: 검색칸 열고 포커스")
-    pg.keyboard.type("자료구조"); pg.wait_for_timeout(150)
-    check(pg.locator(".mcard").count() == 1, "메모 검색")
+    pg.keyboard.type("LIFO"); pg.wait_for_timeout(150)
+    check(pg.locator(".mcard").count() == 1, "메모 검색(굵은 글자도 찾음)")
     pg.click("[data-act=msearch]"); pg.wait_for_timeout(150)
     check(pg.locator("#mq").count() == 0 and pg.locator(".mcard").count() == len(memos(pg)), "검색 닫으면 전부")
     # 휴지통
-    pg.click(".mcard[data-id=m_b]"); pg.wait_for_timeout(200); pg.click("#mpage [data-act=mdel]"); pg.wait_for_timeout(350)
+    pg.click(".mcard[data-id=m_b]"); pg.wait_for_timeout(250); pg.click("#mpage [data-act=mdel]"); pg.wait_for_timeout(350)
     check(memos(pg)["m_b"].get("deletedAt") and pg.locator(".mcard[data-id=m_b]").count() == 0 and "휴지통" in pg.inner_text("#toastMsg") and pg.locator("#mpage").is_hidden(), "휴지통으로(편집 화면 닫힘)")
     pg.click("[data-act=menu]"); pg.click("[data-act=trash]"); pg.wait_for_timeout(200)
     check("메모 ·" in pg.inner_text(".sheet") and "영어 단어" in pg.inner_text(".sheet"), "휴지통에 메모가 보임")
     pg.click(".sheet [data-act=trestore][data-id=m_b]"); pg.wait_for_timeout(200); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(pg.locator(".mcard[data-id=m_b]").count() == 1, "복원")
-    check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "폰 메모 앱: 가로로 안 넘침")
-    # 백업은 또박에서만(2.9.1: 메모 앱은 할 일을 안 받아서). 이 목업 저장소는 페이지마다 새로 차므로 시드 메모 2개
+    check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "폰 끄적: 가로로 안 넘침")
+    # 백업은 또박에서(끄적은 할 일을 안 받음). 이 목업 저장소는 페이지마다 새로 차므로 시드 메모 2개
     pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
     pg.click("[data-act=menu]"); pg.click("[data-act=export]"); data = json.loads(pg.input_value("#x-out")); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(len(data.get("memos", [])) >= 2 and all(t["id"].startswith("t_") for t in data["tasks"]), "백업(또박)에 메모 포함(할 일과 따로)")
     ctx.close()
-    # ---------- PC ----------
+    # ---------- PC(또박 메모 탭 보드) ----------
     ctx = b.new_context(viewport={"width": 1280, "height": 860}); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
     pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp")
-    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
-    check(pg.locator(".board .mnote").count() == 2, "PC: 보드에 포스트잇")
+    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)
+    check(pg.locator(".board .mnote").count() == 2 and pg.inner_text("#main h1") == "메모", "PC 또박: 보드(탭 이름은 '메모')")
     box = pg.locator("#mn-m_a").bounding_box()
     check(abs(box["width"] - 260) < 2, "저장된 크기대로")
     pg.screenshot(path=OUT + "memo-pc-board.png")
-    # 끌어 옮기기
     bar = pg.locator("#mn-m_a .mbar").bounding_box()
     pg.mouse.move(bar["x"] + 40, bar["y"] + 12); pg.mouse.down(); pg.mouse.move(bar["x"] + 140, bar["y"] + 112, steps=5); pg.mouse.up(); pg.wait_for_timeout(200)
     t = memos(pg)["m_a"]
     check(t["x"] == 140 and t["y"] == 140 and t["z"] == 3, "끌어 옮기면 자리 저장, 맨 위로 " + str((t["x"], t["y"], t["z"])))
-    # 크기
     rz = pg.locator("#mn-m_a .mrz").bounding_box()
     pg.mouse.move(rz["x"] + 9, rz["y"] + 9); pg.mouse.down(); pg.mouse.move(rz["x"] + 69, rz["y"] + 49, steps=4); pg.mouse.up(); pg.wait_for_timeout(200)
     t = memos(pg)["m_a"]
     check(t["w"] == 320 and t["h"] == 260, "모서리로 크기 저장 " + str((t["w"], t["h"])))
-    # 바로 쓰기
+    # 바로 쓰기(보드도 같은 편집기)
     pg.click("#mn-m_b .mbody"); pg.wait_for_timeout(150)
-    check(pg.evaluate("document.activeElement.id") == "mt-m_b", "누르면 그 자리에서 쓰기")
-    pg.keyboard.press("End"); pg.keyboard.type("\n- 다음 주까지"); pg.wait_for_timeout(1000)
-    check(memos(pg)["m_b"]["text"].endswith("- 다음 주까지"), "쓰는 중에도 저장")
+    check(pg.evaluate("document.activeElement.id") == "mt-m_b" and pg.locator("#mt-m_b.rich").count() == 1, "누르면 그 자리에서 쓰기")
+    pg.keyboard.press("Enter"); pg.keyboard.type("- 다음 주까지"); pg.wait_for_timeout(1000)
+    check(docof(pg, "m_b")[-1] == {"k": "l", "t": "다음 주까지"}, "쓰는 중에도 저장(목록 지름길)")
     check(pg.locator("#mn-m_b .mbar .mfmt").count() == 1, "보드: 쓰는 중엔 막대에 꾸미기 버튼")
-    pg.keyboard.press("Control+b"); pg.keyboard.type("x"); pg.wait_for_timeout(50)
-    check(pg.input_value("#mt-m_b").endswith("**x**"), "Ctrl+B: 굵게")
-    pg.keyboard.press("Control+z"); pg.keyboard.press("Control+z"); pg.wait_for_timeout(50)
+    pg.keyboard.down("Shift"); [pg.keyboard.press("ArrowLeft") for _ in range(2)]; pg.keyboard.up("Shift")
+    pg.keyboard.press("Control+b"); pg.wait_for_timeout(50)
+    check(eddoc(pg, "#mt-m_b")[-1].get("b") == [4, 6], "Ctrl+B: 선택한 글 굵게")
+    pg.keyboard.press("Control+z"); pg.wait_for_timeout(50)
+    check("b" not in eddoc(pg, "#mt-m_b")[-1], "Ctrl+Z: 되돌리기")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(200)
-    check(pg.locator("#mn-m_b textarea").count() == 0 and pg.locator("#mn-m_b .mbody li").count() == 1, "Esc로 끝내면 마크다운으로")
-    # 두 번 눌러 붙이기 → 안 쓰고 벗어나면 없어짐
+    check(pg.locator("#mn-m_b .rich").count() == 0 and pg.locator("#mn-m_b .mbody li").count() == 1, "Esc로 끝내면 보기 모양으로")
     sb = pg.locator("#bsurf").bounding_box()
     pg.mouse.dblclick(sb["x"] + 700, sb["y"] + 400); pg.wait_for_timeout(200)
     check(len(memos(pg)) == 3 and pg.evaluate("document.activeElement.id||''").startswith("mt-"), "빈 곳 두 번 → 새 메모, 바로 쓰기")
@@ -129,20 +145,19 @@ with sync_playwright() as p:
     pg.mouse.dblclick(sb["x"] + 700, sb["y"] + 400); pg.wait_for_timeout(200); pg.keyboard.type("회의 메모"); pg.mouse.click(sb["x"] + 900, sb["y"] + 620); pg.wait_for_timeout(200)
     nm = [v for v in memos(pg).values() if v["text"] == "회의 메모"]
     check(len(nm) == 1 and nm[0]["x"] > 400, "쓰면 그 자리에 남음")
-    # 크게 열기 → 시트
     pg.click("#mn-m_a [data-act=mopen]"); pg.wait_for_timeout(250)
-    check(pg.input_value("#m-text").startswith("# 자료구조"), "크게 열기: 편집 시트")
-    pg.click(".sheet [data-act=mcolor][data-color=c1]"); pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
+    check(eddoc(pg)[0] == {"k": "h", "t": "자료구조 3주차"}, "크게 열기: 편집 시트(같은 편집기)")
+    pg.click(".sheet [data-act=mcolor][data-color=c1]"); pg.wait_for_timeout(80)
+    check(eddoc(pg)[0]["t"] == "자료구조 3주차" and "tint" in pg.get_attribute("#m-ed", "class"), "색을 바꿔도 편집기 그대로")
+    pg.click(".sheet [data-act=close]"); pg.wait_for_timeout(300)
     check(memos(pg)["m_a"]["color"] == "c1" and memos(pg)["m_a"]["x"] == 140, "색만 바꿔도 자리 그대로")
     pg.screenshot(path=OUT + "memo-pc-board2.png")
-    # 검색하면 PC도 목록
     pg.fill("#mq", "회의"); pg.wait_for_timeout(150)
     check(pg.locator(".board").count() == 0 and pg.locator(".mcard").count() == 1, "PC 검색: 결과 목록")
     ctx.close()
-    # 다크
     ctx = b.new_context(viewport={"width": 1280, "height": 860}, color_scheme="dark"); pg = ctx.new_page()
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
+    pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)
     pg.screenshot(path=OUT + "memo-pc-dark.png")
     ctx.close()
     b.close()

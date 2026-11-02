@@ -43,7 +43,7 @@ with sync_playwright() as p:
     check("t_old" in before and "t_bin" in before and not any(i.startswith("t_r_") or i.startswith("t_1_") for i in before), "할 일은 그대로(묶기·자동 추가·할 일 휴지통 비우기 없음)")
     check("m_old" not in before, "30일 지난 메모 휴지통은 비움")
     check(not sync, "알림 목록을 보내지 않음(빈 목록으로 덮지 않게)")
-    pg.click("[data-act=mnew]"); pg.wait_for_timeout(300); pg.fill("#m-text", "새로 쓴 메모"); pg.keyboard.press("Escape"); pg.wait_for_timeout(500)
+    pg.click("[data-act=mnew]"); pg.wait_for_timeout(300); pg.keyboard.type("새로 쓴 메모"); pg.keyboard.press("Escape"); pg.wait_for_timeout(500)
     mm = [v for k, v in pg.evaluate("[...window.__fs.docs]") if k.split("/")[-1].startswith("m_")]
     check(any(m.get("text") == "새로 쓴 메모" for m in mm) and pg.locator(".mcard").count() == 2, "메모 앱에서 쓴 메모가 서버로")
     # ---------- 또박: 예전처럼 전부 구독 ----------

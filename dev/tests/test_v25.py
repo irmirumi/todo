@@ -1,4 +1,4 @@
-# 2.5.0: 반복 할 일 자동 추가, 휴지통, 검색, 편집 창 접기, 오전·오후 바꾸기, 비밀번호 재설정, 백업 파일, 공휴일 자료 끝 안내, 쉼 필드 쓰기
+# 2.5.0: 반복 할 일 추가(3.0.0부터 자동 추가 없음), 휴지통, 검색, 편집 창 접기, 오전·오후 바꾸기, 비밀번호 재설정, 백업 파일, 공휴일 자료 끝 안내, 쉼 필드 쓰기
 import os, json
 from playwright.sync_api import sync_playwright
 from ttb import check, serve, done, OUT, HERE
@@ -25,20 +25,19 @@ with sync_playwright() as p:
     tasks = lambda: pg.evaluate("Object.fromEntries(__d.tasks)")
     tpl = lambda i: pg.evaluate("i=>__d.tpls.get(i)", i)
 
-    # --- 반복 할 일 자동 추가: 오늘·내일만, 정해진 id, madeUntil
-    ts = tasks(); aid = lambda kk: "t_auto_" + kk.replace("-", "")
-    check(aid(tk) in ts and aid(tm) in ts and aid(t2) not in ts, "자동 추가: 오늘·내일 할 일이 생김(모레는 아직)")
-    a = ts[aid(tk)]
-    check(a["title"] == "분리수거" and a["time"] == "08:00" and a["remind"] == 10 and a["tpl"] == "r_auto" and a["subtasks"][0]["t"] == "캔", "원본 내용 그대로(시간·알림·세부)")
-    check(tpl("r_auto")["madeUntil"] == tm, "원본에 어디까지 만들었는지 기록")
-    check(not any(v.get("tpl") == "r_man" for v in ts.values()), "자동 추가를 끈 것은 안 만듦")
-    check(pg.locator(".task.ghost").count() == 1 and "눌러서 추가" in pg.inner_text(".task.ghost"), "끈 것은 '추가 전' 흐린 줄")
-    # 지워도 다시 안 생김(데이터가 바뀔 때마다 자동 추가가 다시 돌지만 madeUntil로 막힘)
+    # --- 반복 할 일은 자동으로 안 들어온다(3.0.0, 사용자 결정). 옛 데이터의 auto 값과 상관없이 흐린 줄 → 눌러서 추가
+    ts = tasks()
+    check(not any(v.get("tpl") for v in ts.values()) and tpl("r_auto").get("madeUntil") is None, "자동 추가 없음(옛 auto 값이 있어도)")
+    check(pg.locator(".task.ghost").count() == 2 and all("눌러서 추가" in x for x in pg.locator(".task.ghost").all_inner_texts()), "둘 다 '눌러서 추가' 흐린 줄")
+    pg.click(".task.ghost:has-text('분리수거') .gadd"); pg.wait_for_timeout(400)
+    a = [v for v in tasks().values() if v.get("tpl") == "r_auto"]
+    check(len(a) == 1 and a[0]["title"] == "분리수거" and a[0]["time"] == "08:00" and a[0]["remind"] == 10 and a[0]["subtasks"][0]["t"] == "캔" and a[0]["date"] == tk, "＋로 추가: 원본 내용 그대로(시간·알림·세부)")
+    aid0 = [i for i, v in tasks().items() if v.get("tpl") == "r_auto"][0]
     pg.click("#g-k1 .ttl:has-text('분리수거')"); pg.click(".sheet [data-act=del]"); pg.wait_for_timeout(300)
     check(pg.inner_text("#toastMsg") == "휴지통으로 옮겼어요", "삭제는 휴지통으로")
     pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(200)
     pg.click("[data-act=add][data-cat=k1]"); pg.keyboard.type("아무거나"); pg.keyboard.press("Enter"); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    check(pg.locator("#g-k1 .task:not(.ghost):has-text('분리수거')").count() == 0, "지운 자동 할 일은 데이터가 바뀌어도 다시 안 생김")
+    check(pg.locator("#g-k1 .task:not(.ghost):has-text('분리수거')").count() == 0, "지운 할 일은 다시 안 생김")
 
     # --- 휴지통
     pg.click("[data-act=menu]"); m = pg.inner_text(".menu")
@@ -53,7 +52,7 @@ with sync_playwright() as p:
     pg.click(".sheet [data-act=tempty]"); pg.wait_for_timeout(100)
     check(pg.inner_text(".sheet [data-act=tempty]") == "모두 영구 삭제", "비우기는 한 번 더 확인")
     pg.click(".sheet [data-act=tempty]"); pg.wait_for_timeout(250)
-    check(aid(tk) not in tasks() and pg.locator(".trow").count() == 0, "비우기")
+    check(aid0 not in tasks() and pg.locator(".trow").count() == 0, "비우기")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
 
     # --- 편집 창 접기
