@@ -885,3 +885,10 @@ dialog .toast.out{animation:toastupout .16s var(--ease-in) forwards}
 /* 메모 편집 칸은 넉넉히(textarea.inp의 76px보다 우선) */
 textarea.inp.mtext{min-height:min(46vh,420px)}
 @media (max-width:560px){textarea.inp.mtext{min-height:42dvh}}
+/* 2.9.0 메모 앱: 위 탭 줄 없이(ui.js가 header.top을 뺌) 메모 화면 머리에 ⋯. 메뉴의 링크(메모 앱·또박 열기)는 버튼과 같은 모양 */
+html[data-app="memo"] .hrow .more{margin-right:-8px}
+.menu a.mlink{color:inherit;text-decoration:none;padding:12px 10px;border-radius:12px;font-size:.96rem;font-weight:600;display:flex;flex-direction:column;gap:1px;transition:background-color .15s var(--ease-out),transform .12s var(--ease-out)}
+.menu a.mlink small{color:var(--muted);font-size:.8rem;font-weight:400}
+.menu a.mlink:hover{background:var(--sunk)}
+.menu a.mlink:active{transform:scale(.97)}
+@media (hover:none){.menu a.mlink:hover{background:transparent}}

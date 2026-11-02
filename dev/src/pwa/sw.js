@@ -6,7 +6,9 @@ const LIB = "ttobak-lib-1"; // 글꼴 조각·Firebase 라이브러리: 버전�
 const FB = "12.19.0"; // app.js의 Firebase 버전과 같아야 한다(빌드가 확인). 다른 버전 사본은 LIB에서 지운다
 const SHELL = ["./", "./index.html", "./style.css", "./model.js", "./ui.js", "./app.js", "./firebase-config.js", "./reminder-config.js", "./push.js", "./archive.js",
   "./vendor/morphdom.min.js", "./holidays.js", "./fonts/WantedSansVariable.css", "./manifest.webmanifest",
-  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png"];
+  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/badge-96.png",
+  // 메모 앱(2.9.0): 같은 코드를 쓰는 다른 입구
+  "./memo/", "./memo/manifest.webmanifest", "./icons/memo-192.png", "./icons/memo-512.png"];
 
 self.addEventListener("install", e => {
   // cache: "reload" — 브라우저가 들고 있는 옛 사본(GitHub Pages 10분 캐시) 말고 서버에서 새로
@@ -20,7 +22,7 @@ self.addEventListener("activate", e => {
     .then(pruneLib).then(() => self.clients.claim()));
 });
 const put = (name, req, res) => { if (res.ok || res.type === "opaque") { const cp = res.clone(); caches.open(name).then(c => c.put(req, cp)); } return res; };
-const fromShell = req => caches.open(CACHE).then(c => c.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? c.match("./index.html") : undefined)));
+const fromShell = req => caches.open(CACHE).then(c => c.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? c.match(new URL(req.url).pathname.includes("/memo/") ? "./memo/" : "./index.html") : undefined)));
 const libFirst = req => caches.open(LIB).then(c => c.match(req)).then(r => r || fetch(req).then(res => put(LIB, req, res)));
 self.addEventListener("fetch", e => {
   const req = e.request;
@@ -48,7 +50,8 @@ self.addEventListener("notificationclick", e => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
   e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
-    for (const c of list) if (c.url.startsWith(self.registration.scope)) { c.postMessage({ type: "open", url }); return c.focus(); }
+    // 메모 앱 창은 날짜를 못 여니 또박 창만 고른다
+    for (const c of list) if (c.url.startsWith(self.registration.scope) && !c.url.includes("/memo/")) { c.postMessage({ type: "open", url }); return c.focus(); }
     return clients.openWindow(url);
   }));
 });

@@ -169,7 +169,8 @@ if ("serviceWorker" in navigator) {
   // 처음 설치될 때도 controllerchange가 오므로, '새로고침'을 눌렀을 때만 다시 연다
   let asked = false;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").then(reg => {
+    // 메모 앱(/memo/)에서 열어도 같은 서비스 워커(앱 폴더, 범위 전체)를 쓴다: 문서 기준이 아니라 이 파일 기준 주소
+    navigator.serviceWorker.register(new URL("./sw.js", import.meta.url)).then(reg => {
       const ready = w => { if (w && navigator.serviceWorker.controller) window.TodoApp.updateReady(() => { asked = true; w.postMessage({ type: "skip" }); }); };
       const track = w => { if (w) w.addEventListener("statechange", () => { if (w.state === "installed") ready(w); }); };
       if (reg.waiting) ready(reg.waiting); else track(reg.installing);

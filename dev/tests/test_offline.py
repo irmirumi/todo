@@ -29,10 +29,17 @@ with sync_playwright() as p:
     cnt = pg.evaluate("caches.open('" + CACHE + "').then(c=>c.keys()).then(k=>k.length)")
     check(CACHE in keys and cnt >= 16, f"껍데기 묶음 저장: {keys} {cnt}개")
     check(pg.evaluate("!!navigator.serviceWorker.controller"), "서비스 워커가 화면을 맡음")
+    # 2.9.0 메모 앱(/memo/): 따로 서비스 워커를 만들지 않고 같은 것(범위: 앱 폴더)을 쓴다
+    pg.goto("http://localhost:8779/memo/"); pg.wait_for_selector("#main h1"); pg.wait_for_timeout(300)
+    check(pg.evaluate("navigator.serviceWorker.getRegistrations().then(r=>r.map(x=>x.scope))") == ["http://localhost:8779/"] and pg.evaluate("!!navigator.serviceWorker.controller"), "메모 앱도 같은 서비스 워커 하나")
+    pg.goto("http://localhost:8779/"); pg.wait_for_selector("#main h1")
     # 오프라인(서버 끔)으로 다시 열기
     srv.terminate(); srv.wait(); time.sleep(.3)
     pg.reload(); pg.wait_for_selector("#main h1")
     check(pg.inner_text("#main h1") == "설정이 필요해요" and pg.evaluate("!!window.TodoApp"), "서버 없이도 열림")
+    pg.goto("http://localhost:8779/memo/"); pg.wait_for_selector("#main h1")
+    check(pg.evaluate("document.documentElement.dataset.app") == "memo" and pg.inner_text("#main h1") == "설정이 필요해요", "메모 앱도 서버 없이 열림")
+    pg.goto("http://localhost:8779/"); pg.wait_for_selector("#main h1")
     # 새 버전 올리기: 사본의 버전을 바꾸고 서버 다시 켬
     nv = VER + "-next"
     for f, a, b2 in [("sw.js", CACHE, "ttobak-" + nv), ("ui.js", 'const VERSION="' + VER + '"', 'const VERSION="' + nv + '"')]:

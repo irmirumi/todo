@@ -30,23 +30,28 @@ open(os.path.join(APP, "style.css"), "w", encoding="utf-8").write(RESET + style)
 assert '"__VERSION__"' in ui, "ui.js 의 VERSION 자리표시자가 없다"
 open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui.replace('"__VERSION__"', '"' + VERSION + '"'))
 shutil.copy(os.path.join(SRC, "model.js"), os.path.join(APP, "model.js"))
-open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
-    '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
-    '<title>또박</title>\n'
-    f'<meta name="theme-color" media="(prefers-color-scheme: light)" content="{BG}">\n'
-    f'<meta name="theme-color" media="(prefers-color-scheme: dark)" content="{BG_DARK}">\n'
-    '<meta name="apple-mobile-web-app-capable" content="yes">\n'
-    '<meta name="mobile-web-app-capable" content="yes">\n'
-    '<meta name="apple-mobile-web-app-title" content="또박">\n'
-    '<meta name="apple-mobile-web-app-status-bar-style" content="default">\n'
-    '<link rel="manifest" href="manifest.webmanifest">\n'
-    '<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">\n'
-    '<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">\n'
-    '<link rel="stylesheet" href="fonts/WantedSansVariable.css">\n'
-    '<link rel="stylesheet" href="style.css">\n</head>\n<body>\n' + markup +
-    '<script src="vendor/morphdom.min.js"></script>\n<script src="holidays.js"></script>\n<script src="model.js"></script>\n<script src="ui.js"></script>\n'
-    '<script type="module" src="app.js"></script>\n</body>\n</html>\n')
+def page(title, pre="", app=None, manifest="manifest.webmanifest", icon="icon-192.png", touch="apple-touch-icon.png"):
+    """앱 입구 HTML. 메모 앱(2.9.0)은 같은 파일을 쓰고 한 단계 아래 폴더(memo/)에서 열린다(pre="../")"""
+    return ('<!doctype html>\n<html lang="ko"' + (f' data-app="{app}"' if app else '') + '>\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+        f'<title>{title}</title>\n'
+        f'<meta name="theme-color" media="(prefers-color-scheme: light)" content="{BG}">\n'
+        f'<meta name="theme-color" media="(prefers-color-scheme: dark)" content="{BG_DARK}">\n'
+        '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+        '<meta name="mobile-web-app-capable" content="yes">\n'
+        f'<meta name="apple-mobile-web-app-title" content="{title}">\n'
+        '<meta name="apple-mobile-web-app-status-bar-style" content="default">\n'
+        f'<link rel="manifest" href="{manifest}">\n'
+        f'<link rel="icon" type="image/png" sizes="192x192" href="{pre}icons/{icon}">\n'
+        f'<link rel="apple-touch-icon" href="{pre}icons/{touch}">\n'
+        f'<link rel="stylesheet" href="{pre}fonts/WantedSansVariable.css">\n'
+        f'<link rel="stylesheet" href="{pre}style.css">\n</head>\n<body>\n' + markup +
+        f'<script src="{pre}vendor/morphdom.min.js"></script>\n<script src="{pre}holidays.js"></script>\n<script src="{pre}model.js"></script>\n<script src="{pre}ui.js"></script>\n'
+        f'<script type="module" src="{pre}app.js"></script>\n</body>\n</html>\n')
+open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(page("또박"))
+os.makedirs(os.path.join(APP, "memo"))
+open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("또박 메모", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png"))
+shutil.copy(os.path.join(SRC, "pwa", "memo.webmanifest"), os.path.join(APP, "memo", "manifest.webmanifest"))
 for name in ["app.js", "push.js", "archive.js", "reminder-config.js", "firebase-config.js", "manifest.webmanifest", "firestore.rules"]:
     shutil.copy(os.path.join(SRC, "pwa", name), os.path.join(APP, name))
 # 버전이 들어가는 파일
@@ -120,6 +125,38 @@ icon(512, os.path.join(I, "icon-maskable-512.png"), mark_ratio=0.78, rounded=Fal
 icon(192, os.path.join(I, "icon-maskable-192.png"), mark_ratio=0.78, rounded=False, transparent_corners=False)
 # iOS는 모서리를 알아서 둥글게 깎으므로 꽉 찬 사각형
 icon(180, os.path.join(I, "apple-touch-icon.png"), mark_ratio=0.92, rounded=False, transparent_corners=False)
+# 메모 앱 아이콘(2.9.0): 같은 핑크 바탕에 흰 메모지(오른쪽 아래 접힘)와 글줄 두 개. ui.js의 memoMarkSvg와 같은 모양
+def memo_icon(size, path, mark_ratio=1.0, rounded=True, transparent_corners=True):
+    S = size * 4
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0) if transparent_corners else PINK)
+    d = ImageDraw.Draw(im)
+    if rounded:
+        d.rounded_rectangle([0, 0, S - 1, S - 1], radius=int(S * 9 / 32), fill=PINK)
+    else:
+        d.rectangle([0, 0, S, S], fill=PINK)
+    s = S / 32 * mark_ratio * 1.08; o = S / 2 - 16 * s  # 꽉 찬 모양이라 체크보다 작아 보여서 조금 크게
+    P = lambda x, y: (o + x * s, o + y * s)
+    white = (255, 255, 255, 255)
+    # 메모지: 둥근 사각형에서 오른쪽 아래 모서리를 자른 모양
+    d.rounded_rectangle([*P(8.5, 8.5), *P(23.5, 24)], radius=1.5 * s, fill=white)
+    d.polygon([P(23.6, 18.6), P(23.6, 24.1), P(18.1, 24.1)], fill=PINK)
+    # 접힌 귀퉁이(연한 핑크)
+    fold = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(fold).polygon([P(23.5, 18.6), P(18.1, 18.6), P(18.1, 24)], fill=PINK[:3] + (115,))
+    im.alpha_composite(fold)
+    # 글줄
+    for (x0, y, x1) in [(12.2, 13.2, 19.8), (12.2, 17.0, 16.8)]:
+        d.line([P(x0, y), P(x1, y)], fill=PINK, width=int(2 * s))
+        r = s
+        for x in (x0, x1):
+            cx, cy = P(x, y); d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=PINK)
+    im.resize((size, size), Image.LANCZOS).save(path)
+
+memo_icon(192, os.path.join(I, "memo-192.png"))
+memo_icon(512, os.path.join(I, "memo-512.png"))
+memo_icon(512, os.path.join(I, "memo-maskable-512.png"), mark_ratio=0.78, rounded=False, transparent_corners=False)
+memo_icon(192, os.path.join(I, "memo-maskable-192.png"), mark_ratio=0.78, rounded=False, transparent_corners=False)
+memo_icon(180, os.path.join(I, "memo-apple-touch-icon.png"), mark_ratio=0.92, rounded=False, transparent_corners=False)
 # 안드로이드 상태 표시줄용 알림 배지: 투명 바탕에 흰 체크 두 개(단색)
 def badge(size, path):
     S2 = size * 4; im = Image.new("RGBA", (S2, S2), (0, 0, 0, 0)); d = ImageDraw.Draw(im)

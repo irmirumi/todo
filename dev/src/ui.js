@@ -26,8 +26,14 @@ let today=keyOf(new Date());
 
 const pref={get(k,d){try{const v=localStorage.getItem("todo."+k);return v==null?d:v;}catch(e){return d;}},set(k,v){try{localStorage.setItem("todo."+k,v);}catch(e){}}};
 const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
+/* 메모 앱(2.9.0): /memo/ 페이지는 같은 코드를 메모 화면만 쓰는 앱으로 연다(<html data-app="memo">).
+   폰(터치가 주 입력)의 또박에서는 메모 탭을 빼고 메모 앱으로 안내한다. PC는 탭 그대로 */
+const MEMO_APP=document.documentElement.dataset.app==="memo";
+const memoTab=()=>!MEMO_APP&&!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches);
+if(MEMO_APP){const top=document.querySelector("header.top");if(top)top.remove();} // 탭 줄과 ⋯는 메모 화면 머리로 옮김
+const startView=()=>{if(MEMO_APP)return "memo";const v=pref.get("view","day");return v==="memo"&&!memoTab()?"day":v;};
 
-const S={tasks:new Map(),trash:new Map(),memos:new Map(),mq:"",mEdit:null,mFresh:null,memoEdit:null,tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:pref.get("view","day"),sel:today,cursor:today,
+const S={tasks:new Map(),trash:new Map(),memos:new Map(),mq:"",mEdit:null,mFresh:null,memoEdit:null,tpls:new Map(),events:new Map(),tplSrc:null,week:null,addCat:null,addDate:null,subMoved:null,cats:DEFAULT_CATS.slice(),view:startView(),sel:today,cursor:today,
   calMode:pref.get("calMode",narrow?"week":"month"),tt7:pref.get("tt7","")==="1",ttFirst:null,ttShow:pref.get("ttShow","all"),showDone:false,mode:"loading",anim:false,calDir:0,
   adding:null,addSub:null,addDraft:"",lastSub:{},focusAdd:false,
   sheet:null,editing:null,edit:null,editGone:false,catDraft:null,catDelArm:null,catMoved:null,importData:null};
@@ -186,6 +192,8 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(placePill);
 /* ---------- 렌더 ---------- */
 function render(){
   const out=S.mode==="signedout"||S.mode==="config";
+  if(MEMO_APP)S.view="memo";else if(S.view==="memo"&&!memoTab())S.view="day";
+  const vm=document.getElementById("vMemo");if(vm)vm.hidden=!memoTab();
   document.body.dataset.view=S.view;
   document.body.dataset.auth=out?"out":"in";
   for(const v of ["day","week","all","memo"]){const b=document.querySelector('[data-act=view][data-v="'+v+'"]');if(b)b.setAttribute("aria-pressed",S.view===v);}
@@ -202,9 +210,12 @@ function render(){
 }
 
 const markSvg='<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="9"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.1" transform="translate(0 -0.4)"><polyline class="ck" opacity=".6" points="6.5,16.8 10.9,21.2 17.4,12.6"/><polyline class="ck" points="14.2,16.8 18.6,21.2 25.4,11.2"/></g></svg>';
+/* 메모 앱 마크: 핑크 바탕에 흰 메모지(오른쪽 아래 접힘) — build.py의 아이콘과 같은 모양 */
+const memoMarkSvg='<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="9"/><g transform="translate(16 16) scale(1.08) translate(-16 -16)"><path style="fill:var(--accent-ink)" d="M10 8.5h12a1.5 1.5 0 0 1 1.5 1.5v8.6l-5.4 5.4H10A1.5 1.5 0 0 1 8.5 22.5V10A1.5 1.5 0 0 1 10 8.5z"/><path style="fill:var(--accent);opacity:.45" d="M23.5 18.6h-4a1.4 1.4 0 0 0-1.4 1.4v4z"/><path d="M12.2 13.2h7.6M12.2 17h4.6" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></g></svg>';
+const moreBtn='<button class="more" type="button" data-act="menu" aria-label="더보기"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="4" cy="9" r="1.6" fill="currentColor"/><circle cx="9" cy="9" r="1.6" fill="currentColor"/><circle cx="14" cy="9" r="1.6" fill="currentColor"/></svg></button>';
 function renderLogin(){
   if($("#loginForm"))return;
-  $("#main").innerHTML='<div class="auth">'+markSvg+'<h1>로그인</h1><p>폰과 PC에서 같은 할 일을 봐요. 정해 둔 계정으로 로그인해 주세요</p>'+
+  $("#main").innerHTML='<div class="auth">'+(MEMO_APP?memoMarkSvg:markSvg)+'<h1>로그인</h1><p>폰과 PC에서 같은 '+(MEMO_APP?'메모':'할 일')+'를 봐요. 정해 둔 계정으로 로그인해 주세요</p>'+
     '<form id="loginForm" novalidate><label>이메일<input class="inp" id="l-email" type="email" autocomplete="username" inputmode="email" required></label>'+
     '<label>비밀번호<input class="inp" id="l-pw" type="password" autocomplete="current-password" required></label>'+
     '<div class="err" id="l-err" role="alert"></div><button class="btn pri" id="l-btn" type="submit">로그인</button>'+
@@ -735,17 +746,29 @@ function dropDraft(d){if(d&&d.dirty){S.lostDraft=d;setTimeout(()=>toast("변경 
 /* 공휴일 자료가 곧 끝나면(마지막 해 12월부터) 그 해를 돌려준다 */
 function holEnd(){const ys=Object.keys(HOL).map(k=>+k.slice(0,4));if(!ys.length)return 0;const y=Math.max(...ys);return today>=y+"-12-01"?y:0;}
 function drawMenu(){
+  if(MEMO_APP)return drawMemoMenu();
   let h='<h2>설정</h2><div class="menu">'+
     '<button type="button" data-act="cats">카테고리 관리<small>순서 · 색 · 소분류 · 숨김</small></button>'+
     '<button type="button" data-act="evs">고정 일정<small>'+(S.events.size?[...S.events.values()].filter(e=>!evOff(e)).length+'개 · ':'')+'수업처럼 매주 같은 시간에 있는 일정'+'</small></button>'+
     '<button type="button" data-act="tpls">반복 할 일<small>'+(S.tpls.size?[...S.tpls.values()].filter(r=>!tplOff(r)).length+'개 · ':'')+'요일마다 체크할 일</small></button>'+
     (store.push?'<button type="button" data-act="notify">알림<small id="m-notify">'+NSTATE[S.pushState||"..."]+'</small></button>':'')+
+    (memoTab()?'':'<a class="mlink" href="memo/">메모 앱<small>메모만 따로 여는 앱 · 홈 화면에 추가해서 쓰기</small></a>')+
     '<button type="button" data-act="trash">휴지통<small>'+(S.trash.size?S.trash.size+'개 · ':'')+'할 일·메모 30일 보관</small></button>'+
     '<button type="button" data-act="export">백업 만들기<small>파일로 저장하거나 텍스트로 복사</small></button>'+
     '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+'</small></button>';
   h+='</div>'+(holEnd()?'<p class="tnote">공휴일 자료가 '+holEnd()+'년까지만 있어요. 그 뒤로는 공휴일 쉼이 적용되지 않아요. 갱신을 요청해 주세요</p>':'')+'<p class="ver">또박 '+VERSION+'</p>';
   drawSheet(h);
+}
+function drawMemoMenu(){
+  const n=[...S.trash.values()].filter(t=>t.id.startsWith("m_")).length;
+  let h='<h2>설정</h2><div class="menu">'+
+    '<button type="button" data-act="trash">휴지통<small>'+(n?n+'개 · ':'')+'메모 30일 보관</small></button>'+
+    '<button type="button" data-act="export">백업 만들기<small>할 일과 메모를 함께 저장</small></button>'+
+    '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>'+
+    '<a class="mlink" href="../">또박 열기<small>할 일·달력·시간표</small></a>';
+  if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+' · 또박도 함께 로그아웃</small></button>';
+  drawSheet(h+'</div><p class="ver">또박 메모 '+VERSION+'</p>');
 }
 const NSTATE={"on":"이 기기에서 켜짐","off":"이 기기에서 꺼짐","denied":"차단됨","ios-install":"홈 화면 앱에서만 가능","unsupported":"이 브라우저는 지원 안 함","...":"확인 중…"};
 function refreshPush(then){if(!store.push)return;store.push.state().then(st=>{S.pushState=st;if(then)then(st);},()=>{});}
@@ -1351,7 +1374,7 @@ function newMemo(at,text,color){
 function patchMemo(id,p){const t=S.memos.get(id);if(!t)return;Object.assign(t,p);patchTask(id,p);}
 function renderMemo(){
   const q=(S.mq||"").trim().toLowerCase(),wide=memoWide()&&!q,list=memoList();
-  let h='<div class="dayhead"><div class="hrow"><h1>메모</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button></div></div>';
+  let h='<div class="dayhead"><div class="hrow"><h1>메모</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button>'+(MEMO_APP?moreBtn:'')+'</div></div>';
   h+='<div class="searchrow"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
   if(S.mode==="loading"){morph($("#main"),h);return;}
   if(wide){
@@ -1702,7 +1725,7 @@ document.addEventListener("click",ev=>{
     case"trash":S.trashArm=false;openSheet("trash",drawTrash);break;
     case"qmore":S.qMax=(S.qMax||200)+200;render();break;
     case"trestore":patchTask(b.dataset.id,{deletedAt:null});toast("복원했어요");break;
-    case"tempty":if(!S.trashArm){S.trashArm=true;drawTrash();break;}S.trashArm=false;for(const id of [...S.trash.keys()])delTask(id);toast("휴지통을 비웠어요");break;
+    case"tempty":if(!S.trashArm){S.trashArm=true;drawTrash();break;}S.trashArm=false;for(const id of [...S.trash.keys()])if(!MEMO_APP||id.startsWith("m_"))delTask(id);toast("휴지통을 비웠어요");break;
     case"lostload":{const d=S.lostDraft;if(!d||d.editing!==S.editing)break;S.lostDraft=null;S.edit=Object.assign(JSON.parse(JSON.stringify(d.edit)),{_lost:true});
       (S.sheet==="ev"?drawEv:drawEdit)();toast("저장하지 않은 내용을 불러왔어요");break;}
     case"evall":S.evAll=!S.evAll;render();break;
@@ -1868,6 +1891,7 @@ function toast(msg,action){
 }
 
 function openDate(u){
+  if(MEMO_APP)return;
   const sc=/#(add|week)$/.exec(u||"");
   if(sc){if(dlg.open)closeDlg();
     if(sc[1]==="week"){S.view="week";S.week=weekStart(today);S.ttFirst=today;}
@@ -1929,7 +1953,7 @@ function updateReady(apply){updApply=apply;const u=$("#upd");if(u)u.hidden=false
 function splitTrash(all,memos){const a=new Map(),t=new Map(),m=new Map();for(const [k,v] of all)(v.deletedAt?t:a).set(k,v);
   for(const [k,v] of memos||[])(v.deletedAt?t:m).set(k,v);S.tasks=a;S.trash=t;S.memos=m;}
 function drawTrash(){
-  const list=[...S.trash.values()].sort((a,b)=>b.deletedAt-a.deletedAt);
+  const list=[...S.trash.values()].filter(t=>!MEMO_APP||t.id.startsWith("m_")).sort((a,b)=>b.deletedAt-a.deletedAt);
   let h='<h2>휴지통</h2><p>30일 지나면 완전히 삭제</p>';
   if(!list.length)h+='<p class="empty">비어 있어요</p>';
   else h+='<div class="tpllist">'+list.map(t=>{const left=Math.max(1,30-Math.floor((Date.now()-t.deletedAt)/864e5));

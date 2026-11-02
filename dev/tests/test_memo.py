@@ -17,8 +17,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp")
-    pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
+    pg.goto("http://localhost:8798/memo/"); pg.wait_for_selector(".mcard")  # 2.9.0: 폰의 메모는 메모 앱에서(또박에는 메모 탭 없음)
     check(pg.locator(".mcard").count() == 2 and pg.locator(".board").count() == 0, "폰: 목록으로 보임(보드 없음)")
     check(pg.locator(".mcard").first.get_attribute("data-id") == "m_a", "최근 고친 것이 위")
     card = pg.locator(".mcard[data-id=m_a]")
