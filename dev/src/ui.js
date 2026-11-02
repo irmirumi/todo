@@ -1372,6 +1372,7 @@ function newMemo(at,text,color){
 }
 function patchMemo(id,p){const t=S.memos.get(id);if(!t)return;Object.assign(t,p);patchTask(id,p);}
 function renderMemo(){
+  if(memoPhone())return renderMemoPhone();
   const q=(S.mq||"").trim().toLowerCase(),wide=memoWide()&&!q,list=memoList();
   let h='<div class="dayhead"><div class="hrow"><h1>메모</h1><button class="plus big" type="button" data-act="mnew" aria-label="메모 추가">'+plusSvg+'</button>'+(MEMO_APP?moreBtn:'')+'</div></div>';
   h+='<div class="searchrow"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
@@ -1435,6 +1436,90 @@ function delMemo(id){
   patchTask(id,{deletedAt:Date.now()});render();
   toast("메모를 휴지통으로 옮겼어요",{label:"되돌리기",fn:()=>patchTask(id,{deletedAt:null})});
 }
+/* ---------- 폰 메모 앱(2.10.0) ----------
+   메모 앱의 좁은 화면 전용(PC 보드·또박 안의 메모 탭은 그대로). 사용자: 쓰는 화면이 좁고, 앱 같지 않고, 목록이 한눈에 안 들어온다 / 짧은 메모를 여러 개 쓴다.
+   목록: 2열 카드(최근 고친 순으로 짧은 쪽 열에 차례로 — 위쪽이 늘 최근) + 오른쪽 아래 ＋ + 돋보기로 여는 검색.
+   쓰기: 시트 대신 화면 전체(#mpage). ←·뒤로가기로 닫으면 저장, 쓰는 중에도 0.8초마다 저장(폰은 앱이 갑자기 닫혀도 잃지 않게).
+   새 메모는 글을 쓰기 시작하면 만들고, 다시 비우고 닫으면 지운다. 꾸미기 막대는 키보드 바로 위(memo/ 페이지 viewport가 resizes-content) */
+const memoPhone=()=>MEMO_APP&&!memoWide();
+const ico=(d,w)=>'<svg width="'+(w||20)+'" height="'+(w||20)+'" viewBox="0 0 20 20" aria-hidden="true"><path d="'+d+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const searchSvg=ico("M8.8 15.1a6.3 6.3 0 1 0 0-12.6 6.3 6.3 0 0 0 0 12.6zM13.4 13.4 17.5 17.5");
+const backSvg=ico("M12.5 4 6.5 10l6 6",22);
+const trashSvg=ico("M3.5 5.5h13M8 5.5V3.8h4v1.7M5.2 5.5l.8 10.7h8l.8-10.7M8.3 8.6v4.6M11.7 8.6v4.6");
+const fabSvg='<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 3.5v15M3.5 11h15" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>';
+/* 2열 나누기: 글 길이로 카드 높이를 어림해서(최대 8줄 + 날짜) 짧은 쪽 열에 */
+function memoCols(list){
+  const c=[[],[]],h=[0,0];
+  for(const t of list){let n=1.4;for(const l of String(t.text||"").split("\n")){n+=Math.max(1,Math.ceil(l.length/13));if(n>9.4)break;}
+    const i=h[0]<=h[1]?0:1;c[i].push(t);h[i]+=Math.min(n,9.4)+1.6;}
+  return c;
+}
+const memoCardP=t=>'<article class="mcard pc'+(t.color?' tint':'')+'"'+memoStyle(t)+' data-act="mopen" data-id="'+t.id+'" tabindex="0" aria-label="'+esc(memoTitle(t))+'">'+
+  '<div class="mbody md">'+(String(t.text||"").trim()?mdHtml(t.text):'<p class="mempty">빈 메모</p>')+'</div><p class="mwhen">'+esc(memoWhen(t))+'</p></article>';
+function renderMemoPhone(){
+  const q=(S.mq||"").trim().toLowerCase(),list=memoList(),open=!!(S.mSearch||q);
+  let h='<div class="mphead"><div class="mpt"><h1>메모</h1>'+(list.length?'<span class="mcount">'+list.length+'</span>':'')+'</div><span class="sp"></span>'+
+    '<button class="mpi" type="button" data-act="msearch" aria-label="메모 검색" aria-pressed="'+open+'">'+searchSvg+'</button>'+moreBtn+'</div>';
+  if(open)h+='<div class="searchrow mps"><input class="inp search" id="mq" type="search" value="'+esc(S.mq||"")+'" placeholder="메모 검색" autocomplete="off" enterkeyhint="search" aria-label="메모 검색"></div>';
+  if(S.mode!=="loading"){
+    const res=q?list.filter(t=>String(t.text||"").toLowerCase().includes(q)):list;
+    if(!list.length)h+='<div class="mpempty">'+memoMarkSvg+'<p>메모 없음</p><small>＋를 눌러 첫 메모 쓰기</small></div>';
+    else if(!res.length)h+='<p class="empty">‘'+esc(S.mq.trim())+'’ 검색 결과 없음</p>';
+    else{const [a,b]=memoCols(res);h+='<div class="mgrid"><div class="mcol">'+a.map(memoCardP).join("")+'</div><div class="mcol">'+b.map(memoCardP).join("")+'</div></div>';}
+    h+='<button class="mfab" type="button" data-act="mnew" aria-label="새 메모">'+fabSvg+'</button>';
+  }
+  morph($("#main"),h);
+  if(S.mFocusQ){S.mFocusQ=false;const i=$("#mq");if(i)i.focus();}
+}
+let mpage=null,mpT=null;
+function pageEl(){
+  if(!mpage){mpage=document.createElement("div");mpage.id="mpage";mpage.hidden=true;mpage.setAttribute("role","dialog");mpage.setAttribute("aria-modal","true");mpage.setAttribute("aria-label","메모 쓰기");document.body.appendChild(mpage);}
+  return mpage;
+}
+const pageOpen=()=>!!(S.memoEdit&&S.memoEdit.page);
+function pageTopH(){
+  const e=S.memoEdit,t=e.id&&S.memos.get(e.id);
+  return '<div class="mptop"><button class="mpi" type="button" data-act="mback" aria-label="닫기(저장)">'+backSvg+'</button>'+
+    '<span class="mpwhen">'+(t?esc(memoWhen(t))+'에 고침':'새 메모')+'</span><span class="sp"></span>'+
+    '<button class="mpi mpal'+(e.color?'':' plain')+'" type="button" data-act="mpal" aria-label="메모 색" aria-expanded="'+!!S.mPal+'"'+(e.color?' style="--cc:var(--'+e.color+')"':'')+'><i></i></button>'+
+    (e.id?'<button class="mpi" type="button" data-act="mdel" aria-label="휴지통으로">'+trashSvg+'</button>':'')+'</div>'+
+    '<div class="mppal sw msw" role="group" aria-label="메모 색"'+(S.mPal?'':' hidden')+'><button type="button" class="mplain" aria-pressed="'+(!e.color)+'" aria-label="기본" data-act="mcolor" data-color=""></button>'+
+      COLORS.map(k=>'<button type="button" style="--cc:var(--'+k+')" aria-pressed="'+(k===e.color)+'" aria-label="'+COLOR_NAME[k]+'" data-act="mcolor" data-color="'+k+'"></button>').join("")+'</div>';
+}
+function pageTop(){
+  const el=pageEl(),e=S.memoEdit;if(!e)return;
+  el.className="mpage"+(e.color?" tint":"")+(el.classList.contains("in")?" in":"");el.style.cssText=e.color?"--cc:var(--"+e.color+")":"";
+  const top=el.querySelector(".mphdr");if(top)top.innerHTML=pageTopH();
+}
+function openPage(id){
+  const t=id&&S.memos.get(id);if(id&&!t)return;
+  S.memoEdit={id:id||null,text:t?t.text:"",color:t?t.color||"":"",base:t?{text:t.text,color:t.color||""}:null,page:true,fresh:!id};S.mPal=false;
+  const el=pageEl();el.innerHTML='<div class="mphdr"></div><textarea class="mptext" id="m-text" aria-label="메모 내용" placeholder="메모">'+esc(S.memoEdit.text)+'</textarea><div class="mpbar">'+fmtBar()+'</div>';
+  el.hidden=false;pageTop();document.body.classList.add("mpopen");
+  if(!reduced){el.classList.remove("out");el.classList.add("in");setTimeout(()=>el.classList.remove("in"),320);}
+  try{history.pushState({mpage:1},"");}catch(e){}
+  const ta=$("#m-text");if(ta&&!id)ta.focus();
+}
+/* 지금 글을 저장: 새 메모는 글이 생기면 그때 만든다 */
+function pageSave(){
+  clearTimeout(mpT);mpT=null;const e=S.memoEdit;if(!e||!e.page||e.gone)return;const ta=$("#m-text");if(ta)e.text=ta.value;
+  if(!e.id){if(!e.text.trim())return;e.id=newMemo(null,e.text,e.color);e.base={text:e.text,color:e.color};pageTop();render();return;}
+  if(!S.memos.has(e.id))return;
+  const p={};if(e.text!==e.base.text)p.text=e.text;if(e.color!==e.base.color)p.color=e.color;
+  if(Object.keys(p).length){p.updatedAt=Date.now();patchMemo(e.id,p);e.base={text:e.text,color:e.color};render();}
+}
+function closePage(){
+  if(!pageOpen())return;pageSave();const e=S.memoEdit;
+  if(e.fresh&&e.id&&!e.gone&&!e.text.trim()&&S.memos.has(e.id)){S.memos.delete(e.id);delTask(e.id);} // 새로 쓰다 다 지운 메모는 남기지 않음
+  S.memoEdit=null;S.mPal=false;document.body.classList.remove("mpopen");
+  const el=pageEl(),done=()=>{if(!pageOpen()){el.hidden=true;el.innerHTML="";el.classList.remove("out");}};
+  if(reduced)done();else{el.classList.remove("in");el.classList.add("out");setTimeout(done,200);}
+  render();
+}
+/* ←·휴지통은 뒤로가기와 같은 길로 닫는다(안드로이드 뒤로 버튼과 기록이 어긋나지 않게) */
+function leavePage(){if(history.state&&history.state.mpage)history.back();else closePage();}
+window.addEventListener("popstate",()=>{if(pageOpen()&&!(history.state&&history.state.mpage))closePage();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&pageOpen())pageSave();});
 /* 꾸미기 막대(2.8.2): 마크다운을 몰라도 버튼으로. 선택한 글(없으면 커서 줄)에 붙이고, 이미 붙어 있으면 뗀다.
    execCommand("insertText")로 바꿔 넣어서 되돌리기(Ctrl+Z)가 된다. 누를 때 입력칸 포커스를 뺏지 않는다(폰 키보드가 안 닫히게) */
 const FMT=[["h","제목",'<b class="fg">H</b>'],["b","굵게",'<b class="fg fb">B</b>'],
@@ -1584,13 +1669,16 @@ document.addEventListener("click",ev=>{
   switch(a){
     case"mnew":{if(memoWide()&&!(S.mq||"").trim()){if(S.mEdit)memoFlush(S.mEdit);const p=memoSpot(),id=newMemo(p);S.mEdit=id;S.mFresh=id;render();
         const bd=$("#board");if(bd&&(p.y<bd.scrollTop||p.y>bd.scrollTop+bd.clientHeight-100||p.x<bd.scrollLeft||p.x>bd.scrollLeft+bd.clientWidth-100))bd.scrollTo({left:Math.max(0,p.x-40),top:Math.max(0,p.y-40)});}
-      else openMemo(null);break;}
+      else if(memoPhone())openPage(null);else openMemo(null);break;}
     case"fmt":{const ta=b.closest(".mnote")?b.closest(".mnote").querySelector("textarea"):$("#m-text");if(ta)applyFmt(ta,b.dataset.k);break;}
-    case"mopen":if(ev.target.closest("a"))break;openMemo(b.dataset.id);break;
+    case"mopen":if(ev.target.closest("a"))break;if(memoPhone())openPage(b.dataset.id);else openMemo(b.dataset.id);break;
+    case"mback":leavePage();break;
+    case"mpal":S.mPal=!S.mPal;pageTop();break;
+    case"msearch":if(S.mSearch||(S.mq||"").trim()){S.mSearch=false;S.mq="";}else{S.mSearch=true;S.mFocusQ=true;}render();break;
     case"medit":{if(ev.target.closest("a"))break;if(S.mEdit&&S.mEdit!==b.dataset.id)memoFlush(S.mEdit);S.mEdit=b.dataset.id;render();break;}
     case"mcheck":{const host=b.closest("[data-mid],[data-id]");if(host)memoCheck(host.dataset.mid||host.dataset.id,+b.dataset.line);break;}
-    case"mcolor":{const e=S.memoEdit;if(!e)break;const ta=$("#m-text");if(ta)e.text=ta.value;e.color=b.dataset.color;drawMemoSheet();break;}
-    case"mdel":{const e=S.memoEdit;if(!e||!e.id)break;e.gone=true;closeDlg();delMemo(e.id);break;}
+    case"mcolor":{const e=S.memoEdit;if(!e)break;if(e.page){e.color=b.dataset.color;pageTop();if(e.id)pageSave();break;}const ta=$("#m-text");if(ta)e.text=ta.value;e.color=b.dataset.color;drawMemoSheet();break;}
+    case"mdel":{const e=S.memoEdit;if(!e||!e.id)break;if(e.page){pageSave();e.gone=true;const id=e.id;leavePage();delMemo(id);break;}e.gone=true;closeDlg();delMemo(e.id);break;}
     case"view":{const v=b.dataset.v;if(v===S.view){window.scrollTo({top:0,behavior:reduced?"auto":"smooth"});break;}if(S.mEdit){memoFlush(S.mEdit);S.mEdit=null;}
       const dir=Math.sign(VIEWS.indexOf(v)-VIEWS.indexOf(S.view));
       transit(()=>{if(v==="week"&&S.view!=="week"){S.week=weekStart(S.sel);S.ttFirst=S.sel;}S.view=v;pref.set("view",v);S.adding=null;window.scrollTo(0,0);render();},"view",dir);break;}
@@ -1782,7 +1870,7 @@ document.addEventListener("input",ev=>{
   else if(el.matches&&el.matches(".addrow input")){S.addDraft=el.value;updQuick();}
   else if(el.id==="q"){S.q=el.value;S.qMax=0;render();}
   else if(el.id==="mq"){S.mq=el.value;if(S.mEdit){memoFlush(S.mEdit);S.mEdit=null;}render();}
-  else if(el.id==="m-text"){if(ev.inputType==="insertLineBreak")continueList(el);if(S.memoEdit)S.memoEdit.text=el.value;}
+  else if(el.id==="m-text"){if(ev.inputType==="insertLineBreak")continueList(el);if(S.memoEdit){S.memoEdit.text=el.value;if(S.memoEdit.page){clearTimeout(mpT);mpT=setTimeout(pageSave,800);}}}
   else if(el.id&&el.id.startsWith("mt-")){if(ev.inputType==="insertLineBreak")continueList(el);const id=el.id.slice(3);clearTimeout(memoT);memoT=setTimeout(()=>memoFlush(id),800);}
   else if(editing()&&(el.id==="e-time"||el.id==="e-end")){syncEdit();redrawEdit();}
   else if(editing()&&S.edit&&S.edit.ev&&/^s-(time|end)-\d+$/.test(el.id)){syncEdit();drawEv();}
@@ -1843,6 +1931,7 @@ function handleEnter(el){
 const enterTarget=el=>el.matches&&(el.matches(".addrow input,.subnew")||el.id==="e-title"||el.id==="e-place"||el.id==="s-new"||el.id==="e-dur"||((el.id==="e-time"||el.id==="e-end"||/^s-(time|end)-\d+$/.test(el.id))&&el.type==="text"));
 document.addEventListener("keydown",ev=>{
   const el=ev.target;
+  if(ev.key==="Escape"&&pageOpen()&&!dlg.open){ev.preventDefault();leavePage();return;}
   if(ev.key==="Escape"&&el.id&&el.id.startsWith("mt-")){ev.preventDefault();el.blur();return;}
   if((ev.ctrlKey||ev.metaKey)&&!ev.shiftKey&&!ev.altKey&&(ev.key==="b"||ev.key==="B")&&(el.id==="m-text"||(el.id&&el.id.startsWith("mt-")))){ev.preventDefault();applyFmt(el,"b");return;}
   if(ev.key==="Enter"&&el.classList&&el.classList.contains("mcard")){ev.preventDefault();openMemo(el.dataset.id);return;}

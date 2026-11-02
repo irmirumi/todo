@@ -30,11 +30,11 @@ open(os.path.join(APP, "style.css"), "w", encoding="utf-8").write(RESET + style)
 assert '"__VERSION__"' in ui, "ui.js 의 VERSION 자리표시자가 없다"
 open(os.path.join(APP, "ui.js"), "w", encoding="utf-8").write(ui.replace('"__VERSION__"', '"' + VERSION + '"'))
 shutil.copy(os.path.join(SRC, "model.js"), os.path.join(APP, "model.js"))
-def page(title, pre="", app=None, manifest="manifest.webmanifest", icon="icon-192.png", touch="apple-touch-icon.png", hol=True):
+def page(title, pre="", app=None, manifest="manifest.webmanifest", icon="icon-192.png", touch="apple-touch-icon.png", hol=True, vp=""):
     """앱 입구 HTML. 공용 파일은 앱 폴더에 두고 입구만 한 단계 아래 폴더에서 연다(2.9.1): 또박은 app/, 메모 앱은 memo/(pre="../").
     폰은 설치 범위(scope)가 겹치면 두 앱을 따로 설치하지 못해서 입구를 나란한 폴더로 나눴다"""
     return ('<!doctype html>\n<html lang="ko"' + (f' data-app="{app}"' if app else '') + '>\n<head>\n<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover{vp}">\n'
         f'<title>{title}</title>\n'
         f'<meta name="theme-color" media="(prefers-color-scheme: light)" content="{BG}">\n'
         f'<meta name="theme-color" media="(prefers-color-scheme: dark)" content="{BG_DARK}">\n'
@@ -59,7 +59,7 @@ open(os.path.join(APP, "index.html"), "w", encoding="utf-8").write(
     '<body><p><a href="app/">또박 열기</a></p></body>\n</html>\n')
 os.makedirs(os.path.join(APP, "app")); os.makedirs(os.path.join(APP, "memo"))
 open(os.path.join(APP, "app", "index.html"), "w", encoding="utf-8").write(page("또박", "../", manifest="../manifest.webmanifest"))
-open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("또박 메모", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png", hol=False))
+open(os.path.join(APP, "memo", "index.html"), "w", encoding="utf-8").write(page("또박 메모", "../", "memo", icon="memo-192.png", touch="memo-apple-touch-icon.png", hol=False, vp=",interactive-widget=resizes-content"))  # 폰 키보드가 올라오면 화면이 줄어 꾸미기 막대가 키보드 위에(2.10.0)
 shutil.copy(os.path.join(SRC, "pwa", "memo.webmanifest"), os.path.join(APP, "memo", "manifest.webmanifest"))
 # 2.9.0 서비스 워커가 남은 기기에서 app/을 처음 열 때 빠져나오는 길(rescue.js 맨 위 설명)
 shutil.copy(os.path.join(SRC, "pwa", "rescue.js"), os.path.join(APP, "app", "app.js"))

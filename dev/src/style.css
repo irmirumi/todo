@@ -896,3 +896,47 @@ html[data-app="memo"] .hrow .more{margin-right:-8px}
 html[data-app="memo"]{--accent:#127F70; --accent-ink:#FFFFFF; --accent-text:#0F7A6C}
 @media (prefers-color-scheme: dark){html[data-app="memo"]:not([data-theme="light"]){--accent:#45C4AC; --accent-ink:#03221C; --accent-text:#6AD3BE}}
 html[data-app="memo"][data-theme="dark"]{--accent:#45C4AC; --accent-ink:#03221C; --accent-text:#6AD3BE}
+/* ---------- 2.10.0 폰 메모 앱: 2열 카드 · 떠 있는 ＋ · 화면 전체 편집 ---------- */
+.mphead{display:flex;align-items:center;gap:2px;margin:2px -6px 12px 0}
+.mpt{display:flex;align-items:baseline;gap:7px}
+.mpt h1{font-weight:800;font-size:1.6rem;line-height:1.15;letter-spacing:-.04em;margin:0}
+.mcount{font-size:.95rem;font-weight:600;color:var(--muted)}
+.mphead .sp,.mptop .sp{flex:1}
+.mpi{position:relative;border:0;background:transparent;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--ink-2);padding:0;transition:background-color .15s var(--ease-out),transform .12s var(--ease-out)}
+.mpi:active{transform:scale(.94)}
+.mpi[aria-pressed="true"],.mpi[aria-expanded="true"]{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+.mps{margin:0 0 12px}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;padding-bottom:84px}
+.mcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mcard.pc{padding:12px 13px 10px;gap:6px;border-radius:16px}
+.mcard.pc .mbody{max-height:11.6em;font-size:.88rem;line-height:1.45;overflow:hidden;overflow-wrap:anywhere}
+.mcard.pc .md .mh1{font-size:1rem}.mcard.pc .md .mh2{font-size:.95rem}.mcard.pc .md .mh3{font-size:.9rem}
+.mcard.pc .mwhen{font-size:.7rem}
+.mpempty{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:20vh;color:var(--muted);text-align:center}
+.mpempty .mark{width:52px;height:52px;margin-bottom:10px}
+.mpempty p{margin:0;font-weight:700;color:var(--ink-2)}
+.mpempty small{font-size:.84rem}
+.mfab{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));z-index:5;width:58px;height:58px;border-radius:18px;border:0;padding:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 32%,transparent),0 2px 6px rgb(0 0 0/.14);transition:transform .12s var(--ease-out)}
+.mfab:active{transform:scale(.94)}
+body.mpopen{overflow:hidden}
+.mpage{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:var(--surface);padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.mpage.tint{background:color-mix(in srgb,var(--cc) 13%,var(--surface))}
+.mpage[hidden]{display:none}
+.mpage.in{animation:mpin .28s var(--ease-out)}
+.mpage.out{animation:mpout .2s var(--ease-in) forwards}
+@keyframes mpin{from{transform:translateX(32px);opacity:0}}
+@keyframes mpout{to{transform:translateX(32px);opacity:0}}
+.mptop{display:flex;align-items:center;gap:2px;padding:6px 8px 2px}
+.mpwhen{font-size:.8rem;color:var(--muted);margin-left:2px}
+.mpal i{width:20px;height:20px;border-radius:50%;background:var(--cc);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--cc) 60%,var(--ink))}
+.mpal.plain i{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line),inset 0 0 0 9px var(--surface)}
+.mppal{padding:6px 16px 8px;margin:0}
+.mptext{flex:1;min-height:0;border:0;outline:0;resize:none;background:transparent;color:var(--ink);font:inherit;font-size:16.5px;line-height:1.6;padding:8px 18px 18px}
+.mptext::placeholder{color:var(--muted)}
+.mpbar{display:flex;padding:4px 8px;box-shadow:inset 0 1px 0 color-mix(in srgb,var(--ink) 8%,transparent)}
+.mpbar .mfmt{gap:4px}
+.mpbar .mfmt button{width:46px;height:40px;border-radius:10px}
+@media (prefers-reduced-motion: reduce){.mpage.in,.mpage.out{animation:none}}
+/* 폰 메모 목록엔 ＋가 떠 있으니 알림은 그 위로(58px + 간격) */
+body:has(.mfab) .toast:not(dialog .toast){bottom:calc(90px + env(safe-area-inset-bottom,0px))}
