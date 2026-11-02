@@ -9,7 +9,7 @@
 
 1. **저장소 붙이기**: 세션에 `irmirumi/todo`가 없으면 `add_repo`(owner `irmirumi`, repo `todo`, access `push`) → 안내대로 clone. 커밋·푸시는 `main`에 직접 한다(사용자 개인 저장소, 1인 개발).
 2. **읽기**: 루트 `CLAUDE.md` → 이 문서 끝까지. 사용자 성향은 2장, 디자인·문구·움직임 규칙은 6장, 실수 사례는 8장.
-3. **환경 준비**(테스트용): `pip install playwright pillow --break-system-packages`(Chromium이 이미 있으면 브라우저 설치 생략), Node 22 이상, `cd dev/tests && npm install`. 그다음 `python3 dev/build.py && bash dev/tests/run_all.sh`가 모두 PASS인지 본다(2026-11-02 기준 Node 5개 + 화면 27개).
+3. **환경 준비**(테스트용): `pip install playwright pillow --break-system-packages`(Chromium이 이미 있으면 브라우저 설치 생략), Node 22 이상, `cd dev/tests && npm install`. 그다음 `python3 dev/build.py && bash dev/tests/run_all.sh`가 모두 PASS인지 본다(2026-11-02 기준 Node 4개 + 화면 26개).
 4. **사이트 버전 확인**: `WebFetch https://irmirumi.github.io/todo/ui.js?v=<아무 숫자>`로 `VERSION`을 본다(같은 주소는 15분 캐시라 `?v=`를 바꿔 가며). 셸의 curl은 프록시에 막힌다.
 5. **사용자에게 처음 한 번 확인할 것**(이전 채팅에서 답을 못 받음):
    - 알림 서버 `worker.js`를 2.7.0 것으로 Cloudflare에 붙여넣었는지(2.6.0 재시도, 2.7.0 보낸 기록 `sent` 표). 안 했으면 `dev/src/worker/worker.js`를 파일로 보내고 4장 단계를 안내
