@@ -21,7 +21,7 @@ errs = []
 with sync_playwright() as p:
     b = p.chromium.launch(); ctx = b.new_context(viewport={"width": 390, "height": 844}); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto("http://localhost:8779/"); pg.wait_for_selector("#main h1")
+    pg.goto("http://localhost:8779/app/"); pg.wait_for_selector("#main h1")
     check(pg.inner_text("#main h1") == "설정이 필요해요", "설정 없으면 안내 화면")
     pg.wait_for_function("!!navigator.serviceWorker.controller", timeout=10000); pg.wait_for_timeout(300)
     pg.reload(); pg.wait_for_timeout(800)
@@ -32,14 +32,16 @@ with sync_playwright() as p:
     # 2.9.0 메모 앱(/memo/): 따로 서비스 워커를 만들지 않고 같은 것(범위: 앱 폴더)을 쓴다
     pg.goto("http://localhost:8779/memo/"); pg.wait_for_selector("#main h1"); pg.wait_for_timeout(300)
     check(pg.evaluate("navigator.serviceWorker.getRegistrations().then(r=>r.map(x=>x.scope))") == ["http://localhost:8779/"] and pg.evaluate("!!navigator.serviceWorker.controller"), "메모 앱도 같은 서비스 워커 하나")
-    pg.goto("http://localhost:8779/"); pg.wait_for_selector("#main h1")
+    pg.goto("http://localhost:8779/app/"); pg.wait_for_selector("#main h1")
     # 오프라인(서버 끔)으로 다시 열기
     srv.terminate(); srv.wait(); time.sleep(.3)
     pg.reload(); pg.wait_for_selector("#main h1")
     check(pg.inner_text("#main h1") == "설정이 필요해요" and pg.evaluate("!!window.TodoApp"), "서버 없이도 열림")
     pg.goto("http://localhost:8779/memo/"); pg.wait_for_selector("#main h1")
     check(pg.evaluate("document.documentElement.dataset.app") == "memo" and pg.inner_text("#main h1") == "설정이 필요해요", "메모 앱도 서버 없이 열림")
-    pg.goto("http://localhost:8779/"); pg.wait_for_selector("#main h1")
+    pg.goto("http://localhost:8779/#d=2026-01-05"); pg.wait_for_function("location.pathname==='/app/'"); pg.wait_for_selector("#main h1")
+    check(pg.inner_text("#main h1") == "설정이 필요해요", "예전 주소(맨 위)도 서버 없이 또박으로 넘어감")
+    pg.goto("http://localhost:8779/app/"); pg.wait_for_selector("#main h1")
     # 새 버전 올리기: 사본의 버전을 바꾸고 서버 다시 켬
     nv = VER + "-next"
     for f, a, b2 in [("sw.js", CACHE, "ttobak-" + nv), ("ui.js", 'const VERSION="' + VER + '"', 'const VERSION="' + nv + '"')]:
@@ -47,7 +49,7 @@ with sync_playwright() as p:
     print("FILE", re.search(r"ttobak-[^\"]+", open(os.path.join(APP, "sw.js")).read()).group(0))
     srv = serve(); time.sleep(1)
     pg.reload(); pg.wait_for_timeout(300)
-    check(pg.evaluate("document.querySelector('script[src=\"ui.js\"]')&&1") == 1, "다시 열기")
+    check(pg.evaluate("document.querySelector('script[src=\"../ui.js\"]')&&1") == 1, "다시 열기")
     pg.wait_for_selector("#upd:not([hidden])", timeout=10000)
     check("새 버전이 있어요" in pg.inner_text("#upd"), "새 묶음이 준비되면 '새 버전이 있어요'")
     old = pg.evaluate("caches.keys()")

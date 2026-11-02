@@ -16,7 +16,7 @@ def run(w,h,touch,tag):
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=touch); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8776/"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
+    pg.goto("http://localhost:8776/app/"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
     today=pg.evaluate("(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})()")
 
     pg.click("[data-act=add][data-cat=k2]"); pg.keyboard.type("영어 수업"); pg.keyboard.press("Enter"); pg.keyboard.press("Escape")

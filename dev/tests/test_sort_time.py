@@ -12,7 +12,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={"width":1280,"height":860})
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8774/"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8774/app/"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp")
     # 소분류 두 개
     pg.click("[data-act=menu]"); pg.click("[data-act=cats]"); pg.fill("#cn-k2","수업")
     for n in ["자료구조","영어"]: pg.fill("#snew-k2",n); pg.press("#snew-k2","Enter")

@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8797/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(400)
+    pg.goto("http://localhost:8797/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(400)
     tasks = lambda: pg.evaluate("Object.fromEntries(__d.tasks)")
     # 고정 일정 셋 → 한 줄(지금·다음) + 모두 보기
     rows = pg.locator(".evstrip .evrow").count()

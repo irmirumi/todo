@@ -14,7 +14,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":390,"height":844},has_touch=True); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8778/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8778/app/"); pg.wait_for_selector(".grp")
     pg.click("[data-act=add][data-cat=k1]"); pg.wait_for_timeout(150)
     check(pg.locator(".addrow").count()==0, "불러오는 중엔 추가 막음")
     pg.click("[data-act=menu]"); pg.wait_for_timeout(150); check(not pg.evaluate("document.getElementById('dlg').open"), "불러오는 중엔 메뉴 막음")

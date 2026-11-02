@@ -1,5 +1,5 @@
 {
-  "id": "./",
+  "id": "/todo/memo/",
   "name": "또박 메모",
   "short_name": "또박 메모",
   "description": "또박과 같이 쓰는 메모",
@@ -8,12 +8,32 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#D9467C",
-  "theme_color": "#D9467C",
+  "background_color": "#17917F",
+  "theme_color": "#17917F",
   "icons": [
-    { "src": "../icons/memo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "../icons/memo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "../icons/memo-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "../icons/memo-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "../icons/memo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/memo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/memo-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "../icons/memo-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

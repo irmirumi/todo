@@ -5,6 +5,9 @@ import { createPush } from "./push.js";
 import { expand, archiveOps, writeOps } from "./archive.js";
 
 const V = "12.19.0";
+// 메모 앱(2.9.1): 메모 문서(m_)만 구독한다. 할 일·묶음(a_) 등을 읽지 않아 빨리 뜨고 Firestore 읽기도 아낀다.
+// 대신 이 화면의 할 일은 늘 비어 있으므로 알림 목록 보내기·묶기는 하지 않는다(서버의 알림을 빈 목록으로 덮지 않게)
+const MEMO = document.documentElement.dataset.app === "memo";
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/여기/.test(firebaseConfig.apiKey));
 let cb = null, fb = null, auth = null, db = null, col = null, unsub = null;
 const fail = e => { if (cb) cb.onError(e); };
@@ -60,7 +63,8 @@ const stop = () => { clearTimeout(retryT); retryT = null; retries = 0; if (unsub
 // 실시간 연결: 오류로 끊기면(서버 쪽 일시 오류 등) 잠시 뒤 다시 붙는다. 권한 오류는 다시 붙어도 소용없어서 알리기만 한다
 function listen(uid) {
   let first = true;
-  unsub = fb.onSnapshot(col, { includeMetadataChanges: true }, snap => {
+  const src = MEMO ? fb.query(col, fb.where(fb.documentId(), ">=", "m_"), fb.where(fb.documentId(), "<", "m`")) : col;
+  unsub = fb.onSnapshot(src, { includeMetadataChanges: true }, snap => {
     const docs = []; snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
     const { tasks, tpls, events, memos, cats, arch, sizes, dups, bytes } = expand(docs);
     cur = { tasks, arch, sizes, dups, bytes };
@@ -71,7 +75,7 @@ function listen(uid) {
     if (!snap.metadata.fromCache) {
       retries = 0;
       if (store.push) store.push.schedule(tasks, cats, events);
-      if (!snap.metadata.hasPendingWrites) maybeArchive(uid);
+      if (!MEMO && !snap.metadata.hasPendingWrites) maybeArchive(uid);
     }
     if (first) { first = false; cb.onStatus("live"); }
   }, err => {
@@ -160,7 +164,7 @@ const store = {
   resetPassword(email) { return fb.sendPasswordResetEmail(auth, email); }
 };
 
-store.push = createPush({ url: REMINDER_URL, getToken: () => auth.currentUser.getIdToken(), uidKey: () => (auth && auth.currentUser ? auth.currentUser.uid : "") });
+if (!MEMO) store.push = createPush({ url: REMINDER_URL, getToken: () => auth.currentUser.getIdToken(), uidKey: () => (auth && auth.currentUser ? auth.currentUser.uid : "") });
 
 window.TodoApp.boot(store);
 

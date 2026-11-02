@@ -22,7 +22,7 @@ def open_page(b, w, h):
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8781/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8781/app/"); pg.wait_for_selector(".grp")
     return ctx, pg
 def today_key(pg):
     return pg.evaluate("(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})()")

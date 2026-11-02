@@ -26,7 +26,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 1280, "height": 900}); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8792/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8792/app/"); pg.wait_for_selector(".grp")
     tasks = lambda: pg.evaluate("Object.fromEntries(window.__last.tasks)")
     ev = lambda: pg.evaluate("window.__last.events.get('e_1')")
     tk = pg.evaluate("(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})()")

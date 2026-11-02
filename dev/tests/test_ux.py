@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8787/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8787/app/"); pg.wait_for_selector(".grp")
     pg.click("[data-act=add] >> nth=0"); pg.wait_for_timeout(150)
     check("불러오는 중" in pg.inner_text("#toastMsg") and pg.is_visible("#toast"), "불러오는 중에 누르면 알려 줌")
     pg.wait_for_selector(".task.ghost"); pg.wait_for_timeout(300)

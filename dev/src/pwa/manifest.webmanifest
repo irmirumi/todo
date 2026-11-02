@@ -4,8 +4,8 @@
   "short_name": "또박",
   "description": "달력과 카테고리로 또박또박 해치우는 할 일",
   "lang": "ko",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "app/",
+  "scope": "app/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#D9467C",
@@ -40,7 +40,7 @@
     {
       "name": "할 일 추가",
       "short_name": "할 일 추가",
-      "url": "./#add",
+      "url": "app/#add",
       "icons": [
         {
           "src": "icons/icon-192.png",
@@ -52,7 +52,7 @@
     {
       "name": "시간표",
       "short_name": "시간표",
-      "url": "./#week",
+      "url": "app/#week",
       "icons": [
         {
           "src": "icons/icon-192.png",

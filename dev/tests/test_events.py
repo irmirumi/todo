@@ -25,7 +25,7 @@ def go(w,h,tag):
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=w<600,device_scale_factor=2 if w<600 else 1); ctx.add_init_script("try{localStorage.setItem('todo.tt7','1')}catch(e){}"); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8784/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
+    pg.goto("http://localhost:8784/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
     strip=[x.inner_text().replace("\n"," ") for x in pg.locator(".evrow").all()]
     exp=[e for e in [("영어회화",{1,3}),("자료구조",{2,4,5})] if T.isoweekday()%7 in e[1]]
     check(len(strip)==len(exp) and all(any(n in x for x in strip) for n,_ in exp), "달력 일정 띠: 오늘 요일 것만 "+str(strip))

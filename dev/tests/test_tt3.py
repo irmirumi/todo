@@ -24,7 +24,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8786/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8786/app/"); pg.wait_for_selector(".grp")
     k = lambda d: pg.evaluate(K, d)
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(400)
     check(pg.locator(".tt3").count() == 1 and pg.locator(".tth").count() == 21, "폰 기본은 3일 보기(21일을 깔아 둠)")

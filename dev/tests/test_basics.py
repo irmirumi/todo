@@ -14,7 +14,7 @@ def page(b, w, h, dark=False):
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8773/")
+    pg.goto("http://localhost:8773/app/")
     return pg
 def login(pg):
     pg.wait_for_selector("#loginForm"); pg.fill("#l-email", "me@example.com"); pg.fill("#l-pw", "ok"); pg.click("#l-btn")

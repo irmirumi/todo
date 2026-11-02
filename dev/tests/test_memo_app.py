@@ -11,7 +11,7 @@ m.importAll({cats:null,tpls:[],events:[],
 const s=Object.assign({},m,{kind:'pwa',email:'me@example.com',signOut(){return Promise.resolve();},start(c){m.start({onData:(d,meta)=>{window.__d=d;c.onData(d,meta);},onStatus:x=>c.onStatus(x==='local'?'live':x),onError:c.onError});}});
 TodoApp.boot(s);"""
 errs = []
-URL = "http://localhost:8799/"
+ROOT = "http://localhost:8799/"; URL = ROOT + "app/"; MEMO = ROOT + "memo/"  # 2.9.1: 또박은 app/, 메모 앱은 memo/ (나란한 폴더)
 def ctx_page(b, w, h, touch, scheme="light"):
     ctx = b.new_context(viewport={"width": w, "height": h}, has_touch=touch, color_scheme=scheme); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
@@ -28,19 +28,19 @@ with sync_playwright() as p:
     check(pg.evaluate("document.body.dataset.view") == "day", "예전에 메모 탭에 있었어도 폰 또박은 달력으로 열림")
     pg.click("[data-act=menu]"); pg.wait_for_timeout(300)
     ml = pg.locator(".menu a.mlink")
-    check(ml.count() == 1 and ml.get_attribute("href") == "memo/" and "메모 앱" in ml.inner_text(), "폰 또박 메뉴: '메모 앱' 링크")
+    check(ml.count() == 1 and ml.get_attribute("href") == "../memo/" and "메모 앱" in ml.inner_text(), "폰 또박 메뉴: '메모 앱' 링크")
     pg.screenshot(path=OUT + "memoapp-todo-menu.png")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
 
     # ---------- 폰: 메모 앱 ----------
     pg.evaluate("localStorage.setItem('todo.view','week')")
-    pg.goto(URL + "memo/"); pg.wait_for_selector(".mcard")
+    pg.goto(MEMO); pg.wait_for_selector(".mcard")
     check(pg.title() == "또박 메모" and pg.evaluate("document.documentElement.dataset.app") == "memo", "메모 앱 페이지(제목·data-app)")
     check(pg.locator("header.top").count() == 0 and pg.inner_text("#main h1") == "메모" and pg.locator("#main .hrow .more").is_visible(), "메모 앱: 탭 줄 없이 머리에 ⋯")
     check(pg.locator(".mcard").count() == 1, "메모 목록(휴지통 것은 빼고)")
     check(pg.evaluate("document.querySelector('link[rel=manifest]').href").endswith("/memo/manifest.webmanifest"), "메모 앱 전용 manifest")
     mf = pg.evaluate("fetch('manifest.webmanifest').then(r=>r.json())")
-    check(mf["name"] == "또박 메모" and mf["start_url"] == "./" and mf["icons"][0]["src"].startswith("../icons/memo-"), "manifest: 이름·시작 주소·메모 아이콘")
+    check(mf["name"] == "또박 메모" and mf["start_url"] == "./" and mf["id"] == "/todo/memo/" and mf["theme_color"] == "#17917F" and mf["icons"][0]["src"].startswith("../icons/memo-"), "manifest: 이름·시작 주소·메모 아이콘")
     check(pg.evaluate("fetch(new URL('../icons/memo-192.png',location)).then(r=>r.ok)"), "메모 아이콘 파일 있음")
     pg.screenshot(path=OUT + "memoapp-phone.png")
     # 새 메모(닫으면 저장)
@@ -50,8 +50,8 @@ with sync_playwright() as p:
     # 메뉴: 메모에 필요한 것만
     pg.click("[data-act=menu]"); pg.wait_for_timeout(300)
     menu = pg.inner_text(".menu")
-    check(all(x in menu for x in ["휴지통", "백업 만들기", "백업 복원", "또박 열기", "로그아웃"]) and pg.locator(".menu [data-act=cats], .menu [data-act=evs], .menu [data-act=tpls], .menu [data-act=notify]").count() == 0, "메모 앱 메뉴: 휴지통·백업·또박 열기·로그아웃만")
-    check(pg.locator(".menu a.mlink").get_attribute("href") == "../" and "또박 메모" in pg.inner_text(".ver"), "또박 열기 링크·버전 이름")
+    check(all(x in menu for x in ["휴지통", "또박 열기", "로그아웃"]) and pg.locator(".menu [data-act=cats], .menu [data-act=evs], .menu [data-act=tpls], .menu [data-act=notify], .menu [data-act=export], .menu [data-act=import]").count() == 0, "메모 앱 메뉴: 휴지통·또박 열기·로그아웃만(백업은 또박에서)")
+    check(pg.locator(".menu a.mlink").get_attribute("href") == "../app/" and "또박 메모" in pg.inner_text(".ver"), "또박 열기 링크·버전 이름")
     pg.screenshot(path=OUT + "memoapp-menu.png")
     # 휴지통: 메모만 보이고, 비우기도 메모만
     pg.click("[data-act=trash]"); pg.wait_for_timeout(300)
@@ -61,13 +61,29 @@ with sync_playwright() as p:
     check("m_bin" not in pg.evaluate("[...__d.memos.keys()]") and "t_bin" in pg.evaluate("[...__d.tasks.keys()]"), "비우기: 메모만 영구 삭제, 할 일은 남음")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     # 알림 눌러 열기·바로가기 주소(#week, #d=)는 메모 앱에서 무시
-    pg.goto(URL + "memo/#week"); pg.wait_for_selector(".mcard"); pg.wait_for_timeout(300)
+    pg.goto(MEMO + "#week"); pg.wait_for_selector(".mcard"); pg.wait_for_timeout(300)
     check(pg.evaluate("document.body.dataset.view") == "memo" and pg.locator(".mcard").count() >= 1, "메모 앱은 #week로 열어도 메모 화면")
     ctx.close()
 
     # ---------- 폰 어두운 화면 ----------
     ctx, pg = ctx_page(b, 390, 844, True, "dark")
-    pg.goto(URL + "memo/"); pg.wait_for_selector(".mcard"); pg.screenshot(path=OUT + "memoapp-phone-dark.png")
+    pg.goto(MEMO); pg.wait_for_selector(".mcard"); pg.screenshot(path=OUT + "memoapp-phone-dark.png")
+    ctx.close()
+
+    # ---------- 설치 범위(2.9.1): 두 앱의 범위가 겹치지 않아야 폰이 따로 설치한다 ----------
+    ctx, pg = ctx_page(b, 390, 844, True)
+    pg.goto(ROOT + "#d=2026-01-05"); pg.wait_for_function("location.pathname==='/app/'"); pg.wait_for_selector(".grp")
+    check(pg.evaluate("location.pathname") == "/app/", "맨 위 주소는 또박(app/)으로 넘겨줌(뒤 주소 유지)")
+    tm = pg.evaluate("fetch('../manifest.webmanifest').then(r=>r.json())")
+    import urllib.parse as up
+    scope_t = up.urljoin(ROOT + "manifest.webmanifest", tm["scope"]); scope_m = up.urljoin(MEMO + "manifest.webmanifest", mf["scope"])
+    check(tm["id"] == "./" and scope_t == ROOT + "app/" and up.urljoin(ROOT + "manifest.webmanifest", tm["start_url"]) == ROOT + "app/", "또박 manifest: id는 그대로, 시작·범위는 app/")
+    check(not scope_m.startswith(scope_t) and not scope_t.startswith(scope_m), "두 앱 범위가 겹치지 않음: " + scope_t + " / " + scope_m)
+    check(all(sc["url"].startswith("app/#") for sc in tm["shortcuts"]), "바로가기도 app/")
+    check(pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()").upper() == "#C93C72", "또박은 핑크")
+    pg.goto(MEMO); pg.wait_for_selector(".mcard")
+    check(pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()").upper() == "#127F70", "메모 앱은 청록")
+    check(pg.locator("script[src$='holidays.js']").count() == 0, "메모 앱은 공휴일 자료를 안 받음")
     ctx.close()
 
     # ---------- PC ----------
@@ -77,7 +93,7 @@ with sync_playwright() as p:
     pg.click("[data-act=menu]"); pg.wait_for_timeout(300)
     check(pg.locator(".menu a.mlink").count() == 0, "PC 또박 메뉴엔 '메모 앱' 없음")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    pg.goto(URL + "memo/"); pg.wait_for_selector("#board")
+    pg.goto(MEMO); pg.wait_for_selector("#board")
     check(pg.locator("header.top").count() == 0 and pg.locator(".mnote").count() == 1, "PC 메모 앱: 보드")
     pg.screenshot(path=OUT + "memoapp-pc.png")
     ctx.close()

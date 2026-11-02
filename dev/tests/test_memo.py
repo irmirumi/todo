@@ -71,16 +71,17 @@ with sync_playwright() as p:
     check("메모 ·" in pg.inner_text(".sheet") and "영어 단어" in pg.inner_text(".sheet"), "휴지통에 메모가 보임")
     pg.click(".sheet [data-act=trestore][data-id=m_b]"); pg.wait_for_timeout(200); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
     check(pg.locator(".mcard[data-id=m_b]").count() == 1, "복원")
-    # 백업
+    check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "폰 메모 앱: 가로로 안 넘침")
+    # 백업은 또박에서만(2.9.1: 메모 앱은 할 일을 안 받아서). 이 목업 저장소는 페이지마다 새로 차므로 시드 메모 2개
+    pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
     pg.click("[data-act=menu]"); pg.click("[data-act=export]"); data = json.loads(pg.input_value("#x-out")); pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
-    check(len(data.get("memos", [])) == 4 and all(t["id"].startswith("t_") for t in data["tasks"]), "백업에 메모 포함(할 일과 따로)")
-    check(pg.evaluate("document.documentElement.scrollWidth") <= 390, "폰: 가로로 안 넘침")
+    check(len(data.get("memos", [])) >= 2 and all(t["id"].startswith("t_") for t in data["tasks"]), "백업(또박)에 메모 포함(할 일과 따로)")
     ctx.close()
     # ---------- PC ----------
     ctx = b.new_context(viewport={"width": 1280, "height": 860}); pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp")
     pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
     check(pg.locator(".board .mnote").count() == 2, "PC: 보드에 포스트잇")
     box = pg.locator("#mn-m_a").bounding_box()
@@ -129,7 +130,7 @@ with sync_playwright() as p:
     # 다크
     ctx = b.new_context(viewport={"width": 1280, "height": 860}, color_scheme="dark"); pg = ctx.new_page()
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8798/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
+    pg.goto("http://localhost:8798/app/"); pg.wait_for_selector(".grp"); pg.click("[data-act=view][data-v=memo]"); pg.wait_for_timeout(500)  # 탭 전환 움직임(약 .35초)이 끝난 뒤
     pg.screenshot(path=OUT + "memo-pc-dark.png")
     ctx.close()
     b.close()

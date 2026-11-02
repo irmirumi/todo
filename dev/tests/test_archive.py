@@ -40,7 +40,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
-    pg.goto("http://localhost:8782/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(600)
+    pg.goto("http://localhost:8782/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(600)
     docs = lambda: dict(pg.evaluate("[...window.__fs.docs]"))
     def open_day(k):
         pg.evaluate("k=>{location.hash='#d='+k}", k); pg.reload(); pg.wait_for_selector(".grp"); pg.wait_for_timeout(500)

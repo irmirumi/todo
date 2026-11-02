@@ -892,3 +892,7 @@ html[data-app="memo"] .hrow .more{margin-right:-8px}
 .menu a.mlink:hover{background:var(--sunk)}
 .menu a.mlink:active{transform:scale(.97)}
 @media (hover:none){.menu a.mlink:hover{background:transparent}}
+/* 2.9.1 메모 앱 브랜드 색: 청록(또박의 핑크와 나눔). 버튼 흰 글자 대비 4.8 이상, 어두운 테마는 진한 글자 */
+html[data-app="memo"]{--accent:#127F70; --accent-ink:#FFFFFF; --accent-text:#0F7A6C}
+@media (prefers-color-scheme: dark){html[data-app="memo"]:not([data-theme="light"]){--accent:#45C4AC; --accent-ink:#03221C; --accent-text:#6AD3BE}}
+html[data-app="memo"][data-theme="dark"]{--accent:#45C4AC; --accent-ink:#03221C; --accent-text:#6AD3BE}

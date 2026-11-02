@@ -15,7 +15,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":390,"height":844},has_touch=True); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8777/#d=2026-10-09"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(200)
+    pg.goto("http://localhost:8777/app/#d=2026-10-09"); pg.fill("#l-email","a@b.c"); pg.fill("#l-pw","x"); pg.click("#l-btn"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(200)
     check(pg.inner_text(".dayhead h1")=="10월 9일" and pg.evaluate("location.hash")=="", "알림을 누르면 그 날짜로(#d=), 주소는 지움")
     pg.click("[data-act=today]"); pg.wait_for_timeout(250)
     pg.click("[data-act=add][data-cat=k1]"); pg.keyboard.type("병원 예약"); pg.keyboard.press("Enter"); pg.keyboard.type("시간 없는 일"); pg.keyboard.press("Enter"); pg.keyboard.press("Escape")

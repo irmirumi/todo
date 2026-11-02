@@ -27,6 +27,7 @@ let today=keyOf(new Date());
 const pref={get(k,d){try{const v=localStorage.getItem("todo."+k);return v==null?d:v;}catch(e){return d;}},set(k,v){try{localStorage.setItem("todo."+k,v);}catch(e){}}};
 const narrow=window.matchMedia&&window.matchMedia("(max-width: 839px)").matches;
 /* 메모 앱(2.9.0): /memo/ 페이지는 같은 코드를 메모 화면만 쓰는 앱으로 연다(<html data-app="memo">).
+   2.9.1: 메모 앱은 메모 문서(m_)만 받는다(app.js). 그래서 할 일을 다루는 것(백업·자동 추가·알림 목록)은 메모 앱에서 하지 않는다 — 비어 있는 할 일로 덮어쓰면 안 돼서
    폰(터치가 주 입력)의 또박에서는 메모 탭을 빼고 메모 앱으로 안내한다. PC는 탭 그대로 */
 const MEMO_APP=document.documentElement.dataset.app==="memo";
 const memoTab=()=>!MEMO_APP&&!(window.matchMedia&&window.matchMedia("(pointer: coarse)").matches);
@@ -309,7 +310,7 @@ function purgeTrash(){const lim=Date.now()-30*864e5,jobs=[];for(const t of S.tra
 let dailyDone="";
 function daily(){
   if(S.mode!=="live"&&S.mode!=="local"||!S.fresh||navigator.onLine===false)return;
-  autoAdd();
+  if(!MEMO_APP)autoAdd();
   if(dailyDone!==today){const d=today;dailyDone=d;purgeTrash().catch(()=>{if(dailyDone===d)dailyDone="";});}
 }
 function ghostRow(t){
@@ -752,7 +753,7 @@ function drawMenu(){
     '<button type="button" data-act="evs">고정 일정<small>'+(S.events.size?[...S.events.values()].filter(e=>!evOff(e)).length+'개 · ':'')+'수업처럼 매주 같은 시간에 있는 일정'+'</small></button>'+
     '<button type="button" data-act="tpls">반복 할 일<small>'+(S.tpls.size?[...S.tpls.values()].filter(r=>!tplOff(r)).length+'개 · ':'')+'요일마다 체크할 일</small></button>'+
     (store.push?'<button type="button" data-act="notify">알림<small id="m-notify">'+NSTATE[S.pushState||"..."]+'</small></button>':'')+
-    (memoTab()?'':'<a class="mlink" href="memo/">메모 앱<small>메모만 따로 여는 앱 · 홈 화면에 추가해서 쓰기</small></a>')+
+    (memoTab()?'':'<a class="mlink" href="../memo/">메모 앱<small>메모만 따로 여는 앱 · 홈 화면에 추가해서 쓰기</small></a>')+
     '<button type="button" data-act="trash">휴지통<small>'+(S.trash.size?S.trash.size+'개 · ':'')+'할 일·메모 30일 보관</small></button>'+
     '<button type="button" data-act="export">백업 만들기<small>파일로 저장하거나 텍스트로 복사</small></button>'+
     '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>';
@@ -764,9 +765,7 @@ function drawMemoMenu(){
   const n=[...S.trash.values()].filter(t=>t.id.startsWith("m_")).length;
   let h='<h2>설정</h2><div class="menu">'+
     '<button type="button" data-act="trash">휴지통<small>'+(n?n+'개 · ':'')+'메모 30일 보관</small></button>'+
-    '<button type="button" data-act="export">백업 만들기<small>할 일과 메모를 함께 저장</small></button>'+
-    '<button type="button" data-act="import">백업 복원<small>저장해 둔 백업 불러오기</small></button>'+
-    '<a class="mlink" href="../">또박 열기<small>할 일·달력·시간표</small></a>';
+    '<a class="mlink" href="../app/">또박 열기<small>할 일·달력·시간표 · 백업은 또박 설정에서</small></a>';
   if(store.signOut)h+='<button type="button" data-act="logout">로그아웃<small>'+esc(store.email||"")+' · 또박도 함께 로그아웃</small></button>';
   drawSheet(h+'</div><p class="ver">또박 메모 '+VERSION+'</p>');
 }

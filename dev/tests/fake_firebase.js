@@ -39,7 +39,8 @@ function emit() {
   for (const l of fs.listeners) setTimeout(() => {
     // fs.view[경로] = 값: 이 기기가 아직 못 받은 서버 변경을 흉내(스냅샷에는 이 값이, 서버에는 fs.docs가). null이면 안 보임
     const v = fs.view || {}, paths = new Set([...fs.docs.keys(), ...Object.keys(v)]);
-    const list = [...paths].filter(p => p.startsWith(l.path + "/")).map(p => [p, p in v ? v[p] : fs.docs.get(p)]).filter(([, d]) => d != null)
+    const inRange = p => { const id = p.slice(l.path.length + 1); return (l.lo == null || id >= l.lo) && (l.hi == null || id < l.hi); };
+    const list = [...paths].filter(p => p.startsWith(l.path + "/") && inRange(p)).map(p => [p, p in v ? v[p] : fs.docs.get(p)]).filter(([, d]) => d != null)
       .map(([p, d]) => ({ id: p.slice(l.path.length + 1), data: () => clone(d) }));
     l.next({ forEach: f => list.forEach(f), size: list.length, metadata: { fromCache: false, hasPendingWrites: false } });
   }, 0);
@@ -80,6 +81,10 @@ export function initializeFirestore() { return {}; }
 export function persistentLocalCache() { return {}; }
 export function persistentMultipleTabManager() { return {}; }
 export function collection(db, ...path) { return { path: path.join("/") }; }
+// 문서 id 범위 질의만 흉내(메모 앱 2.9.1: m_ 문서만). fs.queries에 어떤 구독을 했는지 남긴다
+export function documentId() { return "__name__"; }
+export function where(f, op, v) { if (f !== "__name__" || ![">=", "<"].includes(op)) throw new Error("fake: id range only"); return { op, v }; }
+export function query(col, ...ws) { const q = Object.assign({}, col); for (const w of ws) { if (w.op === ">=") q.lo = w.v; else q.hi = w.v; } return q; }
 export function doc(col, id) { return { col, id }; }
 export function setDoc(ref, data, opt) { return one("set", ref, data, opt, []); }
 export function updateDoc(ref, a, b, ...rest) { return one("update", ref, a, b, rest); }
@@ -110,6 +115,6 @@ export function runTransaction(db, fn) {
   return Promise.resolve(fn(tx)).then(res => { if (!ops.length) return res; const fns = ops.map(o => prep(...o)); return run(fns).then(() => res); });
 }
 export function onSnapshot(col, opts, next, err) {
-  const l = { path: col.path, next, err }; fs.listeners.add(l); emit();
+  const l = { path: col.path, lo: col.lo, hi: col.hi, next, err }; fs.listeners.add(l); (fs.queries = fs.queries || []).push({ path: col.path, lo: col.lo, hi: col.hi }); emit();
   return () => fs.listeners.delete(l);
 }

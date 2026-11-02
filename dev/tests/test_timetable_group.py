@@ -24,7 +24,7 @@ def go(w,h,tag):
     b=p.chromium.launch(); ctx=b.new_context(viewport={"width":w,"height":h},has_touch=w<600,device_scale_factor=2 if w<600 else 1); ctx.add_init_script("try{localStorage.setItem('todo.tt7','1')}catch(e){}"); pg=ctx.new_page()
     pg.on("pageerror",lambda e:errs.append(str(e))); pg.on("console",lambda m:m.type=="error" and errs.append(m.text))
     pg.route("**/app.js",lambda r:r.fulfill(body=MOCK,content_type="text/javascript"))
-    pg.goto("http://localhost:8783/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
+    pg.goto("http://localhost:8783/app/"); pg.wait_for_selector(".grp"); pg.wait_for_timeout(300)
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
     merged=pg.locator(".grpb").count()
     check(merged>=1 if w<600 else merged==0, "폰 7일 보기는 좁아서 겹친 것을 묶고, PC는 나란히")

@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.route("**/app.js", lambda r: r.fulfill(body=MOCK, content_type="text/javascript"))
-    pg.goto("http://localhost:8788/"); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8788/app/"); pg.wait_for_selector(".grp")
     K = lambda d: pg.evaluate("n=>{const d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}", d)
     tasks = lambda: {v["id"]: v for v in pg.evaluate("[...window.__last.tasks.values()]")}
     # --- 자정 넘김

@@ -26,7 +26,7 @@ with sync_playwright() as p:
     mon = pg.evaluate("""(()=>{const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})()""")
     add = lambda k, n_: pg.evaluate("([k,n])=>{const d=new Date(k+'T12:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}", [k, n_])
     tue, wed, thu = add(mon, 1), add(mon, 2), add(mon, 3)
-    pg.goto("http://localhost:8791/#d=" + mon); pg.wait_for_selector(".grp")
+    pg.goto("http://localhost:8791/app/#d=" + mon); pg.wait_for_selector(".grp")
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
     blk = lambda id_, k: pg.locator(f".blk.ev[data-id={id_}][data-k='{k}']")
     txt = lambda id_, k: [x.replace("\n", " ") for x in blk(id_, k).all_inner_texts()]
