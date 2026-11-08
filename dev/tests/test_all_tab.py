@@ -38,10 +38,13 @@ def go(w,h,tag):
     # check alignment of 지남? now headings: compare baselines of h3 and dw in first dsec
     check(abs(pg.evaluate("(()=>{const h=document.querySelector('.dsec .dlink h3'),d=document.querySelector('.dsec .dlink .rel')||document.querySelector('.dsec .dlink .dw');const a=h.getBoundingClientRect(),c=d.getBoundingClientRect();return Math.round(a.bottom-c.bottom)})()"))<=3, "날짜 머리 글자 아랫줄 맞춤")
     pg.click("[data-act=view][data-v=day]"); pg.wait_for_timeout(200)
+    if not pg.locator("[data-act=pick][data-k='%s']"%D(-1)).count(): pg.click("[data-act=nav][data-d='-1']"); pg.wait_for_timeout(250)  # 일요일엔 어제가 지난 주
     pg.click("[data-act=pick][data-k='%s']"%D(-1)); pg.wait_for_timeout(250)
     check(pg.inner_text(".prog").endswith("할 일이 없어요") and pg.locator(".task.skipped").count()==1, "안 함인 날: 흐리게 남고 숫자엔 안 셈")
     pg.screenshot(path=OUT+tag+"2-skipday.png",full_page=True)
     pg.click(".task.skipped .chk"); pg.wait_for_timeout(250); check(pg.locator(".task.skipped").count()==0, "왼쪽 동그라미로 안 함 취소")
+    if not pg.locator("[data-act=pick][data-k='%s']"%D(0)).count(): pg.click("[data-act=nav][data-d='1']"); pg.wait_for_timeout(250)
+    pg.click("[data-act=pick][data-k='%s']"%D(0)); pg.wait_for_timeout(250)  # 일요일엔 어제 고르느라 지난 주로 갔으니 오늘로 복귀
     pg.click("[data-act=view][data-v=week]"); pg.wait_for_timeout(300)
     check(pg.locator(".uchip").count()>=3 and pg.inner_text(".ttallL")=="시간 미정", "시간표 위 '시간 미정' 줄")
     pg.screenshot(path=OUT+tag+"2-week.png",full_page=True)
