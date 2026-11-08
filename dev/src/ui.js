@@ -324,7 +324,7 @@ function row(t,withDate,withCat){
   if(subs.length)meta.push('<span>세부 '+subs.filter(s=>s.done).length+'/'+subs.length+'</span>');
   if(t.note)meta.push('<span>메모</span>');
   /* 다시 추가한 횟수·원래 날짜는 정보 창으로(목록에선 실패 횟수처럼 읽히지 않게) */
-  if(t.skipped)meta.unshift('<span class="chip skip">안 함'+(t.laterDate?' · 다시 추가: '+(relWord(t.laterDate)||md(t.laterDate)):'')+'</span>');
+  if(t.skipped)meta.unshift('<span class="chip skip">안 함'+(t.laterDate?' · '+md(t.laterDate)+'로 옮김':'')+'</span>');
   else if(t.from&&!t.done)meta.unshift('<span class="chip again">다시 추가</span>');
   return '<li id="tk-'+t.id+'" class="task'+(t.done?' done':'')+(t.skipped?' skipped':'')+'" style="--cc:var(--'+cat.color+')">'+chk(t)+
     '<button class="ttl" type="button" data-act="edit" data-id="'+t.id+'"><span class="tline"><span class="t">'+esc(t.title)+'</span>'+(sub?'<span class="tag">'+esc(sub.name)+'</span>':'')+'</span>'+
@@ -893,7 +893,7 @@ function infoBody(t,k,ghost){
     '<li><button type="button" class="ib'+(x.done?' on':'')+'" data-act="isub" data-sid="'+esc(x.id)+'" role="checkbox" aria-checked="'+!!x.done+'" aria-label="'+esc(x.t)+'"></button><span class="'+(x.done?'dn':'')+'">'+esc(x.t)+'</span></li>').join("")+'</ul>']);
   if(!ghost&&t.postponed)rows.push(['옮긴 횟수','날짜를 '+t.postponed+'번 옮겼어요']);
   if(!ghost&&t.from)rows.push(['이전 기록',(t.fromDate?md(t.fromDate):'날짜 없음')+(t.again>1?' <small>다시 추가 '+t.again+'회</small>':'')]);
-  if(!ghost&&t.skipped&&t.laterDate)rows.push(['다시 추가',relWord(t.laterDate)?relWord(t.laterDate)+' <small>'+md(t.laterDate)+'</small>':md(t.laterDate)]);
+  if(!ghost&&t.skipped&&t.laterDate)rows.push(['옮김',relWord(t.laterDate)?relWord(t.laterDate)+' <small>'+md(t.laterDate)+'</small>':md(t.laterDate)]);
   if(t.note)rows.push(['메모','<span class="inote">'+esc(t.note)+'</span>']);
   return '<p class="eyebrow sheet-eb icat" style="--cc:var(--'+cat.color+')"><span><i></i>'+esc(cat.name)+(ghost?' · 반복 할 일 · 아직 추가 안 됨':'')+(t.skipped?' · 안 함':'')+'</span></p>'+
     '<h2 class="ititle'+(t.done?' done':'')+'" style="--cc:var(--'+cat.color+')">'+nameH(t)+'</h2><dl class="info">'+rows.map(x=>'<div><dt>'+x[0]+'</dt><dd>'+x[1]+'</dd></div>').join("")+'</dl>';
@@ -1076,9 +1076,9 @@ function commitEvDay(){
   S.events.set(ev.id,Object.assign({},ev0,{ovr}));
   toast(same?"이날 변경을 취소했어요":"이날만 바꿨어요");
 }
-/* 날짜 옮기기(2.5.0 '넘기기', 2.6.0에 이름 바꿈): 같은 할 일을 고른 날로 옮기고 '미룬 횟수'만 하나 올린다. 안 함으로 남기기는 정말 안 하기로 한 것에만.
-   mode: "skip"(아직 할 일) | "again"(안 함인 할 일 → 다시 하면서 옮김). 닫으면 아무것도 안 바뀜.
-   (2.1.0~2.4.x는 원래 것을 안 함으로 두고 새로 만들었다. 그때 생긴 from·later 기록은 읽기만 한다) */
+/* 날짜 옮기기(3.2.0): 고른 날에 같은 할 일을 새로 넣고, 원래 것은 '안 함 · ○월 ○일로 옮김'으로 남긴다(2.1.0~2.4.x 방식. 2.5.0~3.1.x는 제자리 이동이었는데 사용자가 기록이 남는 쪽을 원해 되돌림).
+   mode: "skip"(아직 할 일) | "again"(안 함인 할 일 → 다시 옮김: 원래 것의 '옮김' 날짜만 바꿈). 닫으면 아무것도 안 바뀜.
+   '모두 오늘로 옮기기'는 예전처럼 제자리 이동. */
 function openLater(id,mode){S.laterId=id;S.laterMode=mode;openSheet("later",drawLater);}
 function laterOpts(t){
   const c=[[today,"오늘"],[addDays(today,1),"내일"],[addDays(today,2),"모레"]];
@@ -1089,7 +1089,7 @@ function drawLater(){
   const t=S.tasks.get(S.laterId);if(!t){closeDlg();return;}
   const d=t.date?parse(t.date):null;
   let h='<p class="eyebrow sheet-eb icat" style="--cc:var(--'+catOf(t).color+')"><span><i></i>'+nameH(t)+'</span>'+(d?'<span>'+(relWord(t.date)||md(t.date))+'</span>':'')+'</p>'+
-    '<h2>언제로 옮길까요?</h2>'+(S.laterMode==="again"?'<p>‘안 함’을 취소하고 고른 날로 옮겨요</p>':'');
+    '<h2>언제로 옮길까요?</h2><p>고른 날에 다시 넣고, 이 할 일은 ‘안 함 · 옮김’으로 남아요</p>';
   h+='<div class="laterpick">'+laterOpts(t).map(o=>'<button type="button" data-act="later" data-k="'+o[0]+'"><b>'+o[1]+'</b><small>'+md(o[0])+'</small></button>').join("")+'</div>';
   h+='<div class="field"><label for="l-date">다른 날</label><div class="row"><input class="inp" id="l-date" type="date" min="'+today+'" value="'+addDays(t.date&&t.date>today?t.date:today,7)+'" style="max-width:170px"><button class="btn sec" type="button" data-act="later" data-k="pick">이날로 옮기기</button></div></div>';
   h+='<div class="actions">'+(S.laterMode==="skip"?'<button class="btn ghost" type="button" data-act="laterskip">안 함으로 남기기</button>':'')+'<span class="sp"></span><button class="btn ghost" type="button" data-act="close">취소</button></div>';
@@ -1100,9 +1100,13 @@ const postponeOf=(t,k)=>(t.postponed||0)+(!t.date||k>t.date?1:0);
 function doLater(k){
   const t0=S.tasks.get(S.laterId),mode=S.laterMode;const nx=useCarry();closeDlg();if(!t0)return;
   const t=Object.assign({},t0,nx||{});
-  const back={date:t.date||null,postponed:t.postponed||0};if(mode==="again")Object.assign(back,{skipped:true,skippedAt:t.skippedAt||Date.now()});
-  patchTask(t.id,Object.assign({date:k,postponed:postponeOf(t,k)},mode==="again"?{skipped:false,skippedAt:null}:{}));
-  toast(ro(relWord(k)||md(k))+" 옮겼어요",{label:"되돌리기",fn:()=>{if(S.tasks.get(t.id))patchTask(t.id,back);}});
+  const nid=uid8("t_"),now=Date.now();
+  setTask(nid,{title:t.title,note:t.note||"",date:k,time:t.time||null,end:t.time&&okEnd(t.time,t.end)?t.end:null,remind:t.time&&t.remind!=null?t.remind:null,
+    cat:t.cat,sub:t.sub||null,done:false,doneAt:null,createdAt:now,subtasks:(t.subtasks||[]).map(x=>({id:uid8("s"),t:x.t,done:false})),
+    postponed:postponeOf(t,k),from:t0.id,fromDate:t.date||null,again:(t.again||0)+1});
+  const back={skipped:!!t0.skipped,skippedAt:t0.skippedAt||null,later:t0.later||null,laterDate:t0.laterDate||null};
+  patchTask(t0.id,{skipped:true,skippedAt:t0.skippedAt||now,later:nid,laterDate:k});
+  toast(ro(relWord(k)||md(k))+" 옮겼어요",{label:"되돌리기",fn:()=>{delTask(nid);if(S.tasks.get(t0.id))patchTask(t0.id,back);}});
 }
 /* 시간표 빈칸을 눌렀을 때: 그 시간에 할 일 또는 고정 일정 */
 function drawSlot(){

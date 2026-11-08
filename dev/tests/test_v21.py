@@ -68,11 +68,12 @@ with sync_playwright() as p:
     n0 = len(tasks())
     pg.click(".pastbox [data-act=skip]"); pg.click(f".laterpick [data-k='{K(1)}']"); pg.wait_for_timeout(250)
     o = tasks()["t_old"]
-    check(o["date"] == K(1) and o.get("postponed") == 1 and not o.get("skipped") and len(tasks()) == n0 and o["subtasks"][0]["done"], "같은 할 일이 내일로, 미룬 횟수 1(새로 안 만듦, 세부 진행 그대로)")
+    cp = [t for t in tasks().values() if t.get("from") == "t_old"]
+    check(o["date"] == K(-2) and o.get("skipped") and o.get("laterDate") == K(1) and len(tasks()) == n0 + 1 and len(cp) == 1 and cp[0]["date"] == K(1) and cp[0].get("postponed") == 1 and not cp[0]["subtasks"][0]["done"], "원래 것은 안 함 + 내일로 옮김, 내일에 새로 하나(미룬 횟수 1)")
     check("내일로 옮겼어요" in pg.inner_text("#toastMsg"), "알려 줌")
     pg.click("#toastAct"); pg.wait_for_timeout(250)
     o = tasks()["t_old"]
-    check(o["date"] == K(-2) and not o.get("postponed"), "되돌리기: 날짜·횟수 원래대로")
+    check(o["date"] == K(-2) and not o.get("skipped") and not o.get("laterDate") and not [t for t in tasks().values() if t.get("from") == "t_old"], "되돌리기: 새로 만든 것 지우고 원래대로")
     pg.click(".pastbox [data-act=skip]"); pg.click("[data-act=laterskip]"); pg.wait_for_timeout(250)
     check(tasks()["t_old"]["skipped"] and tasks()["t_old"]["date"] == K(-2), "'안 함으로 남기기'는 안 함만")
     # 안 함인 할 일 → 다른 날에 하기: 안 함이 풀리고 옮겨짐
@@ -80,12 +81,13 @@ with sync_playwright() as p:
     check(pg.locator("[data-act=elater]").count() == 1 and pg.locator("[data-act=eunskip]").count() == 1, "안 함인 할 일 편집: '다른 날에 하기'·'안 함 취소'")
     pg.click("[data-act=elater]"); pg.fill("#l-date", K(5)); pg.click("[data-act=later][data-k=pick]"); pg.wait_for_timeout(250)
     o = tasks()["t_old"]
-    check(o["date"] == K(5) and not o.get("skipped") and o.get("postponed") == 1, "다른 날에 하기: 안 함 풀고 옮김")
+    cp = [t for t in tasks().values() if t.get("from") == "t_old"]
+    check(o.get("skipped") and o.get("laterDate") == K(5) and len(cp) == 1 and cp[0]["date"] == K(5), "안 함인 것을 다시 옮김: 원래 것은 안 함 + 옮김 날짜, 새 할 일 하나")
     check("미룸" not in pg.inner_text(f"#ds-{K(5)}"), "목록에는 미룬 횟수를 안 보임(2.6.0)")
     pg.click(f"#ds-{K(5)} .ttl:has-text('지난 리포트')")
     pg.click("[data-act=eskip]"); pg.click(f".laterpick [data-k='{K(1)}']"); pg.wait_for_timeout(250)
-    o = tasks()["t_old"]
-    check(o["date"] == K(1) and o.get("postponed") == 1, "앞당기면 횟수 그대로")
+    cp = [t for t in tasks().values() if t.get("from") == cp[0]["id"] or t.get("from") == "t_old"]
+    check(any(t["date"] == K(1) and t.get("postponed") == 1 for t in cp), "앞당기면 횟수 그대로")
     pg.click("[data-act=view][data-v=day]"); pg.wait_for_timeout(200)
     pg.screenshot(path=os.path.join(HERE, "out", "v21-day.png"), full_page=True)
     ctx.close(); b.close()

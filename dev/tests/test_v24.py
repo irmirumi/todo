@@ -51,7 +51,8 @@ with sync_playwright() as p:
     check(pg.input_value("#e-title") == "보고서 초안", "다시 열기: 고치던 그대로")
     pg.click(".sheet [data-act=eskip]"); pg.click(".laterpick [data-k]:nth-child(1)"); pg.wait_for_timeout(300)
     t = tasks()["t_a"]
-    check(t["title"] == "보고서 초안" and not t.get("skipped") and t["date"] != tk and t.get("postponed") == 1, "날짜를 고르면 고친 제목도 저장되고 그 날로 옮김")
+    cp = [x for x in tasks().values() if x.get("from") == "t_a"]
+    check(t["title"] == "보고서 초안" and t.get("skipped") and t.get("laterDate") and len(cp) == 1 and cp[0]["title"] == "보고서 초안" and cp[0]["date"] != tk, "날짜를 고르면 고친 제목도 저장되고, 원래 것은 안 함·옮김, 그 날에 새로 하나")
     check("옮겼어요" in pg.inner_text("#toastMsg"), "알림 문구")
     # 전체 탭 구성
     pg.click("[data-act=view][data-v=all]"); pg.wait_for_timeout(200)
